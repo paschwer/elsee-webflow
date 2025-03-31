@@ -1,17 +1,15 @@
-// utils.js
+// utils.js — version auto-exécutée compatible Webflow
 
-// 1. Affiche dynamiquement l’URL sur la page
-export function showPageUrl() {
+(function () {
+  // 1. Affiche dynamiquement l’URL sur la page
   const urlDisplay = document.querySelector('[fs-hacks-element="show-page-url"]');
   const urlInput = document.querySelector('[fs-hacks-element="page-url-input"]');
   if (urlDisplay && urlInput) {
     urlInput.value = location.href;
     urlDisplay.textContent = location.href;
   }
-}
 
-// 2. Localise les noms de mois/jours en français
-export function localizeDates() {
+  // 2. Traduction des dates
   const data = {
     months: {
       en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
@@ -23,6 +21,7 @@ export function localizeDates() {
     }
   };
   const shorten = str => str.slice(0, 3);
+
   const convertToLocal = (type, selector) => {
     const elements = document.querySelectorAll(selector);
     const ref = type === 'month' ? data.months : data.days;
@@ -35,12 +34,8 @@ export function localizeDates() {
       el.textContent = text;
     });
   };
-  // Exemple d'utilisation (si besoin)
-  // convertToLocal('month', '.classname');
-}
 
-// 3. FAQ toggle simple
-export function setupFAQToggle() {
+  // 3. Accordéon FAQ
   document.querySelectorAll(".faq_accordion_item").forEach(item => {
     const header = item.querySelector(".faq_accordion_header");
     const content = item.querySelector(".faq_accordion_content");
@@ -54,10 +49,8 @@ export function setupFAQToggle() {
       });
     }
   });
-}
 
-// 4. Virgule sur CMS dynamiques
-export function addCommasToCMSLists() {
+  // 4. Virgules CMS
   document.querySelectorAll(".collection_list_with_separator").forEach(list => {
     const items = list.querySelectorAll(".w-dyn-item");
     items.forEach((item, i) => {
@@ -67,10 +60,8 @@ export function addCommasToCMSLists() {
       }
     });
   });
-}
 
-// 5. Formulaire multi-step
-export function setupMultiStepForm() {
+  // 5. Formulaire multi-step
   const formContainer = document.getElementById('customerForm');
   if (!formContainer) return;
 
@@ -166,4 +157,5 @@ export function setupMultiStepForm() {
       }
     });
   }
-}
+
+})();
