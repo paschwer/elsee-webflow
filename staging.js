@@ -136,12 +136,13 @@
     }
   };
 
-  // === Initialisation globale ===
+    // === Initialisation globale ===
   document.addEventListener("DOMContentLoaded", function () {
     showPageUrl?.();
     localizeDates?.();
     setupFAQToggle?.();
     addCommasToCMSLists?.();
     setupMultiStepForm();
-  };
+  }); // ✅ parenthèse fermante ajoutée ici
 })();
+
