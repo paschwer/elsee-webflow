@@ -142,60 +142,72 @@
       }
     });
 
-    if (form) {
-  form.addEventListener('submit', e => {
-    e.preventDefault();
+        if (form) {
+      form.addEventListener('submit', e => {
+        e.preventDefault();
 
-    const persona = document.querySelector('input[name="personaSelect"]:checked')?.value;
-    const budget = document.querySelector('input[name="annualBudget"]:checked')?.value;
-    const email = document.getElementById('emailFunnelForm')?.value;
-    const firstName = document.getElementById('firstname')?.value;
-    const lastName = document.getElementById('lastname')?.value;
-    const phone = document.getElementById('phoneFunnelForm')?.value;
+        const persona = document.querySelector('input[name="personaSelect"]:checked')?.value;
+        const budget = document.querySelector('input[name="annualBudget"]:checked')?.value;
+        const email = document.getElementById('emailFunnelForm')?.value;
+        const firstName = document.getElementById('firstname')?.value;
+        const lastName = document.getElementById('lastname')?.value;
+        const phone = document.getElementById('phoneFunnelForm')?.value;
 
-    if (persona && budget && email && firstName && lastName) {
-      const mapped = personaMap[persona] || persona;
-      const redirect = `https://app.elsee.care/mon-offre?persona=${mapped}&price=${budget}&email=${encodeURIComponent(email)}&firstname=${encodeURIComponent(firstName)}&lastname=${encodeURIComponent(lastName)}`;
+        if (persona && budget && email && firstName && lastName) {
+          const mapped = personaMap[persona] || persona;
+          const redirect = `https://app.elsee.care/mon-offre?persona=${mapped}&price=${budget}&email=${encodeURIComponent(email)}&firstname=${encodeURIComponent(firstName)}&lastname=${encodeURIComponent(lastName)}`;
 
-      // Préchargement de l’URL via link rel=preload
-      const preloadLink = document.createElement('link');
-      preloadLink.rel = 'prefetch';
-      preloadLink.href = redirect;
-      document.head.appendChild(preloadLink);
+          // Préchargement de l’URL via link rel=prefetch
+          const preloadLink = document.createElement('link');
+          preloadLink.rel = 'prefetch';
+          preloadLink.href = redirect;
+          document.head.appendChild(preloadLink);
 
-      // Envoi des données à Make
-      fetch("https://hook.eu2.make.com/8vmewfvg17zyfnmm8xj8fvmfwu67g8rn", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          persona,
-          abonnement: budget,
-          email,
-          firstname: firstName,
-          lastname: lastName,
-          url: window.location.href,
-          phone,
-          destination: redirect
-        })
+          // Envoi des données à Make
+          fetch("https://hook.eu2.make.com/8vmewfvg17zyfnmm8xj8fvmfwu67g8rn", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              persona,
+              abonnement: budget,
+              email,
+              firstname: firstName,
+              lastname: lastName,
+              url: window.location.href,
+              phone,
+              destination: redirect
+            })
+          });
+
+          // Affichage de #funnel-info immédiatement
+          const funnelInfo = document.getElementById('funnel-info');
+          if (funnelInfo) funnelInfo.style.display = 'block';
+
+          // Affichage du bouton après 30 secondes
+          const funnelButton = document.getElementById('from-funnel-to-funnel');
+          if (funnelButton) {
+            setTimeout(() => {
+              funnelButton.style.display = 'block';
+              funnelButton.addEventListener('click', () => {
+                window.location.assign(redirect);
+              }, { once: true });
+            }, 30000);
+          }
+        } else {
+          console.error("Champs manquants dans le formulaire.");
+        }
       });
-
-      // Affichage de #funnel-info immédiatement
-      const funnelInfo = document.getElementById('funnel-info');
-      if (funnelInfo) funnelInfo.style.display = 'block';
-
-      // Affichage du bouton après 30 secondes
-      const funnelButton = document.getElementById('from-funnel-to-funnel');
-      if (funnelButton) {
-        setTimeout(() => {
-          funnelButton.style.display = 'block';
-          funnelButton.addEventListener('click', () => {
-            window.location.assign(redirect);
-          }, { once: true });
-        }, 30000);
-      }
-    } else {
-      console.error("Champs manquants dans le formulaire.");
     }
+  };
+
+  // Initialisation globale
+  document.addEventListener("DOMContentLoaded", function () {
+    showPageUrl();
+    localizeDates();
+    setupFAQToggle();
+    addCommasToCMSLists();
+    setupMultiStepForm();
   });
-}
-);
+
+})();
+
