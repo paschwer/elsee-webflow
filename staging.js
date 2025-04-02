@@ -143,5 +143,5 @@
     setupFAQToggle?.();
     addCommasToCMSLists?.();
     setupMultiStepForm();
-  });
+  };
 })();
