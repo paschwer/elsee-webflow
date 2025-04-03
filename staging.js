@@ -179,11 +179,12 @@
         const mapped = personaMap[persona] || persona;
         const redirect = `https://app.elsee.care/mon-offre?persona=${mapped}&price=${budget}&email=${encodeURIComponent(email)}&firstname=${encodeURIComponent(firstName)}&lastname=${encodeURIComponent(lastName)}`;
 
-        // Préchargement de l'URL
+        // Préchargement de l'URL avec attribut as="document"
         try {
           const prefetchLink = document.createElement('link');
           prefetchLink.rel = 'prefetch';
           prefetchLink.href = redirect;
+          prefetchLink.setAttribute('as', 'document'); // Ajout de l'attribut as
           document.head.appendChild(prefetchLink);
         } catch (err) {
           console.warn("Erreur de préchargement:", err);
@@ -251,4 +252,4 @@
     addCommasToCMSLists();
     setupMultiStepForm();
   });
-})();
+})(); // Parenthèse fermante ici, vérifiée et correcte
