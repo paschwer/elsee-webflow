@@ -102,20 +102,37 @@
     let isSubmitting = false;
 
     const showStep = index => {
-      if (index < 0 || index >= steps.length) return;
-      steps.forEach((step, i) => step.style.display = i === index ? 'flex' : 'none');
-      if (prevBtn) prevBtn.style.display = index === 0 ? 'none' : 'inline-block';
-      if (nextBtn) nextBtn.style.display = index === steps.length - 1 ? 'none' : 'inline-block';
-      if (submitBtn) submitBtn.style.display = index === steps.length - 1 ? 'inline-block' : 'none';
-      if (legalSection) legalSection.style.display = index === steps.length - 1 ? 'block' : 'none';
-      if (requiredMsg) requiredMsg.style.display = 'none';
-      stepIndicators.forEach((el, i) => el && (el.style.color = i <= index ? 'var(--smooth_pink_24)' : ''));
-      try {
-        steps[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } catch (e) {
-        console.warn("Problème de défilement:", e);
+  if (index < 0 || index >= steps.length) return;
+  steps.forEach((step, i) => step.style.display = i === index ? 'flex' : 'none');
+  if (prevBtn) prevBtn.style.display = index === 0 ? 'none' : 'inline-block';
+  if (nextBtn) nextBtn.style.display = index === steps.length - 1 ? 'none' : 'inline-block';
+  if (submitBtn) submitBtn.style.display = index === steps.length - 1 ? 'inline-block' : 'none';
+  if (legalSection) legalSection.style.display = index === steps.length - 1 ? 'block' : 'none';
+  if (requiredMsg) requiredMsg.style.display = 'none';
+  stepIndicators.forEach((el, i) => el && (el.style.color = i <= index ? 'var(--smooth_pink_24)' : ''));
+  
+  // Ajoutez un petit délai pour permettre au DOM de se mettre à jour avant de défiler
+  setTimeout(() => {
+    try {
+      const formStep = steps[index];
+      const formContainer = document.getElementById('customerForm');
+      const headerOffset = 100; // Ajustez cette valeur selon la hauteur de votre header fixe
+      
+      if (formStep && formContainer) {
+        const formStepPosition = formStep.getBoundingClientRect().top;
+        const containerPosition = formContainer.getBoundingClientRect().top;
+        const offsetPosition = formStepPosition + window.pageYOffset - headerOffset;
+        
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
       }
-    };
+    } catch (e) {
+      console.warn("Problème de défilement:", e);
+    }
+  }, 50); // Un délai de 50ms est généralement suffisant
+};
 
     const highlightInvalidFields = (fields) => {
       fields.forEach(field => {
