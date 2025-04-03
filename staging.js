@@ -1,10 +1,74 @@
 (function () {
-  // Définition des fonctions potentiellement manquantes pour éviter les erreurs
-  const showPageUrl = window.showPageUrl || function() {};
-  const localizeDates = window.localizeDates || function() {};
-  const setupFAQToggle = window.setupFAQToggle || function() {};
-  const addCommasToCMSLists = window.addCommasToCMSLists || function() {};
+  // 1. Affiche l'URL
+  const showPageUrl = () => {
+    const urlDisplay = document.querySelector('[fs-hacks-element="show-page-url"]');
+    const urlInput = document.querySelector('[fs-hacks-element="page-url-input"]');
+    if (urlDisplay && urlInput) {
+      urlInput.value = location.href;
+      urlDisplay.textContent = location.href;
+    }
+  };
 
+  // 2. Localise les dates
+  const localizeDates = () => {
+    const data = {
+      months: {
+        en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+        local: ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+      },
+      days: {
+        en: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
+        local: ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche']
+      }
+    };
+    const shorten = str => str.slice(0, 3);
+    const convertToLocal = (type, selector) => {
+      const elements = document.querySelectorAll(selector);
+      const ref = type === 'month' ? data.months : data.days;
+      elements.forEach(el => {
+        let text = el.textContent;
+        ref.en.forEach((en, i) => {
+          text = text.replace(new RegExp(en, 'g'), ref.local[i]);
+          text = text.replace(new RegExp(shorten(en), 'g'), shorten(ref.local[i]));
+        });
+        el.textContent = text;
+      });
+    };
+    // À activer si besoin
+    // convertToLocal('month', '.classname');
+  };
+
+  // 3. Accordéon FAQ
+  const setupFAQToggle = () => {
+    document.querySelectorAll(".faq_accordion_item").forEach(item => {
+      const header = item.querySelector(".faq_accordion_header");
+      const content = item.querySelector(".faq_accordion_content");
+      const toggle = item.querySelector(".faq_accordion_toggle");
+      if (header && content && toggle) {
+        content.style.display = "none";
+        header.addEventListener("click", () => {
+          const open = content.style.display === "block";
+          content.style.display = open ? "none" : "block";
+          toggle.classList.toggle("active", !open);
+        });
+      }
+    });
+  };
+
+  // 4. Virgules CMS
+  const addCommasToCMSLists = () => {
+    document.querySelectorAll(".collection_list_with_separator").forEach(list => {
+      const items = list.querySelectorAll(".w-dyn-item");
+      items.forEach((item, i) => {
+        const txt = item.querySelector(".main_text");
+        if (txt && i < items.length - 1) {
+          txt.textContent = txt.textContent.trim() + ", ";
+        }
+      });
+    });
+  };
+
+  // 5. Formulaire multi-étapes amélioré
   const setupMultiStepForm = () => {
     const formContainer = document.getElementById('customerForm');
     if (!formContainer) return;
@@ -33,7 +97,6 @@
       'J\'ai des problèmes de sommeil / stress': 'BE'
     };
 
-    // Enregistrement de l'URL actuelle
     const urlLocation = document.getElementById('urlLocation');
     if (urlLocation) urlLocation.value = window.location.href;
 
@@ -45,16 +108,12 @@
       if (index < 0 || index >= steps.length) return;
       
       steps.forEach((step, i) => step.style.display = i === index ? 'flex' : 'none');
-      
       if (prevBtn) prevBtn.style.display = index === 0 ? 'none' : 'inline-block';
       if (nextBtn) nextBtn.style.display = index === steps.length - 1 ? 'none' : 'inline-block';
       if (submitBtn) submitBtn.style.display = index === steps.length - 1 ? 'inline-block' : 'none';
       if (legalSection) legalSection.style.display = index === steps.length - 1 ? 'block' : 'none';
       if (requiredMsg) requiredMsg.style.display = 'none';
-      
-      stepIndicators.forEach((el, i) => {
-        if (el) el.style.color = i <= index ? 'var(--smooth_pink_24)' : '';
-      });
+      stepIndicators.forEach((el, i) => el && (el.style.color = i <= index ? 'var(--smooth_pink_24)' : ''));
       
       // Scroll plus sécurisé avec try/catch
       try {
@@ -120,30 +179,22 @@
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     };
 
-    // Initialisation: afficher la première étape
     showStep(current);
 
-    // Gestion du bouton Suivant
-    if (nextBtn) {
-      nextBtn.addEventListener('click', () => {
-        if (validate() && current < steps.length - 1) {
-          current++;
-          showStep(current);
-        }
-      });
-    }
+    nextBtn && nextBtn.addEventListener('click', () => {
+      if (validate() && current < steps.length - 1) {
+        current++;
+        showStep(current);
+      }
+    });
 
-    // Gestion du bouton Précédent
-    if (prevBtn) {
-      prevBtn.addEventListener('click', () => {
-        if (current > 0) {
-          current--;
-          showStep(current);
-        }
-      });
-    }
+    prevBtn && prevBtn.addEventListener('click', () => {
+      if (current > 0) {
+        current--;
+        showStep(current);
+      }
+    });
 
-    // Gestion de la soumission du formulaire
     if (form) {
       form.addEventListener('submit', e => {
         e.preventDefault();
@@ -184,11 +235,10 @@
           const prefetchLink = document.createElement('link');
           prefetchLink.rel = 'prefetch';
           prefetchLink.href = redirect;
-          prefetchLink.setAttribute('as', 'document'); // Ajout de l'attribut as
+          prefetchLink.setAttribute('as', 'document');
           document.head.appendChild(prefetchLink);
         } catch (err) {
           console.warn("Erreur de préchargement:", err);
-          // Ne pas bloquer le processus si le préchargement échoue
         }
 
         // Affichage immédiat de form-info
@@ -232,7 +282,6 @@
         })
         .catch(err => {
           console.error("Erreur d'envoi vers Make:", err);
-          // On peut gérer l'erreur ici (afficher un message, réessayer, etc.)
         })
         .finally(() => {
           // Réactiver le bouton de soumission après la réponse
@@ -243,13 +292,12 @@
     }
   };
 
-  // === Initialisation globale ===
+  // === Initialisation ===
   document.addEventListener("DOMContentLoaded", function () {
-    // Utilisation des fonctions définies au début
     showPageUrl();
     localizeDates();
     setupFAQToggle();
     addCommasToCMSLists();
     setupMultiStepForm();
   });
-})(); // Parenthèse fermante ici, vérifiée et correcte
+})();
