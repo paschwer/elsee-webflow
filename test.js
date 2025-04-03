@@ -86,15 +86,15 @@
     ];
 
     const personaMap = {
-  "Je veux prendre soin de moi": "BE",
-  "Je cherche à tomber enceinte": "FE",
-  "Je suis enceinte": "GP",
-  "Je viens d'accoucher": "GP",
-  "J’ai un trouble hormonal (endométriose, SOPK, SPM ... )": "TF",
-  "J’ai plus de 45 ans et mon corps change": "ME",
-  "J’ai des problèmes de digestion": "BE",
-  "J’ai des problèmes de sommeil / stress": "BE"
-};
+      "Je veux prendre soin de moi": "BE",
+      "Je cherche à tomber enceinte": "FE",
+      "Je suis enceinte": "GP",
+      "Je viens d'accoucher": "GP",
+      "J’ai un trouble hormonal (endométriose, SOPK, SPM ... )": "TF",
+      "J’ai plus de 45 ans et mon corps change": "ME",
+      "J’ai des problèmes de digestion": "BE",
+      "J’ai des problèmes de sommeil / stress": "BE"
+    };
 
     const urlLocation = document.getElementById('urlLocation');
     if (urlLocation) urlLocation.value = window.location.href;
@@ -217,24 +217,21 @@
           const prefetchLink = document.createElement('link');
           prefetchLink.rel = 'prefetch';
           prefetchLink.href = redirect;
-          prefetchLink.setAttribute('as', 'document');
+          prefetchLink.as = 'document';
           document.head.appendChild(prefetchLink);
         } catch (err) {
           console.warn("Erreur de préchargement:", err);
         }
 
-        const infoElement = document.getElementById('form-info');
-        if (infoElement) infoElement.style.display = 'block';
-
-        const funnelTimeout = setTimeout(() => {
-          const funnelBtn = document.getElementById('from-form-to-funnel');
-          if (funnelBtn) {
+        const funnelBtn = document.getElementById('from-form-to-funnel');
+        if (funnelBtn) {
+          setTimeout(() => {
             funnelBtn.style.display = 'block';
             funnelBtn.addEventListener('click', () => {
               window.location.assign(redirect);
             }, { once: true });
-          }
-        }, 30000);
+          }, 30000);
+        }
 
         const makeWebhookUrl = "https://hook.eu2.make.com/8vmewfvg17zyfnmm8xj8fvmfwu67g8rn";
 
@@ -277,3 +274,4 @@
     setupMultiStepForm();
   });
 })();
+
