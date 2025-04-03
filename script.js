@@ -8,6 +8,7 @@
       urlDisplay.textContent = location.href;
     }
   };
+
   // 2. Localise les dates
   const localizeDates = () => {
     const data = {
@@ -33,8 +34,6 @@
         el.textContent = text;
       });
     };
-    // À activer si besoin
-    // convertToLocal('month', '.classname');
   };
 
   // 3. Accordéon FAQ
@@ -86,15 +85,15 @@
     ];
 
     const personaMap = {
-      '1': 'BE',
-      '2': 'FE',
-      '3': 'GP',
-      '4': 'GP',
-      '5': 'TF',
-      '6': 'ME',
-      '7': 'BE',
-      '8': 'BE'
-    };
+  1: 'BE',
+  2: 'FE',
+  3: 'GP',
+  4: 'GP',
+  5: 'TF',
+  6: 'ME',
+  7: 'BE',
+  8: 'BE'
+};
 
     const urlLocation = document.getElementById('urlLocation');
     if (urlLocation) urlLocation.value = window.location.href;
@@ -223,12 +222,12 @@
           console.warn("Erreur de préchargement:", err);
         }
 
-        onst funnelBtn = document.getElementById('from-form-to-funnel');
+        const funnelBtn = document.getElementById('from-form-to-funnel');
         if (funnelBtn) {
           setTimeout(() => {
             funnelBtn.style.opacity = '0';
             funnelBtn.style.display = 'block';
-            funnelBtn.style.transition = 'opacity 1s ease-in';
+            funnelBtn.style.transition = 'opacity 0.6s ease-in';
             requestAnimationFrame(() => {
               funnelBtn.style.opacity = '1';
             });
