@@ -223,10 +223,15 @@
           console.warn("Erreur de préchargement:", err);
         }
 
-        const funnelBtn = document.getElementById('from-form-to-funnel');
+        onst funnelBtn = document.getElementById('from-form-to-funnel');
         if (funnelBtn) {
           setTimeout(() => {
+            funnelBtn.style.opacity = '0';
             funnelBtn.style.display = 'block';
+            funnelBtn.style.transition = 'opacity 0.6s ease-in';
+            requestAnimationFrame(() => {
+              funnelBtn.style.opacity = '1';
+            });
             funnelBtn.addEventListener('click', () => {
               window.location.assign(redirect);
             }, { once: true });
