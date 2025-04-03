@@ -87,15 +87,15 @@
     ];
 
     const personaMap = {
-      'Je veux prendre soin de moi': 'BE',
-      'Je cherche à tomber enceinte': 'FE',
-      'Je suis enceinte': 'GP',
-      'Je viens d\'accoucher': 'GP',
-      'J\'ai un trouble hormonal (endométriose, SOPK, SPM ... )': 'TF',
-      'J\'ai plus de 45 ans et mon corps change': 'ME',
-      'J\'ai des problèmes de digestion': 'BE',
-      'J\'ai des problèmes de sommeil / stress': 'BE'
-    };
+  "Je veux prendre soin de moi": "BE",
+  "Je cherche à tomber enceinte": "FE",
+  "Je suis enceinte": "GP",
+  "Je viens d'accoucher": "GP",
+  "J’ai un trouble hormonal (endométriose, SOPK, SPM ... )": "TF",
+  "J’ai plus de 45 ans et mon corps change": "ME",
+  "J’ai des problèmes de digestion": "BE",
+  "J’ai des problèmes de sommeil / stress": "BE"
+};
 
     const urlLocation = document.getElementById('urlLocation');
     if (urlLocation) urlLocation.value = window.location.href;
