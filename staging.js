@@ -91,7 +91,7 @@
       'Je cherche à tomber enceinte': 'FE',
       'Je suis enceinte': 'GP',
       'Je viens d\'accoucher': 'GP',
-      'J'ai un trouble hormonal (endométriose, SOPK, SPM ... )': 'TF',
+      'J\'ai un trouble hormonal (endométriose, SOPK, SPM ... )': 'TF',
       'J\'ai plus de 45 ans et mon corps change': 'ME',
       'J\'ai des problèmes de digestion': 'BE',
       'J\'ai des problèmes de sommeil / stress': 'BE'
@@ -104,9 +104,7 @@
     let isSubmitting = false;
 
     const showStep = index => {
-      // Assurer que l'index est valide
       if (index < 0 || index >= steps.length) return;
-      
       steps.forEach((step, i) => step.style.display = i === index ? 'flex' : 'none');
       if (prevBtn) prevBtn.style.display = index === 0 ? 'none' : 'inline-block';
       if (nextBtn) nextBtn.style.display = index === steps.length - 1 ? 'none' : 'inline-block';
@@ -114,8 +112,6 @@
       if (legalSection) legalSection.style.display = index === steps.length - 1 ? 'block' : 'none';
       if (requiredMsg) requiredMsg.style.display = 'none';
       stepIndicators.forEach((el, i) => el && (el.style.color = i <= index ? 'var(--smooth_pink_24)' : ''));
-      
-      // Scroll plus sécurisé avec try/catch
       try {
         steps[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e) {
@@ -126,7 +122,6 @@
     const highlightInvalidFields = (fields) => {
       fields.forEach(field => {
         let isValid = true;
-        
         if (field.type === 'radio') {
           isValid = document.querySelector(`input[name="${field.name}"]:checked`);
         } else if (field.tagName === 'SELECT') {
@@ -134,11 +129,8 @@
         } else {
           isValid = field.value.trim() !== '';
         }
-        
-        // Ajouter/supprimer une classe pour les champs invalides
         if (!isValid) {
           field.classList.add('field-error');
-          // Ajouter un écouteur pour retirer la classe lorsque l'utilisateur modifie le champ
           const removeError = () => {
             field.classList.remove('field-error');
             field.removeEventListener('input', removeError);
@@ -155,7 +147,6 @@
     const validate = () => {
       const fields = Array.from(steps[current].querySelectorAll('[required]'));
       let valid = true;
-      
       fields.forEach(field => {
         if (field.type === 'radio') {
           if (!document.querySelector(`input[name="${field.name}"]:checked`)) valid = false;
@@ -165,16 +156,13 @@
           valid = false;
         }
       });
-      
       if (!valid && requiredMsg) {
         requiredMsg.style.display = 'block';
         highlightInvalidFields(fields);
       }
-      
       return valid;
     };
 
-    // Validation basique d'email
     const validateEmail = (email) => {
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     };
@@ -198,11 +186,8 @@
     if (form) {
       form.addEventListener('submit', e => {
         e.preventDefault();
-        
-        // Éviter les soumissions multiples
         if (isSubmitting) return;
         isSubmitting = true;
-        
         if (submitBtn) submitBtn.disabled = true;
 
         const persona = document.querySelector('input[name="personaSelect"]:checked')?.value;
@@ -212,7 +197,6 @@
         const lastName = document.getElementById('lastname')?.value;
         const phone = document.getElementById('phoneFunnelForm')?.value;
 
-        // Validation supplémentaire
         if (!persona || !budget || !email || !firstName || !lastName) {
           console.error("Champs manquants dans le formulaire.");
           if (submitBtn) submitBtn.disabled = false;
@@ -230,7 +214,6 @@
         const mapped = personaMap[persona] || persona;
         const redirect = `https://app.elsee.care/mon-offre?persona=${mapped}&price=${budget}&email=${encodeURIComponent(email)}&firstname=${encodeURIComponent(firstName)}&lastname=${encodeURIComponent(lastName)}`;
 
-        // Préchargement de l'URL avec attribut as="document"
         try {
           const prefetchLink = document.createElement('link');
           prefetchLink.rel = 'prefetch';
@@ -241,11 +224,9 @@
           console.warn("Erreur de préchargement:", err);
         }
 
-        // Affichage immédiat de form-info
         const infoElement = document.getElementById('form-info');
         if (infoElement) infoElement.style.display = 'block';
 
-        // Affichage de from-form-to-funnel après 30 secondes
         const funnelTimeout = setTimeout(() => {
           const funnelBtn = document.getElementById('from-form-to-funnel');
           if (funnelBtn) {
@@ -256,10 +237,8 @@
           }
         }, 30000);
 
-        // URL du webhook Make stockée dans une constante
         const makeWebhookUrl = "https://hook.eu2.make.com/8vmewfvg17zyfnmm8xj8fvmfwu67g8rn";
 
-        // Envoi à Make
         fetch(makeWebhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -284,7 +263,6 @@
           console.error("Erreur d'envoi vers Make:", err);
         })
         .finally(() => {
-          // Réactiver le bouton de soumission après la réponse
           if (submitBtn) submitBtn.disabled = false;
           isSubmitting = false;
         });
@@ -292,7 +270,6 @@
     }
   };
 
-  // === Initialisation ===
   document.addEventListener("DOMContentLoaded", function () {
     showPageUrl();
     localizeDates();
