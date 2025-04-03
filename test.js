@@ -228,7 +228,7 @@
           setTimeout(() => {
             funnelBtn.style.opacity = '0';
             funnelBtn.style.display = 'block';
-            funnelBtn.style.transition = 'opacity 0.6s ease-in';
+            funnelBtn.style.transition = 'opacity 1s ease-in';
             requestAnimationFrame(() => {
               funnelBtn.style.opacity = '1';
             });
