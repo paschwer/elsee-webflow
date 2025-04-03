@@ -8,7 +8,6 @@
       urlDisplay.textContent = location.href;
     }
   };
-
   // 2. Localise les dates
   const localizeDates = () => {
     const data = {
