@@ -251,7 +251,7 @@
             funnelBtn.addEventListener('click', () => {
               window.location.assign(redirect);
             }, { once: true });
-          }, 30000);
+          }, 3000);
         }
 
         const makeWebhookUrl = "https://hook.eu2.make.com/8vmewfvg17zyfnmm8xj8fvmfwu67g8rn";
@@ -260,7 +260,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            persona,
+            persona: mapped,
             abonnement: budget,
             email,
             firstname: firstName,
