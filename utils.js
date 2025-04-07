@@ -87,15 +87,15 @@
     ];
 
     const personaMap = {
-      'Je veux prendre soin de moi': 'BE',
-      'Je cherche à tomber enceinte': 'FE',
-      'Je suis enceinte': 'GP',
-      'Je viens d\'accoucher': 'GP',
-      'J’ai un trouble hormonal (endométriose, SOPK, SPM ... )': 'TF',
-      'J\'ai plus de 45 ans et mon corps change': 'ME',
-      'J\'ai des problèmes de digestion': 'BE',
-      'J\'ai des problèmes de sommeil / stress': 'BE'
-    };
+  1: 'BE',
+  2: 'FE',
+  3: 'GP',
+  4: 'GP',
+  5: 'TF',
+  6: 'ME',
+  7: 'BE',
+  8: 'BE'
+};
 
     const urlLocation = document.getElementById('urlLocation');
     if (urlLocation) urlLocation.value = window.location.href;
@@ -157,7 +157,8 @@
           fetch("https://hook.eu2.make.com/8vmewfvg17zyfnmm8xj8fvmfwu67g8rn", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ persona, abonnement: budget, email, firstname: firstName, lastname: lastName, url: window.location.href, phone, destination: redirect })
+            body: JSON.stringify({     persona: mapped,
+ abonnement: budget, email, firstname: firstName, lastname: lastName, url: window.location.href, phone, destination: redirect })
           }).then(() => window.location.assign(redirect))
             .catch(() => window.location.assign(redirect));
         } else {
