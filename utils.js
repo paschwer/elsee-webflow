@@ -147,7 +147,7 @@
         e.preventDefault();
         const persona = document.querySelector('input[name="personaSelect"]:checked')?.value;
         const budget = document.querySelector('input[name="annualBudget"]:checked')?.value;
-        const email = document.getElementById('emailFunnelForm')?.value;
+        const email = document.getElementById('emailFunnelForm')?.value.toLowerCase();
         const firstName = document.getElementById('firstname')?.value;
         const lastName = document.getElementById('lastname')?.value;
         const phone = document.getElementById('phoneFunnelForm')?.value;
