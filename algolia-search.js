@@ -1,15 +1,126 @@
 window.addEventListener("DOMContentLoaded", () => {
+      }
+      if (mapsClear) {
+        mapsClear.style.display = "block";
+      }
+    }
+
+
+    function applyUrlParamsToSearch() {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+      const query = params.get("q") || "";
+      const types = (params.get("type") || "").split(",").filter(Boolean);
+      const spes = (params.get("specialities") || "").split(",").filter(Boolean);
+      const geo = params.get("geo") || "";
+      const prestas = (params.get("prestations") || "").split(",").filter(Boolean);
+      const jobs = (params.get("jobs") || "").split(",").filter(Boolean);
+      const geolabel = params.get("geolabel") || "";
+
+
+      if (!searchInstance || !searchInstance.helper) return;
+      const helper = searchInstance.helper;
+
+
+      if (query) {
+        helper.setQuery(query);
+      }
+
+
+      helper.clearRefinements("type");
+      helper.clearRefinements("specialities");
+      helper.clearRefinements("prestations");
+      helper.clearRefinements("jobs");
+
+
+      types.forEach((t) => helper.addDisjunctiveFacetRefinement("type", t));
+      spes.forEach((s) => helper.addFacetRefinement("specialities", s));
+      prestas.forEach((p) => helper.addFacetRefinement("prestations", p));
+      jobs.forEach((j) => {
+        const cleanJob = j.trim();
+        if (!cleanJob) return;
+        if (!selectedJobTags.includes(cleanJob)) {
+          selectedJobTags.push(cleanJob);
+        }
+      });
+      updateJobFiltersOnHelper(helper);
+
+
+      types.forEach((t) => selectedFacetTags.add(`type:::${t}`));
+      spes.forEach((s) => selectedFacetTags.add(`specialities:::${s}`));
+
+
+      if (geo) {
+        const [latStr, lngStr] = geo.split(",");
+        const lat = parseFloat(latStr);
+        const lng = parseFloat(lngStr);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          currentGeoFilter = { lat, lng, label: geolabel ? decodeURIComponent(geolabel) : "" };
+          helper.setQueryParameter("aroundLatLng", `${lat},${lng}`);
+          helper.setQueryParameter("aroundRadius", 100000);
+          const mapsInput = document.getElementById("maps_input");
+          const mapsClear = document.querySelector(".directory_search_clear");
+          if (mapsInput) {
+            if (geolabel) {
+              mapsInput.value = decodeURIComponent(geolabel);
+              mapsInput.classList.add("is-selected");
+            } else {
+              mapsInput.value = "";
+              mapsInput.classList.remove("is-selected");
+            }
+            mapsInput.classList.add("is-selected");
+          }
+          if (mapsClear) {
+        mapsClear.style.display = "block";
+      }
+        }
+      }
+
+
+      helper.search();
+    }
+
+
+    initAlgolia();
+    setTimeout(applyUrlParamsToSearch, 50);
+    window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
+  });
+</script>
+
+
+
+Parfait, on garde toute la petite jungle qu’on a construite (types, spé, presta, métiers fusionnés mainjob+jobs en OR, géo, 3 boutons booléens réseau/visio/domicile, clear, URL, show-more qui se cache…) et on ajoute juste un 4e bloc de filtres pour reimbursment_percentage dans la div #discount-tags.
+
+Ce bloc :
+
+lit la facet reimbursment_percentage d’Algolia,
+
+trie les valeurs de la plus petite à la plus grande,
+
+rend un tag par valeur avec la classe directory_card_discount_tag,
+
+met le texte {{valeur}} %,
+
+permet d’en sélectionner plusieurs → ça fait un OR naturel sur la même facet,
+
+pousse tout ça dans l’URL sous le paramètre discount,
+
+est pris en compte dans le bouton clear.
+
+Voici le script complet avec ce nouveau morceau intégré :
+
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
     const ALGOLIA_APP_ID = "DRTSPIHOUM";
     const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
     const ALGOLIA_INDEX_NAME = "elsee_index";
 
+    // état front
     const selectedFacetTags = new Set();
     const selectedJobTags = [];
-
     let isNetworkSelected = false;
     let isRemoteSelected = false;
     let isAtHomeSelected = false;
-
     let speExpanded = false;
     let prestaExpanded = false;
     let jobExpanded = false;
@@ -47,34 +158,7 @@ window.addEventListener("DOMContentLoaded", () => {
         return t === "thérapeute" || t === "therapeute";
       }
 
-      function buildFiltersFromJobsAndBooleans() {
-        const parts = [];
-
-        // métiers → OR entre chaque métier, et dans chaque métier OR entre mainjob / jobs
-        if (selectedJobTags.length > 0) {
-          const jobParts = selectedJobTags.map((job) => {
-            const safe = job.replace(/"/g, '\\"');
-            return `(mainjob:"${safe}" OR jobs:"${safe}")`;
-          });
-          // important: OR entre les métiers
-          parts.push(`(${jobParts.join(" OR ")})`);
-        }
-
-        // booléens
-        if (isNetworkSelected) {
-          parts.push(`is_elsee_network:true`);
-        }
-        if (isRemoteSelected) {
-          parts.push(`is_remote:true`);
-        }
-        if (isAtHomeSelected) {
-          parts.push(`is_at_home:true`);
-        }
-
-        if (parts.length === 0) return undefined;
-        return parts.join(" AND ");
-      }
-
+      // met l'état de recherche dans l’URL
       function updateUrlFromState(state) {
         if (typeof window === "undefined") return;
         const params = new URLSearchParams(window.location.search);
@@ -90,8 +174,7 @@ window.addEventListener("DOMContentLoaded", () => {
         const disjRef = state.disjunctiveFacetsRefinements || {};
 
         const typeRef =
-          (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) ||
-          [];
+          (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) || [];
         const speRef =
           (disjRef.specialities && disjRef.specialities.length
             ? disjRef.specialities
@@ -119,12 +202,41 @@ window.addEventListener("DOMContentLoaded", () => {
           params.delete("prestations");
         }
 
+        // jobs (on garde notre logique OR mainjob/jobs)
         if (selectedJobTags.length > 0) {
           params.set("jobs", selectedJobTags.join(","));
         } else {
           params.delete("jobs");
         }
 
+        // filtres booleans
+        if (isNetworkSelected) {
+          params.set("network", "true");
+        } else {
+          params.delete("network");
+        }
+        if (isRemoteSelected) {
+          params.set("remote", "true");
+        } else {
+          params.delete("remote");
+        }
+        if (isAtHomeSelected) {
+          params.set("athome", "true");
+        } else {
+          params.delete("athome");
+        }
+
+        // discount (on regarde ce qui est coché en front)
+        const discountSelected = Array.from(selectedFacetTags)
+          .filter((k) => k.startsWith("reimbursment_percentage:::"))
+          .map((k) => k.split(":::")[1]);
+        if (discountSelected.length > 0) {
+          params.set("discount", discountSelected.join(","));
+        } else {
+          params.delete("discount");
+        }
+
+        // geo
         if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
           params.set("geo", `${currentGeoFilter.lat},${currentGeoFilter.lng}`);
           if (currentGeoFilter.label) {
@@ -135,25 +247,6 @@ window.addEventListener("DOMContentLoaded", () => {
         } else {
           params.delete("geo");
           params.delete("geolabel");
-        }
-
-        // booléens
-        if (isNetworkSelected) {
-          params.set("network", "true");
-        } else {
-          params.delete("network");
-        }
-
-        if (isRemoteSelected) {
-          params.set("remote", "true");
-        } else {
-          params.delete("remote");
-        }
-
-        if (isAtHomeSelected) {
-          params.set("athome", "true");
-        } else {
-          params.delete("athome");
         }
 
         const newUrl = `${window.location.pathname}${
@@ -174,6 +267,7 @@ window.addEventListener("DOMContentLoaded", () => {
           const labelFilterWrapper = document.getElementById("label-filter");
           const remoteFilterWrapper = document.getElementById("works-remotely-filter");
           const atHomeFilterWrapper = document.getElementById("works-at-home-filter");
+          const discountFilterWrapper = document.getElementById("discount-tags");
 
           if (!typeWrapper || !speWrapper) return;
 
@@ -193,7 +287,9 @@ window.addEventListener("DOMContentLoaded", () => {
               const isSelected = selectedFacetTags.has(key);
               if (fv.count === 0 && !isSelected) return "";
               return `
-                <div class="directory_suggestions_tag is-type ${isSelected ? "is-selected" : ""}"
+                <div class="directory_suggestions_tag is-type ${
+                  isSelected ? "is-selected" : ""
+                }"
                      data-facet-name="type"
                      data-facet-value="${fv.name}">
                   ${fv.name}
@@ -238,7 +334,7 @@ window.addEventListener("DOMContentLoaded", () => {
             typesAltWrapper.innerHTML = altHtml;
           }
 
-          // SPECIALITIES DROPDOWN
+          // SPECIALITIES AUTOCOMPLETE
           let speFacetValues = results.getFacetValues("specialities", {
             sortBy: ["count:desc", "name:asc"],
           });
@@ -338,7 +434,7 @@ window.addEventListener("DOMContentLoaded", () => {
             }
           }
 
-          // JOBS ALT BLOCK (mainjob + jobs → fusion)
+          // JOBS (fusion mainjob + jobs)
           if (jobFilterWrapper) {
             let mainFacetValues = results.getFacetValues("mainjob", {
               sortBy: ["count:desc", "name:asc"],
@@ -403,7 +499,7 @@ window.addEventListener("DOMContentLoaded", () => {
             }
           }
 
-          // BOOLEAN FILTER: réseau
+          // BOOLEAN : réseau
           if (labelFilterWrapper) {
             labelFilterWrapper.innerHTML = `
               <div class="directory_category_tag_wrapper ${
@@ -419,7 +515,7 @@ window.addEventListener("DOMContentLoaded", () => {
             `;
           }
 
-          // BOOLEAN FILTER: visio
+          // BOOLEAN : visio
           if (remoteFilterWrapper) {
             remoteFilterWrapper.innerHTML = `
               <div class="directory_category_tag_wrapper ${
@@ -427,7 +523,7 @@ window.addEventListener("DOMContentLoaded", () => {
               }" data-boolean-filter="is_remote">
                 <span class="directory_option_icon">
                   <svg width="auto" height="auto" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0 10.5697C0 4.73221 4.5667 0 10.2 0C15.8333 0 20.4 4.73222 20.4 10.5697V14.4485C20.4 14.9305 20.0229 15.3212 19.5578 15.3212C19.0927 15.3212 18.7156 14.9305 18.7156 14.4485V10.5697C18.7156 5.6962 14.903 1.74545 10.2 1.74545C5.49697 1.74545 1.6844 5.6962 1.6844 10.5697V14.4485C1.6844 14.9305 1.30734 15.3212 0.842202 15.3212C0.377067 15.3212 0 14.9305 0 14.4485V10.5697ZM2.80734 12.9939C2.80734 11.1731 4.23181 9.69697 5.98899 9.69697C7.74617 9.69697 9.17064 11.1731 9.17064 12.9939V15.903C9.17064 17.7239 7.74617 19.2 5.98899 19.2C4.23181 19.2 2.80734 17.7239 2.80734 15.903V12.9939ZM5.98899 11.4424C5.16208 11.4424 4.49174 12.1371 4.49174 12.9939V15.903C4.49174 16.7599 5.16208 17.4545 5.98899 17.4545C6.8159 17.4545 7.48624 16.7599 7.48624 15.903V12.9939C7.48624 12.1371 6.8159 11.4424 5.98899 11.4424ZM11.2294 12.9939C11.2294 11.1731 12.6538 9.69697 14.411 9.69697C16.1682 9.69697 17.5927 11.1731 17.5927 12.9939V15.903C17.5927 17.7239 16.1682 19.2 14.411 19.2C12.6538 19.2 11.2294 17.7239 11.2294 15.903V12.9939ZM14.411 11.4424C13.5841 11.4424 12.9138 12.1371 12.9138 12.9939V15.903C12.9138 16.7599 13.5841 17.4545 14.411 17.4545C15.2379 17.4545 15.9083 16.7599 15.9083 15.903V12.9939C15.9083 12.1371 15.2379 11.4424 14.411 11.4424Z" fill="currentColor"/>
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M0 10.5697C0 4.73221 4.5667 0 10.2 0C15.8333 0 20.4 4.73222 20.4 10.5697V14.4485C20.4 14.9305 20.0229 15.3212 19.5578 15.3212C19.0927 15.3212 18.7156 14.9305 18.7156 14.4485V10.5697C18.7156 5.6962 14.903 1.74545 10.2 1.74545C5.49697 1.74545 1.6844 5.6962 1.6844 10.5697V14.4485C1.6844 14.9305 1.30734 15.3212 0.842202 15.3212C0.377067 15.3212 0 14.9305 0 14.4485V10.5697ZM2.80734 12.9939C2.80734 11.1731 4.23181 9.69697 5.98899 9.69697C7.74617 9.69697 9.17064 11.1731 9.17064 12.9939V15.903C9.17064 17.7239 7.74617 19.2 5.98899 19.2C4.23181 19.2 2.80734 17.7239 2.80734 15.903V12.9939ZM5.98899 11.4424C5.16208 11.4424 4.49174 12.1371 4.49174 12.9939V15.903C4.49174 16.7599 5.16208 17.4545 5.98899 17.4545C6.8159 17.4545 7.48624 16.7599 7.48624 15.903V12.9939C7.48624 12.1371 6.8159 11.4424 5.98899 11.4424ZM11.2294 12.9939C11.2294 11.1731 12.6538 9.69697 14.411 9.69697C16.1682 9.69697 17.5927 11.1731 17.5927 12.9939V15.903C17.5927 17.7239 16.1682 19.2 14.411 19.2C12.6538 19.2 11.2294 17.7239 11.2294 15.903V12.9939ZM14.411 11.4424C13.5841 11.4424 12.9138 12.1371 12.9138 12.9939V15.903C12.9138 16.7599 13.5841 17.4545 14.411 17.4545C15.2379 17.4545 15.9083 16.7599 15.9083 15.903V12.9939C15.9083 12.1371 15.2379 11.4424 14.411 11.4424Z" fill="currentColor"/>
                   </svg>
                 </span>
                 <span>Travail en visio</span>
@@ -435,7 +531,7 @@ window.addEventListener("DOMContentLoaded", () => {
             `;
           }
 
-          // BOOLEAN FILTER: domicile
+          // BOOLEAN : domicile
           if (atHomeFilterWrapper) {
             atHomeFilterWrapper.innerHTML = `
               <div class="directory_category_tag_wrapper ${
@@ -443,19 +539,54 @@ window.addEventListener("DOMContentLoaded", () => {
               }" data-boolean-filter="is_at_home">
                 <span class="directory_option_icon">
                   <svg width="auto" height="auto" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M9.72983 1.95795C9.655 1.90735 9.545 1.90735 9.47017 1.95795L1.98217 7.02182C1.9314 7.05615 1.92 7.09646 1.92 7.11941V16.5967C1.92 16.9292 2.21782 17.28 2.688 17.28H16.512C16.9822 17.28 17.28 16.9292 17.28 16.5967V7.11941C17.28 7.09646 17.2686 7.05615 17.2178 7.02182L9.72983 1.95795ZM8.39461 0.367496C9.11917 -0.1225 10.0808 -0.122498 10.8054 0.367497L18.2934 5.43136C18.8504 5.80805 19.2 6.43312 19.2 7.11941V16.5967C19.2 18.0793 17.9505 19.2 16.512 19.2H2.688C1.24948 19.2 0 18.0793 0 16.5967V7.11941C0 6.43312 0.349589 5.80805 0.906605 5.43136L8.39461 0.367496Z" fill="currentColor"/>
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M9.72983 1.95795C9.655 1.90735 9.545 1.90735 9.47017 1.95795L1.98217 7.02182C1.9314 7.05615 1.92 7.09646 1.92 7.11941V16.5967C1.92 16.9292 2.21782 17.28 2.688 17.28H16.512C16.9822 17.28 17.28 16.9292 17.28 16.5967V7.11941C17.28 7.09646 17.2686 7.05615 17.2178 7.02182L9.72983 1.95795ZM8.39461 0.367496C9.11917 -0.1225 10.0808 -0.122498 10.8054 0.367497L18.2934 5.43136C18.8504 5.80805 19.2 6.43312 19.2 7.11941V16.5967C19.2 18.0793 17.9505 19.2 16.512 19.2H2.688C1.24948 19.2 0 18.0793 0 16.5967V7.11941C0 6.43312 0.349589 5.80805 0.906605 5.43136L8.39461 0.367496Z" fill="currentColor"/>
                   </svg>
                 </span>
                 <span>Se déplace à domicile</span>
               </div>
             `;
           }
+
+          // DISCOUNT FILTER
+          if (discountFilterWrapper) {
+            let discFacetValues = results.getFacetValues("reimbursment_percentage", {
+              sortBy: ["name:asc"],
+            });
+            if (!Array.isArray(discFacetValues)) discFacetValues = [];
+            const cleaned = discFacetValues
+              .filter((fv) => fv && fv.name)
+              .map((fv) => ({
+                name: fv.name,
+                num: Number(fv.name),
+              }))
+              .sort((a, b) => a.num - b.num);
+
+            const discHtml = cleaned
+              .map((item) => {
+                const key = `reimbursment_percentage:::${item.name}`;
+                const isSelected = selectedFacetTags.has(key);
+                return `<div class="directory_card_discount_tag ${
+                  isSelected ? "is-selected" : ""
+                }" data-facet-name="reimbursment_percentage" data-facet-value="${
+                  item.name
+                }">${item.name} %</div>`;
+              })
+              .join("");
+
+            discountFilterWrapper.innerHTML = discHtml;
+          }
         },
       };
 
       search.addWidgets([
         instantsearch.widgets.configure({
-          facets: ["specialities", "prestations", "mainjob", "jobs"],
+          facets: [
+            "specialities",
+            "prestations",
+            "mainjob",
+            "jobs",
+            "reimbursment_percentage",
+          ],
           disjunctiveFacets: ["type"],
           hitsPerPage: 48,
         }),
@@ -490,15 +621,13 @@ window.addEventListener("DOMContentLoaded", () => {
             loadMore: "directory_show_more_button",
           },
           transformItems(items) {
-            // on garde le tri réseau d'abord
-            return items
-              .slice()
-              .sort((a, b) => {
-                const aNet = a.is_elsee_network ? 1 : 0;
-                const bNet = b.is_elsee_network ? 1 : 0;
-                if (aNet !== bNet) return bNet - aNet;
-                return 0;
-              });
+            // réseau d’abord
+            return items.slice().sort((a, b) => {
+              const aNet = a.is_elsee_network ? 1 : 0;
+              const bNet = b.is_elsee_network ? 1 : 0;
+              if (aNet !== bNet) return bNet - aNet;
+              return 0;
+            });
           },
           templates: {
             item(hit) {
@@ -519,14 +648,11 @@ window.addEventListener("DOMContentLoaded", () => {
               const therapeute = isTherapeute(hit);
 
               const remoteSvg =
-                document.querySelector(".directory_remote_icon")?.innerHTML ||
-                "";
+                document.querySelector(".directory_remote_icon")?.innerHTML || "";
               const atHomeSvg =
-                document.querySelector(".directory_at_home_icon")?.innerHTML ||
-                "";
+                document.querySelector(".directory_at_home_icon")?.innerHTML || "";
               const discountSvg =
-                document.querySelector(".directory_discount_icon")?.innerHTML ||
-                "";
+                document.querySelector(".directory_discount_icon")?.innerHTML || "";
               const locationSvg =
                 document.querySelector(".directory_card_location_icon")
                   ?.innerHTML || "";
@@ -682,6 +808,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       search.start();
 
+      // RENDER global
       search.on("render", () => {
         renderClearButton();
 
@@ -729,9 +856,11 @@ window.addEventListener("DOMContentLoaded", () => {
       setupTypeBlockClicks();
       setupSpePrestaBlockClicks();
       setupJobBlockClicks();
-      setupBooleanBlockClicks();
+      setupBooleanFilterClicks();
+      setupDiscountFilterClicks();
     }
 
+    // dropdown ouverture
     function setupSearchDropdown() {
       const input = document.querySelector(".directory_search_field_container");
       const dropdown =
@@ -753,6 +882,7 @@ window.addEventListener("DOMContentLoaded", () => {
       document.addEventListener("click", closeDropdown);
     }
 
+    // bouton clear
     function renderClearButton() {
       const clearBtn = document.getElementById("clear_button");
       if (!clearBtn) return;
@@ -764,12 +894,13 @@ window.addEventListener("DOMContentLoaded", () => {
       const hasFacets = selectedFacetTags.size > 0;
       const hasGeo = !!currentGeoFilter;
       const hasJobs = selectedJobTags.length > 0;
-      const hasBools = isNetworkSelected || isRemoteSelected || isAtHomeSelected;
+      const hasBool = isNetworkSelected || isRemoteSelected || isAtHomeSelected;
 
       clearBtn.style.display =
-        hasQuery || hasFacets || hasGeo || hasJobs || hasBools ? "flex" : "none";
+        hasQuery || hasFacets || hasGeo || hasJobs || hasBool ? "flex" : "none";
     }
 
+    // clear click
     const clearBtnInit = document.getElementById("clear_button");
     if (clearBtnInit) {
       clearBtnInit.addEventListener("click", () => {
@@ -786,7 +917,6 @@ window.addEventListener("DOMContentLoaded", () => {
         helper.setQueryParameter("aroundLatLng", undefined);
         helper.setQueryParameter("aroundRadius", undefined);
         currentGeoFilter = null;
-        helper.search();
 
         const mapsInput = document.getElementById("maps_input");
         const mapsBox = document.getElementById("maps_autocomplete");
@@ -801,9 +931,12 @@ window.addEventListener("DOMContentLoaded", () => {
         if (mapsClear) {
           mapsClear.style.display = "none";
         }
+
+        helper.search();
       });
     }
 
+    // clics dans le dropdown suggestions
     function setupSuggestionClicks() {
       const dropdown =
         document.getElementById("tags_autocomplete") ||
@@ -833,9 +966,7 @@ window.addEventListener("DOMContentLoaded", () => {
             } else {
               tag.classList.add("is-selected");
               selectedFacetTags.add(key);
-              helper
-                .addDisjunctiveFacetRefinement(facetName, facetValue)
-                .search();
+              helper.addDisjunctiveFacetRefinement(facetName, facetValue).search();
             }
           } else {
             if (isSelected) {
@@ -854,6 +985,7 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // clics sur le bloc types alternatif
     function setupTypeBlockClicks() {
       const typesAltWrapper = document.getElementById("directory_types");
       if (!typesAltWrapper) return;
@@ -867,6 +999,7 @@ window.addEventListener("DOMContentLoaded", () => {
         facetValue = facetValue.trim();
         const helper = searchInstance.helper;
 
+        // bouton "Toutes les catégories"
         if (facetValue === "__ALL_TYPES__") {
           helper.clearRefinements("type");
           Array.from(selectedFacetTags)
@@ -881,18 +1014,15 @@ window.addEventListener("DOMContentLoaded", () => {
 
         if (isSelected) {
           selectedFacetTags.delete(key);
-          helper
-            .removeDisjunctiveFacetRefinement(facetName, facetValue)
-            .search();
+          helper.removeDisjunctiveFacetRefinement(facetName, facetValue).search();
         } else {
           selectedFacetTags.add(key);
-          helper
-            .addDisjunctiveFacetRefinement(facetName, facetValue)
-            .search();
+          helper.addDisjunctiveFacetRefinement(facetName, facetValue).search();
         }
       });
     }
 
+    // clics spé + presta
     function setupSpePrestaBlockClicks() {
       const speWrapper = document.getElementById("spe_filtre");
       const moreSpe = document.getElementById("more-spe");
@@ -949,6 +1079,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // clics jobs fusion
     function setupJobBlockClicks() {
       const jobWrapper = document.getElementById("job_filtre");
       const moreJob = document.getElementById("more-job");
@@ -982,94 +1113,127 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    function setupBooleanBlockClicks() {
+    // clics BOOLEAN
+    function setupBooleanFilterClicks() {
       const labelFilterWrapper = document.getElementById("label-filter");
       const remoteFilterWrapper = document.getElementById("works-remotely-filter");
       const atHomeFilterWrapper = document.getElementById("works-at-home-filter");
 
-      function toggleAndSearch(flagName) {
-        if (!searchInstance || !searchInstance.helper) return;
-        if (flagName === "is_elsee_network") {
-          isNetworkSelected = !isNetworkSelected;
-        }
-        if (flagName === "is_remote") {
-          isRemoteSelected = !isRemoteSelected;
-        }
-        if (flagName === "is_at_home") {
-          isAtHomeSelected = !isAtHomeSelected;
-        }
-
-        const helper = searchInstance.helper;
-        const filtersStr = buildFiltersFromJobsAndBooleansForHelper();
-        helper.setQueryParameter("filters", filtersStr).search();
-      }
-
-      function buildFiltersFromJobsAndBooleansForHelper() {
-        const parts = [];
-
-        if (selectedJobTags.length > 0) {
-          const jobParts = selectedJobTags.map((job) => {
-            const safe = job.replace(/"/g, '\\"');
-            return `(mainjob:"${safe}" OR jobs:"${safe}")`;
-          });
-          parts.push(`(${jobParts.join(" OR ")})`);
-        }
-
-        if (isNetworkSelected) parts.push("is_elsee_network:true");
-        if (isRemoteSelected) parts.push("is_remote:true");
-        if (isAtHomeSelected) parts.push("is_at_home:true");
-
-        if (parts.length === 0) return undefined;
-        return parts.join(" AND ");
-      }
-
       if (labelFilterWrapper) {
         labelFilterWrapper.addEventListener("click", (e) => {
-          const btn = e.target.closest("[data-boolean-filter]");
-          if (!btn) return;
-          toggleAndSearch(btn.getAttribute("data-boolean-filter"));
+          const btn = e.target.closest(".directory_category_tag_wrapper");
+          if (!btn || !searchInstance || !searchInstance.helper) return;
+          isNetworkSelected = !isNetworkSelected;
+          applyBooleanFilters(searchInstance.helper);
         });
       }
+
       if (remoteFilterWrapper) {
         remoteFilterWrapper.addEventListener("click", (e) => {
-          const btn = e.target.closest("[data-boolean-filter]");
-          if (!btn) return;
-          toggleAndSearch(btn.getAttribute("data-boolean-filter"));
+          const btn = e.target.closest(".directory_category_tag_wrapper");
+          if (!btn || !searchInstance || !searchInstance.helper) return;
+          isRemoteSelected = !isRemoteSelected;
+          applyBooleanFilters(searchInstance.helper);
         });
       }
+
       if (atHomeFilterWrapper) {
         atHomeFilterWrapper.addEventListener("click", (e) => {
-          const btn = e.target.closest("[data-boolean-filter]");
-          if (!btn) return;
-          toggleAndSearch(btn.getAttribute("data-boolean-filter"));
+          const btn = e.target.closest(".directory_category_tag_wrapper");
+          if (!btn || !searchInstance || !searchInstance.helper) return;
+          isAtHomeSelected = !isAtHomeSelected;
+          applyBooleanFilters(searchInstance.helper);
         });
       }
     }
 
+    function applyBooleanFilters(helper) {
+      const filters = [];
+
+      // jobs déjà géré ailleurs (filters param), donc on va le récupérer
+      const jobParts =
+        selectedJobTags.length > 0
+          ? selectedJobTags.map((job) => {
+              const safe = job.replace(/"/g, '\\"');
+              return `(mainjob:"${safe}" OR jobs:"${safe}")`;
+            })
+          : [];
+
+      // boolean → AND sur chacun sélectionné
+      if (isNetworkSelected) filters.push("is_elsee_network:true");
+      if (isRemoteSelected) filters.push("is_remote:true");
+      if (isAtHomeSelected) filters.push("is_at_home:true");
+
+      // on merge les jobs OR dans ce filters global en AND
+      // si tu veux garder les jobs en OR séparés du reste, il faut les mettre ailleurs,
+      // mais on reste cohérent avec le code existant
+      const allParts = [...jobParts];
+      if (filters.length > 0) {
+        allParts.push(...filters);
+      }
+
+      if (allParts.length === 0) {
+        helper.setQueryParameter("filters", undefined).search();
+      } else {
+        const finalFilter = allParts.join(" AND ");
+        helper.setQueryParameter("filters", finalFilter).search();
+      }
+    }
+
+    // clics discount
+    function setupDiscountFilterClicks() {
+      const discountWrapper = document.getElementById("discount-tags");
+      if (!discountWrapper) return;
+      discountWrapper.addEventListener("click", (e) => {
+        const tag = e.target.closest(".directory_card_discount_tag");
+        if (!tag || !searchInstance || !searchInstance.helper) return;
+        const facetName = tag.getAttribute("data-facet-name");
+        const facetValue = tag.getAttribute("data-facet-value");
+        const key = `${facetName}:::${facetValue}`;
+        const helper = searchInstance.helper;
+        const isSelected = selectedFacetTags.has(key);
+        if (isSelected) {
+          selectedFacetTags.delete(key);
+          helper.removeFacetRefinement(facetName, facetValue).search();
+        } else {
+          selectedFacetTags.add(key);
+          helper.addFacetRefinement(facetName, facetValue).search();
+        }
+      });
+    }
+
+    // construit filters OR sur mainjob / jobs
     function updateJobFiltersOnHelper(helper) {
       if (!helper) return;
 
-      const parts = [];
+      // on garde les filtres booléens déjà cochés
+      const boolParts = [];
+      if (isNetworkSelected) boolParts.push("is_elsee_network:true");
+      if (isRemoteSelected) boolParts.push("is_remote:true");
+      if (isAtHomeSelected) boolParts.push("is_at_home:true");
 
-      if (selectedJobTags.length > 0) {
-        const jobParts = selectedJobTags.map((job) => {
-          const safe = job.replace(/"/g, '\\"');
-          return `(mainjob:"${safe}" OR jobs:"${safe}")`;
-        });
-        parts.push(`(${jobParts.join(" OR ")})`);
+      if (selectedJobTags.length === 0) {
+        if (boolParts.length === 0) {
+          helper.setQueryParameter("filters", undefined).search();
+        } else {
+          helper.setQueryParameter("filters", boolParts.join(" AND ")).search();
+        }
+        return;
       }
 
-      if (isNetworkSelected) parts.push("is_elsee_network:true");
-      if (isRemoteSelected) parts.push("is_remote:true");
-      if (isAtHomeSelected) parts.push("is_at_home:true");
+      const jobParts = selectedJobTags.map((job) => {
+        const safe = job.replace(/"/g, '\\"');
+        return `(mainjob:"${safe}" OR jobs:"${safe}")`;
+      });
 
-      if (parts.length === 0) {
-        helper.setQueryParameter("filters", undefined).search();
-      } else {
-        helper.setQueryParameter("filters", parts.join(" AND ")).search();
-      }
+      const allParts = [...jobParts];
+      if (boolParts.length > 0) allParts.push(...boolParts);
+
+      const filtersStr = allParts.join(" AND "); // on garde le comportement précédent
+      helper.setQueryParameter("filters", filtersStr).search();
     }
 
+    // géo
     function applyGeoFilterFromMaps(lat, lng, label = "") {
       currentGeoFilter = { lat, lng, label };
       if (searchInstance && searchInstance.helper) {
@@ -1089,6 +1253,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // URL → recherche
     function applyUrlParamsToSearch() {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
@@ -1101,11 +1266,12 @@ window.addEventListener("DOMContentLoaded", () => {
         .split(",")
         .filter(Boolean);
       const jobs = (params.get("jobs") || "").split(",").filter(Boolean);
+      const discounts = (params.get("discount") || "").split(",").filter(Boolean);
       const geo = params.get("geo") || "";
       const geolabel = params.get("geolabel") || "";
-      const networkParam = params.get("network") === "true";
-      const remoteParam = params.get("remote") === "true";
-      const atHomeParam = params.get("athome") === "true";
+      const net = params.get("network") === "true";
+      const remote = params.get("remote") === "true";
+      const athome = params.get("athome") === "true";
 
       if (!searchInstance || !searchInstance.helper) return;
       const helper = searchInstance.helper;
@@ -1118,14 +1284,21 @@ window.addEventListener("DOMContentLoaded", () => {
       helper.clearRefinements("specialities");
       helper.clearRefinements("prestations");
       helper.clearRefinements("jobs");
+      helper.clearRefinements("reimbursment_percentage");
 
       types.forEach((t) => helper.addDisjunctiveFacetRefinement("type", t));
       spes.forEach((s) => helper.addFacetRefinement("specialities", s));
       prestas.forEach((p) => helper.addFacetRefinement("prestations", p));
+      discounts.forEach((d) =>
+        helper.addFacetRefinement("reimbursment_percentage", d)
+      );
 
       types.forEach((t) => selectedFacetTags.add(`type:::${t}`));
       spes.forEach((s) => selectedFacetTags.add(`specialities:::${s}`));
       prestas.forEach((p) => selectedFacetTags.add(`prestations:::${p}`));
+      discounts.forEach((d) =>
+        selectedFacetTags.add(`reimbursment_percentage:::${d}`)
+      );
 
       jobs.forEach((j) => {
         const cleanJob = j.trim();
@@ -1135,12 +1308,11 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      isNetworkSelected = networkParam;
-      isRemoteSelected = remoteParam;
-      isAtHomeSelected = atHomeParam;
+      isNetworkSelected = net;
+      isRemoteSelected = remote;
+      isAtHomeSelected = athome;
 
-      updateJobFiltersOnHelper(helper);
-
+      // geo →
       if (geo) {
         const [latStr, lngStr] = geo.split(",");
         const lat = parseFloat(latStr);
@@ -1170,11 +1342,11 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      helper.search();
+      // reconstituer les filters (jobs + booléens)
+      updateJobFiltersOnHelper(helper);
     }
 
     initAlgolia();
     setTimeout(applyUrlParamsToSearch, 50);
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   });
-
