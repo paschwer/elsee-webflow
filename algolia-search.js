@@ -1,754 +1,877 @@
-  window.addEventListener("DOMContentLoaded", () => {
-    const ALGOLIA_APP_ID = "DRTSPIHOUM";
-    const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
-    const ALGOLIA_INDEX_NAME = "elsee_index";
+window.addEventListener("DOMContentLoaded", () => {
+  const ALGOLIA_APP_ID = "DRTSPIHOUM";
+  const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
+  const ALGOLIA_INDEX_NAME = "elsee_index";
 
-    // état front
-    const selectedFacetTags = new Set();
-    const selectedJobTags = [];
-    let isNetworkSelected = false;
-    let isRemoteSelected = false;
-    let isAtHomeSelected = false;
-    let speExpanded = false;
-    let prestaExpanded = false;
-    let jobExpanded = false;
-    let currentGeoFilter = null;
-    let searchInstance = null;
+  const selectedFacetTags = new Set();
+  const selectedJobTags = [];
+  let isNetworkSelected = false;
+  let isRemoteSelected = false;
+  let isAtHomeSelected = false;
+  let speExpanded = false;
+  let prestaExpanded = false;
+  let jobExpanded = false;
+  let currentGeoFilter = null;
+  let searchInstance = null;
 
-    function initAlgolia() {
-      if (typeof algoliasearch === "undefined" || typeof instantsearch === "undefined") {
-        setTimeout(initAlgolia, 200);
-        return;
+  function initAlgolia() {
+    if (
+      typeof algoliasearch === "undefined" ||
+      typeof instantsearch === "undefined"
+    ) {
+      setTimeout(initAlgolia, 200);
+      return;
+    }
+
+    const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
+
+    const search = instantsearch({
+      indexName: ALGOLIA_INDEX_NAME,
+      searchClient,
+    });
+
+    searchInstance = search;
+
+    function truncate(str, max) {
+      if (!str) return "";
+      return str.length > max ? str.slice(0, max) + "..." : str;
+    }
+
+    function toArray(v) {
+      if (!v) return [];
+      if (Array.isArray(v)) return v;
+      return [v];
+    }
+
+    function isTherapeute(hit) {
+      const t = (hit.type || "").trim().toLowerCase();
+      return t === "thérapeute" || t === "therapeute";
+    }
+
+    function buildFiltersStringFromJobsAndBooleans() {
+      const parts = [];
+
+      // métiers (OR dans mainjob / jobs, ET entre les métiers)
+      if (selectedJobTags.length > 0) {
+        const jobParts = selectedJobTags.map((job) => {
+          const safe = job.replace(/"/g, '\\"');
+          return `(mainjob:"${safe}" OR jobs:"${safe}")`;
+        });
+        // AND entre les jobs sélectionnés
+        parts.push(jobParts.join(" AND "));
       }
 
-      const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
-
-      const search = instantsearch({
-        indexName: ALGOLIA_INDEX_NAME,
-        searchClient,
-      });
-
-      searchInstance = search;
-
-      function truncate(str, max) {
-        if (!str) return "";
-        return str.length > max ? str.slice(0, max) + "..." : str;
+      // booléens
+      if (isNetworkSelected) {
+        parts.push("is_elsee_network:true");
+      }
+      if (isRemoteSelected) {
+        parts.push("is_remote:true");
+      }
+      if (isAtHomeSelected) {
+        parts.push("is_at_home:true");
       }
 
-      function toArray(v) {
-        if (!v) return [];
-        if (Array.isArray(v)) return v;
-        return [v];
+      // on AND tout ça
+      const finalStr = parts.join(" AND ");
+      return finalStr.length ? finalStr : undefined;
+    }
+
+    function updateUrlFromState(state) {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+
+      const query = state.query || "";
+      if (query.trim() !== "") {
+        params.set("q", query.trim());
+      } else {
+        params.delete("q");
       }
 
-      function isTherapeute(hit) {
-        const t = (hit.type || "").trim().toLowerCase();
-        return t === "thérapeute" || t === "therapeute";
+      const facetRef = state.facetsRefinements || {};
+      const disjRef = state.disjunctiveFacetsRefinements || {};
+
+      const typeRef =
+        (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) ||
+        [];
+      const speRef =
+        (disjRef.specialities && disjRef.specialities.length
+          ? disjRef.specialities
+          : facetRef.specialities) || [];
+      const prestaRef =
+        (facetRef.prestations && facetRef.prestations.length
+          ? facetRef.prestations
+          : []) || [];
+
+      if (typeRef.length > 0) {
+        params.set("type", typeRef.join(","));
+      } else {
+        params.delete("type");
       }
 
-      // met l'état de recherche dans l’URL
-      function updateUrlFromState(state) {
-        if (typeof window === "undefined") return;
-        const params = new URLSearchParams(window.location.search);
+      if (speRef.length > 0) {
+        params.set("specialities", speRef.join(","));
+      } else {
+        params.delete("specialities");
+      }
 
-        const query = state.query || "";
-        if (query.trim() !== "") {
-          params.set("q", query.trim());
-        } else {
-          params.delete("q");
-        }
+      if (prestaRef.length > 0) {
+        params.set("prestations", prestaRef.join(","));
+      } else {
+        params.delete("prestations");
+      }
 
-        const facetRef = state.facetsRefinements || {};
-        const disjRef = state.disjunctiveFacetsRefinements || {};
+      if (selectedJobTags.length > 0) {
+        params.set("jobs", selectedJobTags.join(","));
+      } else {
+        params.delete("jobs");
+      }
 
-        const typeRef =
-          (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) || [];
-        const speRef =
-          (disjRef.specialities && disjRef.specialities.length
-            ? disjRef.specialities
-            : facetRef.specialities) || [];
-        const prestaRef =
-          (facetRef.prestations && facetRef.prestations.length
-            ? facetRef.prestations
-            : []) || [];
-
-        if (typeRef.length > 0) {
-          params.set("type", typeRef.join(","));
+      if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
+        params.set("geo", `${currentGeoFilter.lat},${currentGeoFilter.lng}`);
+        if (currentGeoFilter.label) {
+          params.set("geolabel", encodeURIComponent(currentGeoFilter.label));
         } else {
-          params.delete("type");
-        }
-
-        if (speRef.length > 0) {
-          params.set("specialities", speRef.join(","));
-        } else {
-          params.delete("specialities");
-        }
-
-        if (prestaRef.length > 0) {
-          params.set("prestations", prestaRef.join(","));
-        } else {
-          params.delete("prestations");
-        }
-
-        // jobs (on garde notre logique OR mainjob/jobs)
-        if (selectedJobTags.length > 0) {
-          params.set("jobs", selectedJobTags.join(","));
-        } else {
-          params.delete("jobs");
-        }
-
-        // filtres booleans
-        if (isNetworkSelected) {
-          params.set("network", "true");
-        } else {
-          params.delete("network");
-        }
-        if (isRemoteSelected) {
-          params.set("remote", "true");
-        } else {
-          params.delete("remote");
-        }
-        if (isAtHomeSelected) {
-          params.set("athome", "true");
-        } else {
-          params.delete("athome");
-        }
-
-        // discount (on regarde ce qui est coché en front)
-        const discountSelected = Array.from(selectedFacetTags)
-          .filter((k) => k.startsWith("reimbursment_percentage:::"))
-          .map((k) => k.split(":::")[1]);
-        if (discountSelected.length > 0) {
-          params.set("discount", discountSelected.join(","));
-        } else {
-          params.delete("discount");
-        }
-
-        // geo
-        if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
-          params.set("geo", `${currentGeoFilter.lat},${currentGeoFilter.lng}`);
-          if (currentGeoFilter.label) {
-            params.set("geolabel", encodeURIComponent(currentGeoFilter.label));
-          } else {
-            params.delete("geolabel");
-          }
-        } else {
-          params.delete("geo");
           params.delete("geolabel");
         }
-
-        const newUrl = `${window.location.pathname}${
-          params.toString() ? "?" + params.toString() : ""
-        }`;
-        window.history.replaceState({}, "", newUrl);
+      } else {
+        params.delete("geo");
+        params.delete("geolabel");
       }
 
-      const dynamicSuggestionsWidget = {
-        render({ results }) {
-          if (!results) return;
+      if (isNetworkSelected) {
+        params.set("network", "true");
+      } else {
+        params.delete("network");
+      }
+      if (isRemoteSelected) {
+        params.set("remote", "true");
+      } else {
+        params.delete("remote");
+      }
+      if (isAtHomeSelected) {
+        params.set("athome", "true");
+      } else {
+        params.delete("athome");
+      }
 
-          const typeWrapper = document.getElementById("tags_autocomplete_type");
-          const speWrapper = document.getElementById("tags_autocomplete_spe");
-          const speFilterWrapper = document.getElementById("spe_filtre");
-          const prestaFilterWrapper = document.getElementById("presta_filtre");
-          const jobFilterWrapper = document.getElementById("job_filtre");
-          const labelFilterWrapper = document.getElementById("label-filter");
-          const remoteFilterWrapper = document.getElementById("works-remotely-filter");
-          const atHomeFilterWrapper = document.getElementById("works-at-home-filter");
-          const discountFilterWrapper = document.getElementById("discount-tags");
+      const newUrl = `${window.location.pathname}${
+        params.toString() ? "?" + params.toString() : ""
+      }`;
+      window.history.replaceState({}, "", newUrl);
+    }
 
-          if (!typeWrapper || !speWrapper) return;
+    const dynamicSuggestionsWidget = {
+      render({ results }) {
+        if (!results) return;
 
-          typeWrapper.classList.add("directory_suggestions_tags_wrapper");
-          speWrapper.classList.add("directory_suggestions_tags_wrapper");
+        const typeWrapper = document.getElementById("tags_autocomplete_type");
+        const speWrapper = document.getElementById("tags_autocomplete_spe");
+        const speFilterWrapper = document.getElementById("spe_filtre");
+        const prestaFilterWrapper = document.getElementById("presta_filtre");
+        const jobFilterWrapper = document.getElementById("job_filtre");
+        const labelFilterWrapper = document.getElementById("label-filter");
+        const remoteFilterWrapper = document.getElementById(
+          "works-remotely-filter"
+        );
+        const atHomeFilterWrapper = document.getElementById(
+          "works-at-home-filter"
+        );
+        const discountFilterWrapper = document.getElementById("discount-tags");
 
-          // TYPES
-          let typeFacetValues = results.getFacetValues("type", {
-            sortBy: ["count:desc", "name:asc"],
-          });
-          if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
+        if (!typeWrapper || !speWrapper) return;
 
-          const typeHtml = typeFacetValues
+        typeWrapper.classList.add("directory_suggestions_tags_wrapper");
+        speWrapper.classList.add("directory_suggestions_tags_wrapper");
+
+        // TYPES
+        let typeFacetValues = results.getFacetValues("type", {
+          sortBy: ["count:desc", "name:asc"],
+        });
+        if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
+
+        const typeHtml = typeFacetValues
+          .filter((fv) => fv && fv.name)
+          .map((fv) => {
+            const key = `type:::${fv.name}`;
+            const isSelected = selectedFacetTags.has(key);
+            if (fv.count === 0 && !isSelected) return "";
+            return `
+              <div class="directory_suggestions_tag is-type ${
+                isSelected ? "is-selected" : ""
+              }"
+                   data-facet-name="type"
+                   data-facet-value="${fv.name}">
+                ${fv.name}
+              </div>
+            `;
+          })
+          .join("");
+        typeWrapper.innerHTML = typeHtml;
+
+        // TYPES ALT BLOCK
+        const typesAltWrapper = document.getElementById("directory_types");
+        if (typesAltWrapper) {
+          const hasTypeSelected = Array.from(selectedFacetTags).some((k) =>
+            k.startsWith("type:::")
+          );
+          let altHtml = `
+            <div class="directory_category_tag_wrapper ${
+              hasTypeSelected ? "" : "is-selected"
+            }"
+                 data-facet-name="type"
+                 data-facet-value="__ALL_TYPES__">
+              Toutes les catégories
+            </div>
+          `;
+          altHtml += typeFacetValues
             .filter((fv) => fv && fv.name)
             .map((fv) => {
               const key = `type:::${fv.name}`;
               const isSelected = selectedFacetTags.has(key);
-              if (fv.count === 0 && !isSelected) return "";
+              const label = `Les ${fv.name.toLowerCase()}`;
               return `
-                <div class="directory_suggestions_tag is-type ${
+                <div class="directory_category_tag_wrapper ${
                   isSelected ? "is-selected" : ""
                 }"
                      data-facet-name="type"
                      data-facet-value="${fv.name}">
-                  ${fv.name}
+                  ${label}
                 </div>
               `;
             })
             .join("");
-          typeWrapper.innerHTML = typeHtml;
-
-          // TYPES ALT BLOCK
-          const typesAltWrapper = document.getElementById("directory_types");
-          if (typesAltWrapper) {
-            const hasTypeSelected = Array.from(selectedFacetTags).some((k) =>
-              k.startsWith("type:::")
-            );
-            let altHtml = `
-              <div class="directory_category_tag_wrapper ${
-                hasTypeSelected ? "" : "is-selected"
-              }"
-                   data-facet-name="type"
-                   data-facet-value="__ALL_TYPES__">
-                Toutes les catégories
-              </div>
-            `;
-            altHtml += typeFacetValues
-              .filter((fv) => fv && fv.name)
-              .map((fv) => {
-                const key = `type:::${fv.name}`;
-                const isSelected = selectedFacetTags.has(key);
-                const label = `Les ${fv.name.toLowerCase()}`;
-                return `
-                  <div class="directory_category_tag_wrapper ${
-                    isSelected ? "is-selected" : ""
-                  }"
-                       data-facet-name="type"
-                       data-facet-value="${fv.name}">
-                    ${label}
-                  </div>
-                `;
-              })
-              .join("");
-            typesAltWrapper.innerHTML = altHtml;
-          }
-
-          // SPECIALITIES AUTOCOMPLETE
-          let speFacetValues = results.getFacetValues("specialities", {
-            sortBy: ["count:desc", "name:asc"],
-          });
-          if (!Array.isArray(speFacetValues)) speFacetValues = [];
-
-          const selectedSpe = Array.from(selectedFacetTags)
-            .filter((k) => k.startsWith("specialities:::"))
-            .map((k) => k.split(":::")[1]);
-
-          const seen = new Set();
-          const speBlocks = [];
-
-          selectedSpe.forEach((value) => {
-            seen.add(value);
-            speBlocks.push({ name: value, count: null, selected: true });
-          });
-
-          for (const fv of speFacetValues) {
-            if (!fv || !fv.name) continue;
-            if (seen.has(fv.name)) continue;
-            if (speBlocks.length >= 10) break;
-            if (fv.count === 0) continue;
-            speBlocks.push({ name: fv.name, count: fv.count, selected: false });
-            seen.add(fv.name);
-          }
-
-          const speHtml = speBlocks
-            .map((item) => {
-              const key = `specialities:::${item.name}`;
-              const isSelected = selectedFacetTags.has(key);
-              return `
-                <div class="directory_suggestions_tag ${
-                  isSelected ? "is-selected" : ""
-                }"
-                     data-facet-name="specialities"
-                     data-facet-value="${item.name}">
-                  ${item.name}
-                </div>
-              `;
-            })
-            .join("");
-          speWrapper.innerHTML = speHtml;
-
-          // SPECIALITIES ALT BLOCK
-          if (speFilterWrapper) {
-            const maxToShow = speExpanded ? speFacetValues.length : 6;
-            const speListHtml = speFacetValues
-              .filter((fv) => fv && fv.name)
-              .slice(0, maxToShow)
-              .map((fv) => {
-                const key = `specialities:::${fv.name}`;
-                const isSelected = selectedFacetTags.has(key);
-                return `<div class="directory_category_tag_wrapper ${
-                  isSelected ? "is-selected" : ""
-                }" data-facet-name="specialities" data-facet-value="${
-                  fv.name
-                }">${fv.name}</div>`;
-              })
-              .join("");
-            speFilterWrapper.innerHTML = speListHtml;
-            const moreSpeBtn = document.getElementById("more-spe");
-            if (moreSpeBtn) {
-              moreSpeBtn.textContent = speExpanded
-                ? "En voir moins"
-                : "Voir toutes les spécialités";
-            }
-          }
-
-          // PRESTATIONS ALT BLOCK
-          if (prestaFilterWrapper) {
-            let prestaFacetValues = results.getFacetValues("prestations", {
-              sortBy: ["count:desc", "name:asc"],
-            });
-            if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
-            const maxToShowPresta = prestaExpanded
-              ? prestaFacetValues.length
-              : 6;
-            const prestaListHtml = prestaFacetValues
-              .filter((fv) => fv && fv.name)
-              .slice(0, maxToShowPresta)
-              .map((fv) => {
-                const key = `prestations:::${fv.name}`;
-                const isSelected = selectedFacetTags.has(key);
-                return `<div class="directory_category_tag_wrapper ${
-                  isSelected ? "is-selected" : ""
-                }" data-facet-name="prestations" data-facet-value="${
-                  fv.name
-                }">${fv.name}</div>`;
-              })
-              .join("");
-            prestaFilterWrapper.innerHTML = prestaListHtml;
-            const morePrestaBtn = document.getElementById("more-presta");
-            if (morePrestaBtn) {
-              morePrestaBtn.textContent = prestaExpanded
-                ? "En voir moins"
-                : "Voir tous les services";
-            }
-          }
-
-          // JOBS (fusion mainjob + jobs)
-          if (jobFilterWrapper) {
-            let mainFacetValues = results.getFacetValues("mainjob", {
-              sortBy: ["count:desc", "name:asc"],
-            });
-            let jobFacetValues = results.getFacetValues("jobs", {
-              sortBy: ["count:desc", "name:asc"],
-            });
-            if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
-            if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
-
-            const merged = new Map();
-            mainFacetValues.forEach((fv) => {
-              if (!fv || !fv.name) return;
-              merged.set(fv.name, {
-                name: fv.name,
-                mainCount: fv.count || 0,
-                jobCount: 0,
-              });
-            });
-            jobFacetValues.forEach((fv) => {
-              const nameRaw = fv && fv.name ? fv.name.trim() : "";
-              if (!nameRaw) return;
-              if (merged.has(nameRaw)) {
-                const cur = merged.get(nameRaw);
-                cur.jobCount = fv.count || 0;
-              } else {
-                merged.set(nameRaw, {
-                  name: nameRaw,
-                  mainCount: 0,
-                  jobCount: fv.count || 0,
-                });
-              }
-            });
-
-            const mergedArr = Array.from(merged.values()).sort((a, b) => {
-              if (b.mainCount !== a.mainCount) return b.mainCount - a.mainCount;
-              return b.jobCount - a.jobCount;
-            });
-
-            const maxToShowJob = jobExpanded ? mergedArr.length : 6;
-            const jobListHtml = mergedArr
-              .slice(0, maxToShowJob)
-              .map((item) => {
-                const cleanName = (item.name || "").trim();
-                const key = `jobs:::${cleanName}`;
-                const isSelected =
-                  selectedFacetTags.has(key) ||
-                  selectedJobTags.includes(cleanName);
-                return `<div class="directory_category_tag_wrapper ${
-                  isSelected ? "is-selected" : ""
-                }" data-facet-name="jobs" data-facet-value="${cleanName}">${
-                  cleanName
-                }</div>`;
-              })
-              .join("");
-            jobFilterWrapper.innerHTML = jobListHtml;
-            const moreJobBtn = document.getElementById("more-job");
-            if (moreJobBtn) {
-              moreJobBtn.textContent = jobExpanded
-                ? "En voir moins"
-                : "Voir tous les métiers";
-            }
-          }
-
-          // BOOLEAN : réseau
-          if (labelFilterWrapper) {
-            labelFilterWrapper.innerHTML = `
-              <div class="directory_category_tag_wrapper ${
-                isNetworkSelected ? "is-selected" : ""
-              }" data-boolean-filter="is_elsee_network">
-                <span class="directory_option_icon">
-                  <svg width="auto" height="auto" viewBox="0 0 25 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M23.984 17.5351L23.8018 17.3529C23.644 17.1937 23.3902 17.178 23.2152 17.32C21.8196 18.4516 20.2132 19.0167 18.393 19.0167C16.8483 19.0167 15.5201 18.509 14.41 17.4921C13.3973 16.567 12.6558 15.3435 12.1825 13.8231C12.1065 13.5778 12.2556 13.3197 12.5052 13.2594C14.4272 12.8062 16.091 12.34 17.498 11.8624C19.0155 11.3475 20.249 10.7853 21.1971 10.1757C22.1466 9.56609 22.8451 8.89483 23.2912 8.16333C23.7387 7.4304 23.9624 6.63149 23.9624 5.76517C23.9624 4.30074 23.3385 3.12891 22.0921 2.24824C20.8457 1.36758 19.2063 0.927246 17.1739 0.927246C15.7094 0.927246 14.354 1.17825 13.1076 1.67882C11.8612 2.18083 10.7912 2.87791 9.89618 3.77292C9.00261 4.66792 8.29693 5.72358 7.78345 6.94274C7.26853 8.16333 7.01035 9.4915 7.01035 10.9272V10.933C7.01035 11.2055 7.26136 11.4092 7.53101 11.3618C8.78459 11.1395 10.0511 10.9287 11.2344 10.6533C11.4381 10.606 11.5786 10.4195 11.5729 10.2101C11.5672 10.0451 11.5643 9.87733 11.5643 9.70809C11.5643 8.5965 11.6919 7.59391 11.9501 6.6989C12.2069 5.80533 12.5654 5.03224 13.0273 4.3825C13.4877 3.73132 14.0356 3.23075 14.6739 2.87791C15.3093 2.5265 16.0078 2.35008 16.7665 2.35008C17.716 2.35008 18.4604 2.62116 19.0026 3.16333C19.5448 3.7055 19.8159 4.42266 19.8159 5.31767C19.8159 7.31709 18.601 8.98089 16.1742 10.3091C16.1612 10.3162 16.1498 10.3248 16.1383 10.3334C15.8055 10.5715 15.1242 10.8986 13.9237 11.3432C13.8334 11.3762 13.7387 11.4063 13.6469 11.4393L13.6426 11.4422C13.5824 11.4637 13.5207 11.4823 13.4604 11.5024C13.4203 11.5167 13.3801 11.5297 13.34 11.5426C12.9613 11.6673 12.5812 11.7835 12.2011 11.8882C12.0448 11.9341 11.8884 11.98 11.7264 12.0245L11.7249 12.0159C6.89131 13.2451 2.14661 12.9338 0.111328 12.7072C1.45671 13.1705 5.65063 13.661 7.08494 13.8217C9.05711 17.3773 11.963 19.7755 13.1693 20.2359C15.6549 20.9272 19.8288 20.6633 21.0766 20.1341C22.1853 19.6651 23.1549 19.0067 23.9854 18.1605Z" fill="currentColor"/>
-                  </svg>
-                </span>
-                <span>Membres réseaux</span>
-              </div>
-            `;
-          }
-
-          // BOOLEAN : visio
-          if (remoteFilterWrapper) {
-            remoteFilterWrapper.innerHTML = `
-              <div class="directory_category_tag_wrapper ${
-                isRemoteSelected ? "is-selected" : ""
-              }" data-boolean-filter="is_remote">
-                <span class="directory_option_icon">
-                  <svg width="auto" height="auto" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M0 10.5697C0 4.73221 4.5667 0 10.2 0C15.8333 0 20.4 4.73222 20.4 10.5697V14.4485C20.4 14.9305 20.0229 15.3212 19.5578 15.3212C19.0927 15.3212 18.7156 14.9305 18.7156 14.4485V10.5697C18.7156 5.6962 14.903 1.74545 10.2 1.74545C5.49697 1.74545 1.6844 5.6962 1.6844 10.5697V14.4485C1.6844 14.9305 1.30734 15.3212 0.842202 15.3212C0.377067 15.3212 0 14.9305 0 14.4485V10.5697ZM2.80734 12.9939C2.80734 11.1731 4.23181 9.69697 5.98899 9.69697C7.74617 9.69697 9.17064 11.1731 9.17064 12.9939V15.903C9.17064 17.7239 7.74617 19.2 5.98899 19.2C4.23181 19.2 2.80734 17.7239 2.80734 15.903V12.9939ZM5.98899 11.4424C5.16208 11.4424 4.49174 12.1371 4.49174 12.9939V15.903C4.49174 16.7599 5.16208 17.4545 5.98899 17.4545C6.8159 17.4545 7.48624 16.7599 7.48624 15.903V12.9939C7.48624 12.1371 6.8159 11.4424 5.98899 11.4424ZM11.2294 12.9939C11.2294 11.1731 12.6538 9.69697 14.411 9.69697C16.1682 9.69697 17.5927 11.1731 17.5927 12.9939V15.903C17.5927 17.7239 16.1682 19.2 14.411 19.2C12.6538 19.2 11.2294 17.7239 11.2294 15.903V12.9939ZM14.411 11.4424C13.5841 11.4424 12.9138 12.1371 12.9138 12.9939V15.903C12.9138 16.7599 13.5841 17.4545 14.411 17.4545C15.2379 17.4545 15.9083 16.7599 15.9083 15.903V12.9939C15.9083 12.1371 15.2379 11.4424 14.411 11.4424Z" fill="currentColor"/>
-                  </svg>
-                </span>
-                <span>Travail en visio</span>
-              </div>
-            `;
-          }
-
-          // BOOLEAN : domicile
-          if (atHomeFilterWrapper) {
-            atHomeFilterWrapper.innerHTML = `
-              <div class="directory_category_tag_wrapper ${
-                isAtHomeSelected ? "is-selected" : ""
-              }" data-boolean-filter="is_at_home">
-                <span class="directory_option_icon">
-                  <svg width="auto" height="auto" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M9.72983 1.95795C9.655 1.90735 9.545 1.90735 9.47017 1.95795L1.98217 7.02182C1.9314 7.05615 1.92 7.09646 1.92 7.11941V16.5967C1.92 16.9292 2.21782 17.28 2.688 17.28H16.512C16.9822 17.28 17.28 16.9292 17.28 16.5967V7.11941C17.28 7.09646 17.2686 7.05615 17.2178 7.02182L9.72983 1.95795ZM8.39461 0.367496C9.11917 -0.1225 10.0808 -0.122498 10.8054 0.367497L18.2934 5.43136C18.8504 5.80805 19.2 6.43312 19.2 7.11941V16.5967C19.2 18.0793 17.9505 19.2 16.512 19.2H2.688C1.24948 19.2 0 18.0793 0 16.5967V7.11941C0 6.43312 0.349589 5.80805 0.906605 5.43136L8.39461 0.367496Z" fill="currentColor"/>
-                  </svg>
-                </span>
-                <span>Se déplace à domicile</span>
-              </div>
-            `;
-          }
-
-          // DISCOUNT FILTER
-          if (discountFilterWrapper) {
-            let discFacetValues = results.getFacetValues("reimbursment_percentage", {
-              sortBy: ["name:asc"],
-            });
-            if (!Array.isArray(discFacetValues)) discFacetValues = [];
-            const cleaned = discFacetValues
-              .filter((fv) => fv && fv.name)
-              .map((fv) => ({
-                name: fv.name,
-                num: Number(fv.name),
-              }))
-              .sort((a, b) => a.num - b.num);
-
-            const discHtml = cleaned
-              .map((item) => {
-                const key = `reimbursment_percentage:::${item.name}`;
-                const isSelected = selectedFacetTags.has(key);
-                return `<div class="directory_card_discount_tag ${
-                  isSelected ? "is-selected" : ""
-                }" data-facet-name="reimbursment_percentage" data-facet-value="${
-                  item.name
-                }">${item.name} %</div>`;
-              })
-              .join("");
-
-            discountFilterWrapper.innerHTML = discHtml;
-          }
-        },
-      };
-
-      search.addWidgets([
-        instantsearch.widgets.configure({
-          facets: [
-            "specialities",
-            "prestations",
-            "mainjob",
-            "jobs",
-            "reimbursment_percentage",
-          ],
-          disjunctiveFacets: ["type"],
-          hitsPerPage: 48,
-        }),
-
-        instantsearch.widgets.searchBox({
-          container: "#searchbox",
-          placeholder:
-            "Écrivez ici tout ce qui concerne vos besoins: Spécialité, trouble, praticien...",
-          cssClasses: {
-            root: "directory_search_field_container",
-            input: "directory_search_text",
-          },
-        }),
-
-        instantsearch.widgets.stats({
-          container: "#search_count",
-          templates: {
-            text(data) {
-              if (data.nbHits === 0) return "0 résultat";
-              if (data.nbHits === 1) return "1 résultat";
-              return data.nbHits + " résultats";
-            },
-          },
-        }),
-
-        instantsearch.widgets.infiniteHits({
-          container: "#hits",
-          hitsPerPage: 48,
-          showMore: true,
-          showMoreText: "Afficher plus de résultat",
-          cssClasses: {
-            loadMore: "directory_show_more_button",
-          },
-          transformItems(items) {
-            // réseau d’abord
-            return items.slice().sort((a, b) => {
-              const aNet = a.is_elsee_network ? 1 : 0;
-              const bNet = b.is_elsee_network ? 1 : 0;
-              if (aNet !== bNet) return bNet - aNet;
-              return 0;
-            });
-          },
-          templates: {
-            item(hit) {
-              const photoUrl = hit.photo_url || "";
-              const isNetwork = !!hit.is_elsee_network;
-              const isRemote = !!hit.is_remote;
-              const isAtHome = !!hit.is_at_home;
-              const reimbursement = hit.reimbursment_percentage ?? "";
-              const name = hit.name || "";
-              const city = hit.city || "";
-              const depNum = hit.department_number || "";
-              const url = hit.url || "#";
-              const showSearch = hit.show_search !== false;
-              const showHome = !!hit.show_home;
-              const source = hit.source_collection || "";
-              const isSport =
-                source === "sports_studio" || source === "studio_enfant";
-              const therapeute = isTherapeute(hit);
-
-              const remoteSvg =
-                document.querySelector(".directory_remote_icon")?.innerHTML || "";
-              const atHomeSvg =
-                document.querySelector(".directory_at_home_icon")?.innerHTML || "";
-              const discountSvg =
-                document.querySelector(".directory_discount_icon")?.innerHTML || "";
-              const locationSvg =
-                document.querySelector(".directory_card_location_icon")
-                  ?.innerHTML || "";
-
-              const photoDiv = `
-                <div class="directory_card_photo_container">
-                  <div class="directory_card_photo${
-                    isNetwork ? " is-label" : ""
-                  }"
-                       style="${
-                         photoUrl
-                           ? `background-image:url('${photoUrl}');background-size:cover;background-position:center;`
-                           : ""
-                       }">
-                    <div class="directory_card_label_tag" style="display:${
-                      isNetwork ? "flex" : "none"
-                    };">
-                      <img src="https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/65a65b49a0e66151845cad61_mob_menu_logo_dark_green.svg" loading="lazy" alt="" class="directory_card_label_tag_logo">
-                    </div>
-                  </div>
-                </div>
-              `;
-
-              const remoteIcon = `
-                <div class="directory_remote_icon" style="display:${
-                  isRemote ? "block" : "none"
-                };">
-                  ${remoteSvg}
-                  <div class="tooltip">Consultation en visio</div>
-                </div>
-              `;
-
-              const atHomeIcon = `
-                <div class="directory_at_home_icon" style="display:${
-                  isAtHome ? "block" : "none"
-                };">
-                  ${atHomeSvg}
-                  <div class="tooltip">Se déplace à votre domicile</div>
-                </div>
-              `;
-
-              const showDiscount = !therapeute;
-              const discountDiv = `
-                <div class="directory_card_discount_tag" style="display:${
-                  showDiscount ? "flex" : "none"
-                };">
-                  <div class="directory_discount_icon">${discountSvg}</div>
-                  <div>${reimbursement !== "" ? reimbursement + "%" : ""}</div>
-                </div>
-              `;
-
-              const titleDiv = `<div class="directory_card_title"><div>${name}</div></div>`;
-
-              const prestationsArr = toArray(hit.prestations);
-              const specialitiesArr = toArray(hit.specialities);
-              let partnerDetails1 = "";
-              if (therapeute) {
-                partnerDetails1 = hit.mainjob || "";
-              } else {
-                if (prestationsArr.length > 0) {
-                  partnerDetails1 = prestationsArr.join(", ");
-                } else {
-                  if (specialitiesArr.length > 3) {
-                    const visibleSpecialities = specialitiesArr
-                      .slice(0, 3)
-                      .join(", ");
-                    const extraSpecialities = specialitiesArr.slice(3);
-                    const extraCount = extraSpecialities.length;
-                    const tooltipContent = extraSpecialities
-                      .map((s) => `<div>${s}</div>`)
-                      .join("");
-                    partnerDetails1 = `${visibleSpecialities}, <span class="directory_card_more_specialities"><span class="directory_remote_icon">+${extraCount}<div class="tooltip">${tooltipContent}</div></span></span>`;
-                  } else {
-                    partnerDetails1 = specialitiesArr.join(", ");
-                  }
-                }
-              }
-
-              const partnerDetails1Div = `<div class="directory_card_partner_details_1"><div>${partnerDetails1}</div></div>`;
-
-              let partnerDetails2Html = "";
-              if (therapeute) {
-                const jobsTxt = toArray(hit.jobs).join(", ");
-                partnerDetails2Html = `<div class="directory_card_partner_details_2"><div>${jobsTxt}</div></div>`;
-              } else {
-                const shortTxt = truncate(hit.short_desc || "", 70);
-                partnerDetails2Html = `<div class="directory_card_partner_details_2"><div class="directory_card_partner_short_desc">${shortTxt}</div></div>`;
-              }
-
-              let showLocation = true;
-              if (isSport && showHome === true) showLocation = false;
-              if (!showSearch) showLocation = false;
-              if (!city && !depNum) showLocation = false;
-
-              const locationText =
-                therapeute || isSport
-                  ? `${city}${depNum ? " (" + depNum + ")" : ""}`
-                  : city;
-
-              const locationDiv = `
-                <div class="directory_card_partner_location" style="display:${
-                  showLocation ? "flex" : "none"
-                };">
-                  <div class="directory_card_location_icon">${locationSvg}</div>
-                  <div class="directory_card_location_text"><div>${locationText}</div></div>
-                </div>
-              `;
-
-              let tagItems = [];
-              if (therapeute) {
-                tagItems = toArray(hit.prestations).slice(0, 2);
-              } else {
-                tagItems = toArray(hit.specialities).slice(0, 2);
-              }
-
-              const prestasHtml = tagItems
-                .map(
-                  (p) =>
-                    `<div class="directory_card_prestation_tag"><div>${p}</div></div>`
-                )
-                .join("");
-
-              const prestationsDiv = `<div class="directory_card_prestations_container">${prestasHtml}</div>`;
-
-              return `
-                <li class="directory_card_container">
-                  <a href="${url}" class="directory_card_body">
-                    <div class="directory_card_upper_container">
-                      <div class="directory_card_header">
-                        ${photoDiv}
-                        <div class="directory_card_options_container">
-                          ${remoteIcon}
-                          ${atHomeIcon}
-                          ${discountDiv}
-                        </div>
-                      </div>
-                      ${titleDiv}
-                      ${partnerDetails1Div}
-                      ${partnerDetails2Html}
-                    </div>
-                    ${locationDiv}
-                    ${prestationsDiv}
-                  </a>
-                </li>
-              `;
-            },
-            empty: `<div>Aucun résultat trouvé.</div>`,
-          },
-        }),
-
-        dynamicSuggestionsWidget,
-      ]);
-
-      search.start();
-
-      // RENDER global
-      search.on("render", () => {
-        renderClearButton();
-
-        if (search.helper && search.helper.state) {
-          updateUrlFromState(search.helper.state);
+          typesAltWrapper.innerHTML = altHtml;
         }
 
-        const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
-        const buttons = document.querySelectorAll(
-          ".ais-InfiniteHits-loadMore, .directory_show_more_button"
-        );
-        const domCards = document.querySelectorAll(
-          "#hits .directory_card_container"
-        ).length;
-        const nbHits = renderState?.searchResults?.nbHits;
-        const infiniteResults = renderState?.infiniteHits?.results;
-        const hasMore = infiniteResults
-          ? infiniteResults.nbPages > infiniteResults.page + 1
-          : false;
-
-        buttons.forEach((btn) => {
-          const isDisabledBtn =
-            btn.classList.contains("ais-InfiniteHits-loadMore--disabled") ||
-            btn.hasAttribute("disabled");
-
-          const mustHide =
-            (typeof nbHits === "number" && domCards >= nbHits) ||
-            isDisabledBtn ||
-            !hasMore;
-
-          if (mustHide) {
-            btn.setAttribute("style", "display: none;");
-            btn.classList.add("is-hidden");
-            btn.setAttribute("aria-hidden", "true");
-          } else {
-            btn.setAttribute("style", "display: block;");
-            btn.classList.remove("is-hidden");
-            btn.removeAttribute("aria-hidden");
-          }
+        // SPECIALITIES
+        let speFacetValues = results.getFacetValues("specialities", {
+          sortBy: ["count:desc", "name:asc"],
         });
-      });
+        if (!Array.isArray(speFacetValues)) speFacetValues = [];
 
-      setupSearchDropdown();
-      setupSuggestionClicks();
-      setupTypeBlockClicks();
-      setupSpePrestaBlockClicks();
-      setupJobBlockClicks();
-      setupBooleanFilterClicks();
-      setupDiscountFilterClicks();
+        const selectedSpe = Array.from(selectedFacetTags)
+          .filter((k) => k.startsWith("specialities:::"))
+          .map((k) => k.split(":::")[1]);
+
+        const seen = new Set();
+        const speBlocks = [];
+
+        selectedSpe.forEach((value) => {
+          seen.add(value);
+          speBlocks.push({ name: value, count: null, selected: true });
+        });
+
+        for (const fv of speFacetValues) {
+          if (!fv || !fv.name) continue;
+          if (seen.has(fv.name)) continue;
+          if (speBlocks.length >= 10) break;
+          if (fv.count === 0) continue;
+          speBlocks.push({ name: fv.name, count: fv.count, selected: false });
+          seen.add(fv.name);
+        }
+
+        const speHtml = speBlocks
+          .map((item) => {
+            const key = `specialities:::${item.name}`;
+            const isSelected = selectedFacetTags.has(key);
+            return `
+              <div class="directory_suggestions_tag ${
+                isSelected ? "is-selected" : ""
+              }"
+                   data-facet-name="specialities"
+                   data-facet-value="${item.name}">
+                ${item.name}
+              </div>
+            `;
+          })
+          .join("");
+        speWrapper.innerHTML = speHtml;
+
+        // SPECIALITIES ALT BLOCK
+        if (speFilterWrapper) {
+          const maxToShow = speExpanded ? speFacetValues.length : 6;
+          const speListHtml = speFacetValues
+            .filter((fv) => fv && fv.name)
+            .slice(0, maxToShow)
+            .map((fv) => {
+              const key = `specialities:::${fv.name}`;
+              const isSelected = selectedFacetTags.has(key);
+              return `<div class="directory_category_tag_wrapper ${
+                isSelected ? "is-selected" : ""
+              }" data-facet-name="specialities" data-facet-value="${
+                fv.name
+              }">${fv.name}</div>`;
+            })
+            .join("");
+          speFilterWrapper.innerHTML = speListHtml;
+          const moreSpeBtn = document.getElementById("more-spe");
+          if (moreSpeBtn) {
+            moreSpeBtn.textContent = speExpanded
+              ? "En voir moins"
+              : "Voir toutes les spécialités";
+          }
+        }
+
+        // PRESTATIONS ALT BLOCK
+        if (prestaFilterWrapper) {
+          let prestaFacetValues = results.getFacetValues("prestations", {
+            sortBy: ["count:desc", "name:asc"],
+          });
+          if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
+          const maxToShowPresta = prestaExpanded
+            ? prestaFacetValues.length
+            : 6;
+          const prestaListHtml = prestaFacetValues
+            .filter((fv) => fv && fv.name)
+            .slice(0, maxToShowPresta)
+            .map((fv) => {
+              const key = `prestations:::${fv.name}`;
+              const isSelected = selectedFacetTags.has(key);
+              return `<div class="directory_category_tag_wrapper ${
+                isSelected ? "is-selected" : ""
+              }" data-facet-name="prestations" data-facet-value="${
+                fv.name
+              }">${fv.name}</div>`;
+            })
+            .join("");
+          prestaFilterWrapper.innerHTML = prestaListHtml;
+          const morePrestaBtn = document.getElementById("more-presta");
+          if (morePrestaBtn) {
+            morePrestaBtn.textContent = prestaExpanded
+              ? "En voir moins"
+              : "Voir tous les services";
+          }
+        }
+
+        // JOBS ALT BLOCK (mainjob + jobs → fusion)
+        if (jobFilterWrapper) {
+          let mainFacetValues = results.getFacetValues("mainjob", {
+            sortBy: ["count:desc", "name:asc"],
+          });
+          let jobFacetValues = results.getFacetValues("jobs", {
+            sortBy: ["count:desc", "name:asc"],
+          });
+          if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
+          if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
+
+          const merged = new Map();
+          mainFacetValues.forEach((fv) => {
+            if (!fv || !fv.name) return;
+            merged.set(fv.name, {
+              name: fv.name,
+              mainCount: fv.count || 0,
+              jobCount: 0,
+            });
+          });
+          jobFacetValues.forEach((fv) => {
+            const nameRaw = fv && fv.name ? fv.name.trim() : "";
+            if (!nameRaw) return;
+            if (merged.has(nameRaw)) {
+              const cur = merged.get(nameRaw);
+              cur.jobCount = fv.count || 0;
+            } else {
+              merged.set(nameRaw, {
+                name: nameRaw,
+                mainCount: 0,
+                jobCount: fv.count || 0,
+              });
+            }
+          });
+
+          const mergedArr = Array.from(merged.values()).sort((a, b) => {
+            if (b.mainCount !== a.mainCount) return b.mainCount - a.mainCount;
+            return b.jobCount - a.jobCount;
+          });
+
+          const maxToShowJob = jobExpanded ? mergedArr.length : 6;
+          const jobListHtml = mergedArr
+            .slice(0, maxToShowJob)
+            .map((item) => {
+              const cleanName = (item.name || "").trim();
+              const key = `jobs:::${cleanName}`;
+              const isSelected =
+                selectedFacetTags.has(key) ||
+                selectedJobTags.includes(cleanName);
+              return `<div class="directory_category_tag_wrapper ${
+                isSelected ? "is-selected" : ""
+              }" data-facet-name="jobs" data-facet-value="${cleanName}">${
+                cleanName
+              }</div>`;
+            })
+            .join("");
+          jobFilterWrapper.innerHTML = jobListHtml;
+          const moreJobBtn = document.getElementById("more-job");
+          if (moreJobBtn) {
+            moreJobBtn.textContent = jobExpanded
+              ? "En voir moins"
+              : "Voir tous les métiers";
+          }
+        }
+
+        // BOOLEAN FILTERS
+        if (labelFilterWrapper) {
+          labelFilterWrapper.innerHTML = `
+            <div class="directory_category_tag_wrapper ${
+              isNetworkSelected ? "is-selected" : ""
+            }" data-bool-filter="network">
+              <span class="directory_option_icon">
+                <svg width="auto" height="auto" viewBox="0 0 25 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M23.984 17.5351L23.8018 17.3529C23.644 17.1937 23.3902 17.178 23.2152 17.32C21.8196 18.4516 20.2132 19.0167 18.393 19.0167C16.8483 19.0167 15.5201 18.509 14.41 17.4921C13.3973 16.567 12.6558 15.3435 12.1825 13.8231C12.1065 13.5778 12.2556 13.3197 12.5052 13.2594C14.4272 12.8062 16.091 12.34 17.498 11.8624C19.0155 11.3475 20.249 10.7853 21.1971 10.1757C22.1466 9.56609 22.8451 8.89483 23.2912 8.16333C23.7387 7.4304 23.9624 6.63149 23.9624 5.76517C23.9624 4.30074 23.3385 3.12891 22.0921 2.24824C20.8457 1.36758 19.2063 0.927246 17.1739 0.927246C15.7094 0.927246 14.354 1.17825 13.1076 1.67882C11.8612 2.18083 10.7912 2.87791 9.89618 3.77292C9.00261 4.66792 8.29693 5.72358 7.78345 6.94274C7.26853 8.16333 7.01035 9.4915 7.01035 10.9272V10.933C7.01035 11.2055 7.26136 11.4092 7.53101 11.3618C8.78459 11.1395 10.0511 10.9287 11.2344 10.6533C11.4381 10.606 11.5786 10.4195 11.5729 10.2101C11.5672 10.0451 11.5643 9.87733 11.5643 9.70809C11.5643 8.5965 11.6919 7.59391 11.9501 6.6989C12.2069 5.80533 12.5654 5.03224 13.0273 4.3825C13.4877 3.73132 14.0356 3.23075 14.6739 2.87791C15.3093 2.5265 16.0078 2.35008 16.7665 2.35008C17.716 2.35008 18.4604 2.62116 19.0026 3.16333C19.5448 3.7055 19.8159 4.42266 19.8159 5.31767C19.8159 7.31709 18.601 8.98089 16.1742 10.3091C16.1612 10.3162 16.1498 10.3248 16.1383 10.3334C15.8055 10.5715 15.1242 10.8986 13.9237 11.3432C13.8334 11.3762 13.7387 11.4063 13.6469 11.4393L13.6426 11.4422C13.5824 11.4637 13.5207 11.4823 13.4604 11.5024C13.4203 11.5167 13.3801 11.5297 13.34 11.5426C12.9613 11.6673 12.5812 11.7835 12.2011 11.8882C12.0448 11.9341 11.8884 11.98 11.7264 12.0245L11.7249 12.0159C6.89131 13.2451 2.14661 12.9338 0.111328 12.7072C1.45671 13.1705 5.65063 13.661 7.08494 13.8217C9.05711 17.3773 11.963 19.7755 13.1693 20.2359C15.6549 20.9272 19.8288 20.6633 21.0766 20.1341C22.1853 19.6651 23.1549 19.0067 23.9854 18.1605Z" fill="currentColor"/>
+                </svg>
+              </span>
+              <span>Membres réseaux</span>
+            </div>
+          `;
+        }
+
+        if (remoteFilterWrapper) {
+          remoteFilterWrapper.innerHTML = `
+            <div class="directory_category_tag_wrapper ${
+              isRemoteSelected ? "is-selected" : ""
+            }" data-bool-filter="remote">
+              <span class="directory_option_icon">
+                <svg width="auto" height="auto" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M0 10.5697C0 4.73221 4.5667 0 10.2 0C15.8333 0 20.4 4.73222 20.4 10.5697V14.4485C20.4 14.9305 20.0229 15.3212 19.5578 15.3212C19.0927 15.3212 18.7156 14.9305 18.7156 14.4485V10.5697C18.7156 5.6962 14.903 1.74545 10.2 1.74545C5.49697 1.74545 1.6844 5.6962 1.6844 10.5697V14.4485C1.6844 14.9305 1.30734 15.3212 0.842202 15.3212C0.377067 15.3212 0 14.9305 0 14.4485V10.5697ZM2.80734 12.9939C2.80734 11.1731 4.23181 9.69697 5.98899 9.69697C7.74617 9.69697 9.17064 11.1731 9.17064 12.9939V15.903C9.17064 17.7239 7.74617 19.2 5.98899 19.2C4.23181 19.2 2.80734 17.7239 2.80734 15.903V12.9939ZM5.98899 11.4424C5.16208 11.4424 4.49174 12.1371 4.49174 12.9939V15.903C4.49174 16.7599 5.16208 17.4545 5.98899 17.4545C6.8159 17.4545 7.48624 16.7599 7.48624 15.903V12.9939C7.48624 12.1371 6.8159 11.4424 5.98899 11.4424ZM11.2294 12.9939C11.2294 11.1731 12.6538 9.69697 14.411 9.69697C16.1682 9.69697 17.5927 11.1731 17.5927 12.9939V15.903C17.5927 17.7239 16.1682 19.2 14.411 19.2C12.6538 19.2 11.2294 17.7239 11.2294 15.903V12.9939ZM14.411 11.4424C13.5841 11.4424 12.9138 12.1371 12.9138 12.9939V15.903C12.9138 16.7599 13.5841 17.4545 14.411 17.4545C15.2379 17.4545 15.9083 16.7599 15.9083 15.903V12.9939C15.9083 12.1371 15.2379 11.4424 14.411 11.4424Z" fill="currentColor"/>
+                </svg>
+              </span>
+              <span>Travail en visio</span>
+            </div>
+          `;
+        }
+
+        if (atHomeFilterWrapper) {
+          atHomeFilterWrapper.innerHTML = `
+            <div class="directory_category_tag_wrapper ${
+              isAtHomeSelected ? "is-selected" : ""
+            }" data-bool-filter="athome">
+              <span class="directory_option_icon">
+                <svg width="auto" height="auto" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M9.72983 1.95795C9.655 1.90735 9.545 1.90735 9.47017 1.95795L1.98217 7.02182C1.9314 7.05615 1.92 7.09646 1.92 7.11941V16.5967C1.92 16.9292 2.21782 17.28 2.688 17.28H16.512C16.9822 17.28 17.28 16.9292 17.28 16.5967V7.11941C17.28 7.09646 17.2686 7.05615 17.2178 7.02182L9.72983 1.95795ZM8.39461 0.367496C9.11917 -0.1225 10.0808 -0.122498 10.8054 0.367497L18.2934 5.43136C18.8504 5.80805 19.2 6.43312 19.2 7.11941V16.5967C19.2 18.0793 17.9505 19.2 16.512 19.2H2.688C1.24948 19.2 0 18.0793 0 16.5967V7.11941C0 6.43312 0.349589 5.80805 0.906605 5.43136L8.39461 0.367496Z" fill="currentColor"/>
+                </svg>
+              </span>
+              <span>Se déplace à domicile</span>
+            </div>
+          `;
+        }
+
+        // DISCOUNT / REIMBURSEMENT FILTER
+        if (discountFilterWrapper) {
+          let reimburseFacetValues = results.getFacetValues(
+            "reimbursment_percentage",
+            {
+              sortBy: ["name:asc"],
+            }
+          );
+
+          console.log(
+            "[ALGOLIA] remboursement facets bruts:",
+            reimburseFacetValues
+          );
+
+          if (!Array.isArray(reimburseFacetValues))
+            reimburseFacetValues = [];
+
+          // on garde que ceux > 0
+          const filtered = reimburseFacetValues
+            .filter((fv) => fv && fv.name && Number(fv.name) >= 0)
+            .map((fv) => ({
+              name: fv.name,
+              count: fv.count || 0,
+            }));
+
+          // tri numérique
+          filtered.sort((a, b) => Number(a.name) - Number(b.name));
+
+          console.log("[ALGOLIA] remboursement après tri:", filtered);
+
+          const html = filtered
+            .map((item) => {
+              const key = `reimbursment_percentage:::${item.name}`;
+              const isSelected = selectedFacetTags.has(key);
+              return `
+                <div class="directory_card_discount_tag ${
+                  isSelected ? "is-selected" : ""
+                }" data-facet-name="reimbursment_percentage" data-facet-value="${
+                item.name
+              }">
+                  <div>${item.name}%</div>
+                </div>
+              `;
+            })
+            .join("");
+
+          discountFilterWrapper.innerHTML = html;
+        }
+      },
+    };
+
+    search.addWidgets([
+      instantsearch.widgets.configure({
+        facets: [
+          "specialities",
+          "prestations",
+          "mainjob",
+          "jobs",
+          "reimbursment_percentage",
+        ],
+        disjunctiveFacets: ["type"],
+        hitsPerPage: 48,
+      }),
+
+      instantsearch.widgets.searchBox({
+        container: "#searchbox",
+        placeholder:
+          "Écrivez ici tout ce qui concerne vos besoins: Spécialité, trouble, praticien...",
+        cssClasses: {
+          root: "directory_search_field_container",
+          input: "directory_search_text",
+        },
+      }),
+
+      instantsearch.widgets.stats({
+        container: "#search_count",
+        templates: {
+          text(data) {
+            if (data.nbHits === 0) return "0 résultat";
+            if (data.nbHits === 1) return "1 résultat";
+            return data.nbHits + " résultats";
+          },
+        },
+      }),
+
+      instantsearch.widgets.infiniteHits({
+        container: "#hits",
+        hitsPerPage: 48,
+        showMore: true,
+        showMoreText: "Afficher plus de résultat",
+        cssClasses: {
+          loadMore: "directory_show_more_button",
+        },
+        transformItems(items) {
+          return items.slice().sort((a, b) => {
+            const aNet = a.is_elsee_network ? 1 : 0;
+            const bNet = b.is_elsee_network ? 1 : 0;
+            if (aNet !== bNet) return bNet - aNet;
+            return 0;
+          });
+        },
+        templates: {
+          item(hit) {
+            const photoUrl = hit.photo_url || "";
+            const isNetwork = !!hit.is_elsee_network;
+            const isRemote = !!hit.is_remote;
+            const isAtHome = !!hit.is_at_home;
+            const reimbursement = hit.reimbursment_percentage ?? "";
+            const name = hit.name || "";
+            const city = hit.city || "";
+            const depNum = hit.department_number || "";
+            const url = hit.url || "#";
+            const showSearch = hit.show_search !== false;
+            const showHome = !!hit.show_home;
+            const source = hit.source_collection || "";
+            const isSport =
+              source === "sports_studio" || source === "studio_enfant";
+            const therapeute = isTherapeute(hit);
+
+            const remoteSvg =
+              document.querySelector(".directory_remote_icon")?.innerHTML || "";
+            const atHomeSvg =
+              document.querySelector(".directory_at_home_icon")?.innerHTML ||
+              "";
+            const discountSvg =
+              document.querySelector(".directory_discount_icon")?.innerHTML ||
+              "";
+            const locationSvg =
+              document.querySelector(".directory_card_location_icon")
+                ?.innerHTML || "";
+
+            const photoDiv = `
+              <div class="directory_card_photo_container">
+                <div class="directory_card_photo${
+                  isNetwork ? " is-label" : ""
+                }"
+                     style="${
+                       photoUrl
+                         ? `background-image:url('${photoUrl}');background-size:cover;background-position:center;`
+                         : ""
+                     }">
+                  <div class="directory_card_label_tag" style="display:${
+                    isNetwork ? "flex" : "none"
+                  };">
+                    <img src="https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/65a65b49a0e66151845cad61_mob_menu_logo_dark_green.svg" loading="lazy" alt="" class="directory_card_label_tag_logo">
+                  </div>
+                </div>
+              </div>
+            `;
+
+            const remoteIcon = `
+              <div class="directory_remote_icon" style="display:${
+                isRemote ? "block" : "none"
+              };">
+                ${remoteSvg}
+                <div class="tooltip">Consultation en visio</div>
+              </div>
+            `;
+
+            const atHomeIcon = `
+              <div class="directory_at_home_icon" style="display:${
+                isAtHome ? "block" : "none"
+              };">
+                ${atHomeSvg}
+                <div class="tooltip">Se déplace à votre domicile</div>
+              </div>
+            `;
+
+            const showDiscount = !therapeute;
+            const discountDiv = `
+              <div class="directory_card_discount_tag" style="display:${
+                showDiscount ? "flex" : "none"
+              };">
+                <div class="directory_discount_icon">${discountSvg}</div>
+                <div>${reimbursement !== "" ? reimbursement + "%" : ""}</div>
+              </div>
+            `;
+
+            const titleDiv = `<div class="directory_card_title"><div>${name}</div></div>`;
+
+            const prestationsArr = toArray(hit.prestations);
+            const specialitiesArr = toArray(hit.specialities);
+            let partnerDetails1 = "";
+            if (therapeute) {
+              partnerDetails1 = hit.mainjob || "";
+            } else {
+              if (prestationsArr.length > 0) {
+                partnerDetails1 = prestationsArr.join(", ");
+              } else {
+                if (specialitiesArr.length > 3) {
+                  const visibleSpecialities = specialitiesArr
+                    .slice(0, 3)
+                    .join(", ");
+                  const extraSpecialities = specialitiesArr.slice(3);
+                  const extraCount = extraSpecialities.length;
+                  const tooltipContent = extraSpecialities
+                    .map((s) => `<div>${s}</div>`)
+                    .join("");
+                  partnerDetails1 = `${visibleSpecialities}, <span class="directory_card_more_specialities"><span class="directory_remote_icon">+${extraCount}<div class="tooltip">${tooltipContent}</div></span></span>`;
+                } else {
+                  partnerDetails1 = specialitiesArr.join(", ");
+                }
+              }
+            }
+
+            const partnerDetails1Div = `<div class="directory_card_partner_details_1"><div>${partnerDetails1}</div></div>`;
+
+            let partnerDetails2Html = "";
+            if (therapeute) {
+              const jobsTxt = toArray(hit.jobs).join(", ");
+              partnerDetails2Html = `<div class="directory_card_partner_details_2"><div>${jobsTxt}</div></div>`;
+            } else {
+              const shortTxt = truncate(hit.short_desc || "", 70);
+              partnerDetails2Html = `<div class="directory_card_partner_details_2"><div class="directory_card_partner_short_desc">${shortTxt}</div></div>`;
+            }
+
+            let showLocation = true;
+            if (isSport && showHome === true) showLocation = false;
+            if (!showSearch) showLocation = false;
+            if (!city && !depNum) showLocation = false;
+
+            const locationText =
+              therapeute || isSport
+                ? `${city}${depNum ? " (" + depNum + ")" : ""}`
+                : city;
+
+            const locationDiv = `
+              <div class="directory_card_partner_location" style="display:${
+                showLocation ? "flex" : "none"
+              };">
+                <div class="directory_card_location_icon">${locationSvg}</div>
+                <div class="directory_card_location_text"><div>${locationText}</div></div>
+              </div>
+            `;
+
+            let tagItems = [];
+            if (therapeute) {
+              tagItems = toArray(hit.prestations).slice(0, 2);
+            } else {
+              tagItems = toArray(hit.specialities).slice(0, 2);
+            }
+
+            const prestasHtml = tagItems
+              .map(
+                (p) =>
+                  `<div class="directory_card_prestation_tag"><div>${p}</div></div>`
+              )
+              .join("");
+
+            const prestationsDiv = `<div class="directory_card_prestations_container">${prestasHtml}</div>`;
+
+            return `
+              <li class="directory_card_container">
+                <a href="${url}" class="directory_card_body">
+                  <div class="directory_card_upper_container">
+                    <div class="directory_card_header">
+                      ${photoDiv}
+                      <div class="directory_card_options_container">
+                        ${remoteIcon}
+                        ${atHomeIcon}
+                        ${discountDiv}
+                      </div>
+                    </div>
+                    ${titleDiv}
+                    ${partnerDetails1Div}
+                    ${partnerDetails2Html}
+                  </div>
+                  ${locationDiv}
+                  ${prestationsDiv}
+                </a>
+              </li>
+            `;
+          },
+          empty: `<div>Aucun résultat trouvé.</div>`,
+        },
+      }),
+
+      dynamicSuggestionsWidget,
+    ]);
+
+    search.start();
+
+    search.on("render", () => {
+      renderClearButton();
+
+      if (search.helper && search.helper.state) {
+        updateUrlFromState(search.helper.state);
+      }
+
+      const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
+      const buttons = document.querySelectorAll(
+        ".ais-InfiniteHits-loadMore, .directory_show_more_button"
+      );
+      const domCards = document.querySelectorAll(
+        "#hits .directory_card_container"
+      ).length;
+      const nbHits = renderState?.searchResults?.nbHits;
+      const infiniteResults = renderState?.infiniteHits?.results;
+      const hasMore = infiniteResults
+        ? infiniteResults.nbPages > infiniteResults.page + 1
+        : false;
+
+      buttons.forEach((btn) => {
+        const isDisabledBtn =
+          btn.classList.contains("ais-InfiniteHits-loadMore--disabled") ||
+          btn.hasAttribute("disabled");
+
+        const mustHide =
+          (typeof nbHits === "number" && domCards >= nbHits) ||
+          isDisabledBtn ||
+          !hasMore;
+
+        if (mustHide) {
+          btn.setAttribute("style", "display: none;");
+          btn.classList.add("is-hidden");
+          btn.setAttribute("aria-hidden", "true");
+        } else {
+          btn.setAttribute("style", "display: block;");
+          btn.classList.remove("is-hidden");
+          btn.removeAttribute("aria-hidden");
+        }
+      });
+    });
+
+    setupSearchDropdown();
+    setupSuggestionClicks();
+    setupTypeBlockClicks();
+    setupSpePrestaBlockClicks();
+    setupJobBlockClicks();
+    setupBooleanBlockClicks();
+    setupDiscountBlockClicks();
+
+    function setupBooleanBlockClicks() {
+      const labelFilterWrapper = document.getElementById("label-filter");
+      const remoteFilterWrapper = document.getElementById(
+        "works-remotely-filter"
+      );
+      const atHomeFilterWrapper = document.getElementById(
+        "works-at-home-filter"
+      );
+
+      function toggleAndSearch(flagName) {
+        if (!searchInstance || !searchInstance.helper) return;
+        if (flagName === "network") {
+          isNetworkSelected = !isNetworkSelected;
+        }
+        if (flagName === "remote") {
+          isRemoteSelected = !isRemoteSelected;
+        }
+        if (flagName === "athome") {
+          isAtHomeSelected = !isAtHomeSelected;
+        }
+
+        const helper = searchInstance.helper;
+        const filtersStr = buildFiltersStringFromJobsAndBooleans();
+        helper.setQueryParameter("filters", filtersStr);
+        helper.search();
+      }
+
+      if (labelFilterWrapper) {
+        labelFilterWrapper.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-bool-filter]");
+          if (!btn) return;
+          const flagName = btn.getAttribute("data-bool-filter");
+          toggleAndSearch(flagName);
+        });
+      }
+      if (remoteFilterWrapper) {
+        remoteFilterWrapper.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-bool-filter]");
+          if (!btn) return;
+          const flagName = btn.getAttribute("data-bool-filter");
+          toggleAndSearch(flagName);
+        });
+      }
+      if (atHomeFilterWrapper) {
+        atHomeFilterWrapper.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-bool-filter]");
+          if (!btn) return;
+          const flagName = btn.getAttribute("data-bool-filter");
+          toggleAndSearch(flagName);
+        });
+      }
     }
 
-    // dropdown ouverture
+    function setupDiscountBlockClicks() {
+      const discountWrapper = document.getElementById("discount-tags");
+      if (!discountWrapper) return;
+      discountWrapper.addEventListener("click", (e) => {
+        const tag = e.target.closest(".directory_card_discount_tag");
+        if (!tag || !searchInstance || !searchInstance.helper) return;
+        const facetName = tag.getAttribute("data-facet-name");
+        const facetValue = tag.getAttribute("data-facet-value");
+        const key = `${facetName}:::${facetValue}`;
+        const helper = searchInstance.helper;
+        const isSelected = selectedFacetTags.has(key);
+
+        console.log(
+          "[ALGOLIA] click reimbursement tag:",
+          facetName,
+          facetValue,
+          "selected=",
+          isSelected
+        );
+
+        if (isSelected) {
+          selectedFacetTags.delete(key);
+          helper.removeFacetRefinement(facetName, facetValue);
+        } else {
+          selectedFacetTags.add(key);
+          helper.addFacetRefinement(facetName, facetValue);
+        }
+
+        helper.search();
+      });
+    }
+
     function setupSearchDropdown() {
       const input = document.querySelector(".directory_search_field_container");
       const dropdown =
@@ -770,7 +893,6 @@
       document.addEventListener("click", closeDropdown);
     }
 
-    // bouton clear
     function renderClearButton() {
       const clearBtn = document.getElementById("clear_button");
       if (!clearBtn) return;
@@ -782,13 +904,15 @@
       const hasFacets = selectedFacetTags.size > 0;
       const hasGeo = !!currentGeoFilter;
       const hasJobs = selectedJobTags.length > 0;
-      const hasBool = isNetworkSelected || isRemoteSelected || isAtHomeSelected;
+      const hasBools =
+        isNetworkSelected || isRemoteSelected || isAtHomeSelected;
 
       clearBtn.style.display =
-        hasQuery || hasFacets || hasGeo || hasJobs || hasBool ? "flex" : "none";
+        hasQuery || hasFacets || hasGeo || hasJobs || hasBools
+          ? "flex"
+          : "none";
     }
 
-    // clear click
     const clearBtnInit = document.getElementById("clear_button");
     if (clearBtnInit) {
       clearBtnInit.addEventListener("click", () => {
@@ -824,7 +948,6 @@
       });
     }
 
-    // clics dans le dropdown suggestions
     function setupSuggestionClicks() {
       const dropdown =
         document.getElementById("tags_autocomplete") ||
@@ -873,7 +996,6 @@
       });
     }
 
-    // clics sur le bloc types alternatif
     function setupTypeBlockClicks() {
       const typesAltWrapper = document.getElementById("directory_types");
       if (!typesAltWrapper) return;
@@ -887,7 +1009,6 @@
         facetValue = facetValue.trim();
         const helper = searchInstance.helper;
 
-        // bouton "Toutes les catégories"
         if (facetValue === "__ALL_TYPES__") {
           helper.clearRefinements("type");
           Array.from(selectedFacetTags)
@@ -910,7 +1031,6 @@
       });
     }
 
-    // clics spé + presta
     function setupSpePrestaBlockClicks() {
       const speWrapper = document.getElementById("spe_filtre");
       const moreSpe = document.getElementById("more-spe");
@@ -967,7 +1087,6 @@
       }
     }
 
-    // clics jobs fusion
     function setupJobBlockClicks() {
       const jobWrapper = document.getElementById("job_filtre");
       const moreJob = document.getElementById("more-job");
@@ -989,7 +1108,9 @@
             selectedFacetTags.add(key);
           }
 
-          updateJobFiltersOnHelper(helper);
+          const filtersStr = buildFiltersStringFromJobsAndBooleans();
+          helper.setQueryParameter("filters", filtersStr);
+          helper.search();
         });
       }
 
@@ -1001,127 +1122,6 @@
       }
     }
 
-    // clics BOOLEAN
-    function setupBooleanFilterClicks() {
-      const labelFilterWrapper = document.getElementById("label-filter");
-      const remoteFilterWrapper = document.getElementById("works-remotely-filter");
-      const atHomeFilterWrapper = document.getElementById("works-at-home-filter");
-
-      if (labelFilterWrapper) {
-        labelFilterWrapper.addEventListener("click", (e) => {
-          const btn = e.target.closest(".directory_category_tag_wrapper");
-          if (!btn || !searchInstance || !searchInstance.helper) return;
-          isNetworkSelected = !isNetworkSelected;
-          applyBooleanFilters(searchInstance.helper);
-        });
-      }
-
-      if (remoteFilterWrapper) {
-        remoteFilterWrapper.addEventListener("click", (e) => {
-          const btn = e.target.closest(".directory_category_tag_wrapper");
-          if (!btn || !searchInstance || !searchInstance.helper) return;
-          isRemoteSelected = !isRemoteSelected;
-          applyBooleanFilters(searchInstance.helper);
-        });
-      }
-
-      if (atHomeFilterWrapper) {
-        atHomeFilterWrapper.addEventListener("click", (e) => {
-          const btn = e.target.closest(".directory_category_tag_wrapper");
-          if (!btn || !searchInstance || !searchInstance.helper) return;
-          isAtHomeSelected = !isAtHomeSelected;
-          applyBooleanFilters(searchInstance.helper);
-        });
-      }
-    }
-
-    function applyBooleanFilters(helper) {
-      const filters = [];
-
-      // jobs déjà géré ailleurs (filters param), donc on va le récupérer
-      const jobParts =
-        selectedJobTags.length > 0
-          ? selectedJobTags.map((job) => {
-              const safe = job.replace(/"/g, '\\"');
-              return `(mainjob:"${safe}" OR jobs:"${safe}")`;
-            })
-          : [];
-
-      // boolean → AND sur chacun sélectionné
-      if (isNetworkSelected) filters.push("is_elsee_network:true");
-      if (isRemoteSelected) filters.push("is_remote:true");
-      if (isAtHomeSelected) filters.push("is_at_home:true");
-
-      // on merge les jobs OR dans ce filters global en AND
-      // si tu veux garder les jobs en OR séparés du reste, il faut les mettre ailleurs,
-      // mais on reste cohérent avec le code existant
-      const allParts = [...jobParts];
-      if (filters.length > 0) {
-        allParts.push(...filters);
-      }
-
-      if (allParts.length === 0) {
-        helper.setQueryParameter("filters", undefined).search();
-      } else {
-        const finalFilter = allParts.join(" AND ");
-        helper.setQueryParameter("filters", finalFilter).search();
-      }
-    }
-
-    // clics discount
-    function setupDiscountFilterClicks() {
-      const discountWrapper = document.getElementById("discount-tags");
-      if (!discountWrapper) return;
-      discountWrapper.addEventListener("click", (e) => {
-        const tag = e.target.closest(".directory_card_discount_tag");
-        if (!tag || !searchInstance || !searchInstance.helper) return;
-        const facetName = tag.getAttribute("data-facet-name");
-        const facetValue = tag.getAttribute("data-facet-value");
-        const key = `${facetName}:::${facetValue}`;
-        const helper = searchInstance.helper;
-        const isSelected = selectedFacetTags.has(key);
-        if (isSelected) {
-          selectedFacetTags.delete(key);
-          helper.removeFacetRefinement(facetName, facetValue).search();
-        } else {
-          selectedFacetTags.add(key);
-          helper.addFacetRefinement(facetName, facetValue).search();
-        }
-      });
-    }
-
-    // construit filters OR sur mainjob / jobs
-    function updateJobFiltersOnHelper(helper) {
-      if (!helper) return;
-
-      // on garde les filtres booléens déjà cochés
-      const boolParts = [];
-      if (isNetworkSelected) boolParts.push("is_elsee_network:true");
-      if (isRemoteSelected) boolParts.push("is_remote:true");
-      if (isAtHomeSelected) boolParts.push("is_at_home:true");
-
-      if (selectedJobTags.length === 0) {
-        if (boolParts.length === 0) {
-          helper.setQueryParameter("filters", undefined).search();
-        } else {
-          helper.setQueryParameter("filters", boolParts.join(" AND ")).search();
-        }
-        return;
-      }
-
-      const jobParts = selectedJobTags.map((job) => {
-        const safe = job.replace(/"/g, '\\"');
-        return `(mainjob:"${safe}" OR jobs:"${safe}")`;
-      });
-
-      const allParts = [...jobParts];
-      if (boolParts.length > 0) allParts.push(...boolParts);
-
-      const filtersStr = allParts.join(" AND "); // on garde le comportement précédent
-      helper.setQueryParameter("filters", filtersStr).search();
-    }
-
-    // géo
     function applyGeoFilterFromMaps(lat, lng, label = "") {
       currentGeoFilter = { lat, lng, label };
       if (searchInstance && searchInstance.helper) {
@@ -1141,25 +1141,21 @@
       }
     }
 
-    // URL → recherche
     function applyUrlParamsToSearch() {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
       const query = params.get("q") || "";
       const types = (params.get("type") || "").split(",").filter(Boolean);
-      const spes = (params.get("specialities") || "")
-        .split(",")
-        .filter(Boolean);
+      const spes = (params.get("specialities") || "").split(",").filter(Boolean);
+      const geo = params.get("geo") || "";
       const prestas = (params.get("prestations") || "")
         .split(",")
         .filter(Boolean);
       const jobs = (params.get("jobs") || "").split(",").filter(Boolean);
-      const discounts = (params.get("discount") || "").split(",").filter(Boolean);
-      const geo = params.get("geo") || "";
       const geolabel = params.get("geolabel") || "";
-      const net = params.get("network") === "true";
-      const remote = params.get("remote") === "true";
-      const athome = params.get("athome") === "true";
+      const urlNetwork = params.get("network") === "true";
+      const urlRemote = params.get("remote") === "true";
+      const urlAtHome = params.get("athome") === "true";
 
       if (!searchInstance || !searchInstance.helper) return;
       const helper = searchInstance.helper;
@@ -1172,21 +1168,14 @@
       helper.clearRefinements("specialities");
       helper.clearRefinements("prestations");
       helper.clearRefinements("jobs");
-      helper.clearRefinements("reimbursment_percentage");
 
       types.forEach((t) => helper.addDisjunctiveFacetRefinement("type", t));
       spes.forEach((s) => helper.addFacetRefinement("specialities", s));
       prestas.forEach((p) => helper.addFacetRefinement("prestations", p));
-      discounts.forEach((d) =>
-        helper.addFacetRefinement("reimbursment_percentage", d)
-      );
 
       types.forEach((t) => selectedFacetTags.add(`type:::${t}`));
       spes.forEach((s) => selectedFacetTags.add(`specialities:::${s}`));
       prestas.forEach((p) => selectedFacetTags.add(`prestations:::${p}`));
-      discounts.forEach((d) =>
-        selectedFacetTags.add(`reimbursment_percentage:::${d}`)
-      );
 
       jobs.forEach((j) => {
         const cleanJob = j.trim();
@@ -1196,11 +1185,14 @@
         }
       });
 
-      isNetworkSelected = net;
-      isRemoteSelected = remote;
-      isAtHomeSelected = athome;
+      isNetworkSelected = urlNetwork;
+      isRemoteSelected = urlRemote;
+      isAtHomeSelected = urlAtHome;
 
-      // geo →
+      // on reconstruit le filters
+      const filtersStr = buildFiltersStringFromJobsAndBooleans();
+      helper.setQueryParameter("filters", filtersStr);
+
       if (geo) {
         const [latStr, lngStr] = geo.split(",");
         const lat = parseFloat(latStr);
@@ -1230,11 +1222,11 @@
         }
       }
 
-      // reconstituer les filters (jobs + booléens)
-      updateJobFiltersOnHelper(helper);
+      helper.search();
     }
 
     initAlgolia();
     setTimeout(applyUrlParamsToSearch, 50);
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   });
+});
