@@ -522,8 +522,7 @@ window.addEventListener("DOMContentLoaded", () => {
           "specialities",
           "prestations",
           "mainjob",
-          "jobs",
-          "reimbursment_percentage",
+          "jobs"
         ],
         disjunctiveFacets: ["type", "reimbursment_percentage"],
         hitsPerPage: 48,
