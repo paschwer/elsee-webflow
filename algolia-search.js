@@ -403,9 +403,12 @@ if (jobFilterWrapper) {
   if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
   if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
 
+  // LOG 1 : ce qu’Algolia nous renvoie vraiment
+  console.log("[ALGOLIA] mainjob facetValues =", mainFacetValues);
+  console.log("[ALGOLIA] jobs facetValues =", jobFacetValues);
+
   const merged = new Map();
 
-  // on merge mainjob
   mainFacetValues.forEach((fv) => {
     if (!fv || !fv.name) return;
     merged.set(fv.name, {
@@ -415,7 +418,6 @@ if (jobFilterWrapper) {
     });
   });
 
-  // on merge jobs
   jobFacetValues.forEach((fv) => {
     const nameRaw = fv && fv.name ? fv.name.trim() : "";
     if (!nameRaw) return;
@@ -436,16 +438,25 @@ if (jobFilterWrapper) {
     return b.jobCount - a.jobCount;
   });
 
-  // >>> nouvelle partie : savoir s'il y a au moins 1 job dans les facettes
+  // est-ce qu’on a au moins 1 job ?
   const hasJobsFacet =
     mainFacetValues.some((fv) => fv && fv.count > 0) ||
     jobFacetValues.some((fv) => fv && fv.count > 0);
 
-  // on met à jour l'affichage de #onlythp avec le VRAI state algolia
+  console.log("[DIR] hasJobsFacet =", hasJobsFacet);
+
+  // on check aussi le state pour voir les types sélectionnés
   if (searchInstance && searchInstance.helper) {
+    console.log(
+      "[DIR] helper state types =",
+      (searchInstance.helper.state.disjunctiveFacetsRefinements?.type ||
+        searchInstance.helper.state.facetsRefinements?.type ||
+        [])
+    );
     updateOnlyThpVisibility(searchInstance.helper.state, hasJobsFacet);
+  } else {
+    console.log("[DIR] pas de searchInstance/helper dispo");
   }
-  // <<< fin nouvelle partie
 
   const maxToShowJob = jobExpanded ? mergedArr.length : 6;
 
@@ -467,7 +478,6 @@ if (jobFilterWrapper) {
       );
     })
     .join("");
-
   jobFilterWrapper.innerHTML = jobListHtml;
 
   const moreJobBtn = document.getElementById("more-job");
@@ -477,7 +487,6 @@ if (jobFilterWrapper) {
       : "Voir tous les métiers";
   }
 }
-
 
         // 5. BOOLÉENS
         if (labelFilterWrapper) {
