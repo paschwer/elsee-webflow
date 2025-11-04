@@ -1271,8 +1271,9 @@ window.addEventListener("DOMContentLoaded", () => {
       helper.search();
     }
 
-    initAlgolia();
     setTimeout(applyUrlParamsToSearch, 50);
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
-  });
+  }
+
+  initAlgolia();
 });
