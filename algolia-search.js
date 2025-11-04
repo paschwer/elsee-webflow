@@ -14,6 +14,32 @@ window.addEventListener("DOMContentLoaded", () => {
   let currentGeoFilter = null;
   let searchInstance = null;
 
+  function buildFiltersStringFromJobsAndBooleans() {
+    const parts = [];
+
+    // métiers → (mainjob:X OR jobs:X) AND (mainjob:Y OR jobs:Y) ...
+    if (selectedJobTags.length > 0) {
+      const jobParts = selectedJobTags.map((job) => {
+        const safe = job.replace(/"/g, '\\"');
+        return `(mainjob:"${safe}" OR jobs:"${safe}")`;
+      });
+      parts.push(jobParts.join(" AND "));
+    }
+
+    if (isNetworkSelected) {
+      parts.push("is_elsee_network:true");
+    }
+    if (isRemoteSelected) {
+      parts.push("is_remote:true");
+    }
+    if (isAtHomeSelected) {
+      parts.push("is_at_home:true");
+    }
+
+    const finalStr = parts.join(" AND ");
+    return finalStr.length ? finalStr : undefined;
+  }
+
   function initAlgolia() {
     if (
       typeof algoliasearch === "undefined" ||
@@ -46,35 +72,6 @@ window.addEventListener("DOMContentLoaded", () => {
     function isTherapeute(hit) {
       const t = (hit.type || "").trim().toLowerCase();
       return t === "thérapeute" || t === "therapeute";
-    }
-
-    function buildFiltersStringFromJobsAndBooleans() {
-      const parts = [];
-
-      // métiers (OR dans mainjob / jobs, ET entre les métiers)
-      if (selectedJobTags.length > 0) {
-        const jobParts = selectedJobTags.map((job) => {
-          const safe = job.replace(/"/g, '\\"');
-          return `(mainjob:"${safe}" OR jobs:"${safe}")`;
-        });
-        // AND entre les jobs sélectionnés
-        parts.push(jobParts.join(" AND "));
-      }
-
-      // booléens
-      if (isNetworkSelected) {
-        parts.push("is_elsee_network:true");
-      }
-      if (isRemoteSelected) {
-        parts.push("is_remote:true");
-      }
-      if (isAtHomeSelected) {
-        parts.push("is_at_home:true");
-      }
-
-      // on AND tout ça
-      const finalStr = parts.join(" AND ");
-      return finalStr.length ? finalStr : undefined;
     }
 
     function updateUrlFromState(state) {
@@ -171,20 +168,19 @@ window.addEventListener("DOMContentLoaded", () => {
         const prestaFilterWrapper = document.getElementById("presta_filtre");
         const jobFilterWrapper = document.getElementById("job_filtre");
         const labelFilterWrapper = document.getElementById("label-filter");
-        const remoteFilterWrapper = document.getElementById(
-          "works-remotely-filter"
-        );
-        const atHomeFilterWrapper = document.getElementById(
-          "works-at-home-filter"
-        );
-        const discountFilterWrapper = document.getElementById("discount-tags");
+        const remoteFilterWrapper =
+          document.getElementById("works-remotely-filter");
+        const atHomeFilterWrapper =
+          document.getElementById("works-at-home-filter");
+        const discountFilterWrapper =
+          document.getElementById("discount-tags");
 
         if (!typeWrapper || !speWrapper) return;
 
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
-        // TYPES
+        // ----------- TYPES -----------
         let typeFacetValues = results.getFacetValues("type", {
           sortBy: ["count:desc", "name:asc"],
         });
@@ -209,7 +205,7 @@ window.addEventListener("DOMContentLoaded", () => {
           .join("");
         typeWrapper.innerHTML = typeHtml;
 
-        // TYPES ALT BLOCK
+        // ----------- TYPES ALT -----------
         const typesAltWrapper = document.getElementById("directory_types");
         if (typesAltWrapper) {
           const hasTypeSelected = Array.from(selectedFacetTags).some((k) =>
@@ -244,7 +240,7 @@ window.addEventListener("DOMContentLoaded", () => {
           typesAltWrapper.innerHTML = altHtml;
         }
 
-        // SPECIALITIES
+        // ----------- SPECIALITIES -----------
         let speFacetValues = results.getFacetValues("specialities", {
           sortBy: ["count:desc", "name:asc"],
         });
@@ -288,7 +284,7 @@ window.addEventListener("DOMContentLoaded", () => {
           .join("");
         speWrapper.innerHTML = speHtml;
 
-        // SPECIALITIES ALT BLOCK
+        // ----------- SPECIALITIES ALT -----------
         if (speFilterWrapper) {
           const maxToShow = speExpanded ? speFacetValues.length : 6;
           const speListHtml = speFacetValues
@@ -313,7 +309,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // PRESTATIONS ALT BLOCK
+        // ----------- PRESTATIONS -----------
         if (prestaFilterWrapper) {
           let prestaFacetValues = results.getFacetValues("prestations", {
             sortBy: ["count:desc", "name:asc"],
@@ -344,7 +340,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // JOBS ALT BLOCK (mainjob + jobs → fusion)
+        // ----------- JOBS (mainjob + jobs fusion) -----------
         if (jobFilterWrapper) {
           let mainFacetValues = results.getFacetValues("mainjob", {
             sortBy: ["count:desc", "name:asc"],
@@ -409,7 +405,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // BOOLEAN FILTERS
+        // ----------- BOOLEAN FILTERS (réseau, visio, domicile) -----------
         if (labelFilterWrapper) {
           labelFilterWrapper.innerHTML = `
             <div class="directory_category_tag_wrapper ${
@@ -455,70 +451,63 @@ window.addEventListener("DOMContentLoaded", () => {
           `;
         }
 
-        // DISCOUNT / REIMBURSEMENT FILTER
-        // DISCOUNT / REIMBURSEMENT FILTER
-if (discountFilterWrapper) {
-  console.log("[DISCOUNT] div #discount-tags trouvée ✅");
-
-  // on récupère ce que Algolia a vraiment
-  let reimburseFacetValues = results.getFacetValues("reimbursment_percentage", {
-    sortBy: ["name:asc"],
-  });
-
-  console.log("[DISCOUNT] raw getFacetValues('reimbursment_percentage') =>", reimburseFacetValues);
-
-  // si Algolia ne renvoie rien, on loggue tout l'objet pour vérifier l'index
-  if (!Array.isArray(reimburseFacetValues) || reimburseFacetValues.length === 0) {
-    console.log("[DISCOUNT] ⚠️ Aucune facet reçue pour reimbursment_percentage.");
-    console.log("[DISCOUNT] results.facets dispo :", results.facets);
-    console.log("[DISCOUNT] results.rawResults (1er) :", results._rawResults ? results._rawResults[0] : "pas de rawResults");
-    // on vide la div dans ce cas
-    discountFilterWrapper.innerHTML = "";
-  } else {
-    // on normalise (au cas où ça revienne en number)
-    const normalized = reimburseFacetValues
-      .map((fv) => {
-        // parfois fv.name est un nombre
-        const val = fv && fv.name != null ? String(fv.name) : null;
-        return val
-          ? {
-              name: val,
-              count: fv.count || 0,
+        // ----------- REIMBURSEMENT / DISCOUNT TAGS -----------
+        if (discountFilterWrapper) {
+          let reimburseFacetValues = [];
+          try {
+            const tmp = results.getFacetValues("reimbursment_percentage", {
+              sortBy: ["name:asc"],
+            });
+            if (Array.isArray(tmp)) {
+              reimburseFacetValues = tmp;
+            } else if (tmp && Array.isArray(tmp.data)) {
+              // dans certains cas Algolia renvoie {data: [...]}
+              reimburseFacetValues = tmp.data;
             }
-          : null;
-      })
-      .filter(Boolean)
-      // on ne garde que >= 0
-      .filter((item) => !isNaN(Number(item.name)) && Number(item.name) >= 0)
-      // tri numérique croissant
-      .sort((a, b) => Number(a.name) - Number(b.name));
+          } catch (err) {
+            console.warn(
+              "[ALGOLIA] pas de facette reimbursment_percentage dans les résultats:",
+              err
+            );
+          }
 
-    console.log("[DISCOUNT] après normalisation/tri =>", normalized);
+          console.log(
+            "[ALGOLIA] rembours. bruts récupérés:",
+            reimburseFacetValues
+          );
 
-    const html = normalized
-      .map((item) => {
-        const key = `reimbursment_percentage:::${item.name}`;
-        const isSelected = selectedFacetTags.has(key);
-        return `
-          <div
-            class="directory_card_discount_tag ${isSelected ? "is-selected" : ""}"
-            data-facet-name="reimbursment_percentage"
-            data-facet-value="${item.name}"
-          >
-            <div>${item.name}%</div>
-          </div>
-        `;
-      })
-      .join("");
+          if (!Array.isArray(reimburseFacetValues)) {
+            discountFilterWrapper.innerHTML = "";
+          } else {
+            const filtered = reimburseFacetValues
+              .filter((fv) => fv && fv.name !== undefined && fv.name !== null)
+              // tri num asc
+              .sort((a, b) => Number(a.name) - Number(b.name));
 
-    console.log("[DISCOUNT] html généré =>", html);
+            console.log("[ALGOLIA] rembours. après tri:", filtered);
 
-    discountFilterWrapper.innerHTML = html;
-  }
-} else {
-  console.log("[DISCOUNT] ❌ div #discount-tags introuvable dans le DOM");
-}
+            const html = filtered
+              .map((item) => {
+                const val = item.name;
+                const key = `reimbursment_percentage:::${val}`;
+                const isSelected = selectedFacetTags.has(key);
+                return `
+                  <div class="directory_card_discount_tag ${
+                    isSelected ? "is-selected" : ""
+                  }"
+                       data-facet-name="reimbursment_percentage"
+                       data-facet-value="${val}">
+                    <div>${val}%</div>
+                  </div>
+                `;
+              })
+              .join("");
 
+            discountFilterWrapper.innerHTML = html;
+          }
+        }
+      },
+    };
 
     search.addWidgets([
       instantsearch.widgets.configure({
@@ -576,7 +565,7 @@ if (discountFilterWrapper) {
             const isNetwork = !!hit.is_elsee_network;
             const isRemote = !!hit.is_remote;
             const isAtHome = !!hit.is_at_home;
-            const reimbursement = hit.reimbursment_percentage?? "";
+            const reimbursement = hit.reimbursment_percentage || "";
             const name = hit.name || "";
             const city = hit.city || "";
             const depNum = hit.department_number || "";
@@ -589,7 +578,8 @@ if (discountFilterWrapper) {
             const therapeute = isTherapeute(hit);
 
             const remoteSvg =
-              document.querySelector(".directory_remote_icon")?.innerHTML || "";
+              document.querySelector(".directory_remote_icon")?.innerHTML ||
+              "";
             const atHomeSvg =
               document.querySelector(".directory_at_home_icon")?.innerHTML ||
               "";
@@ -801,6 +791,8 @@ if (discountFilterWrapper) {
     setupBooleanBlockClicks();
     setupDiscountBlockClicks();
 
+    // ---------- handlers ----------
+
     function setupBooleanBlockClicks() {
       const labelFilterWrapper = document.getElementById("label-filter");
       const remoteFilterWrapper = document.getElementById(
@@ -832,24 +824,21 @@ if (discountFilterWrapper) {
         labelFilterWrapper.addEventListener("click", (e) => {
           const btn = e.target.closest("[data-bool-filter]");
           if (!btn) return;
-          const flagName = btn.getAttribute("data-bool-filter");
-          toggleAndSearch(flagName);
+          toggleAndSearch(btn.getAttribute("data-bool-filter"));
         });
       }
       if (remoteFilterWrapper) {
         remoteFilterWrapper.addEventListener("click", (e) => {
           const btn = e.target.closest("[data-bool-filter]");
           if (!btn) return;
-          const flagName = btn.getAttribute("data-bool-filter");
-          toggleAndSearch(flagName);
+          toggleAndSearch(btn.getAttribute("data-bool-filter"));
         });
       }
       if (atHomeFilterWrapper) {
         atHomeFilterWrapper.addEventListener("click", (e) => {
           const btn = e.target.closest("[data-bool-filter]");
           if (!btn) return;
-          const flagName = btn.getAttribute("data-bool-filter");
-          toggleAndSearch(flagName);
+          toggleAndSearch(btn.getAttribute("data-bool-filter"));
         });
       }
     }
@@ -857,9 +846,11 @@ if (discountFilterWrapper) {
     function setupDiscountBlockClicks() {
       const discountWrapper = document.getElementById("discount-tags");
       if (!discountWrapper) return;
+
       discountWrapper.addEventListener("click", (e) => {
         const tag = e.target.closest(".directory_card_discount_tag");
         if (!tag || !searchInstance || !searchInstance.helper) return;
+
         const facetName = tag.getAttribute("data-facet-name");
         const facetValue = tag.getAttribute("data-facet-value");
         const key = `${facetName}:::${facetValue}`;
@@ -1160,7 +1151,9 @@ if (discountFilterWrapper) {
       const params = new URLSearchParams(window.location.search);
       const query = params.get("q") || "";
       const types = (params.get("type") || "").split(",").filter(Boolean);
-      const spes = (params.get("specialities") || "").split(",").filter(Boolean);
+      const spes = (params.get("specialities") || "")
+        .split(",")
+        .filter(Boolean);
       const geo = params.get("geo") || "";
       const prestas = (params.get("prestations") || "")
         .split(",")
@@ -1203,7 +1196,6 @@ if (discountFilterWrapper) {
       isRemoteSelected = urlRemote;
       isAtHomeSelected = urlAtHome;
 
-      // on reconstruit le filters
       const filtersStr = buildFiltersStringFromJobsAndBooleans();
       helper.setQueryParameter("filters", filtersStr);
 
@@ -1243,4 +1235,6 @@ if (discountFilterWrapper) {
     setTimeout(applyUrlParamsToSearch, 50);
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   });
+
+  // fin initAlgolia
 });
