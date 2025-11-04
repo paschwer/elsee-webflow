@@ -828,60 +828,60 @@ partnerDetails2Html =
     search.on("render", () => {
   renderClearButton();
 
- if (search.helper && search.helper.state) {
-  const sr = search.helper.lastResults; // <-- la bonne source
+  if (search.helper && search.helper.state) {
+    const lr = search.helper.lastResults; // vrais résultats
+    let hasJobsFacet = false;
 
-  let mainJobs = [];
-  let otherJobs = [];
+    if (lr && lr.facets) {
+      // lr.facets ressemble à { mainjob: { "Coach": 12, ... }, jobs: { ... } }
+      const mainJobsData = lr.facets.mainjob || {};
+      const jobsData = lr.facets.jobs || {};
 
-  if (sr) {
-    mainJobs = sr.getFacetValues("mainjob") || [];
-    otherJobs = sr.getFacetValues("jobs") || [];
+      const mainHas = Object.values(mainJobsData).some((c) => c > 0);
+      const jobsHas = Object.values(jobsData).some((c) => c > 0);
+
+      hasJobsFacet = mainHas || jobsHas;
+    }
+
+    updateUrlFromState(search.helper.state);
+    updateOnlyThpVisibility(search.helper.state, hasJobsFacet);
   }
 
-  const hasJobsFacet =
-    (Array.isArray(mainJobs) && mainJobs.some((fv) => fv && fv.count > 0)) ||
-    (Array.isArray(otherJobs) && otherJobs.some((fv) => fv && fv.count > 0));
+  const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
+  const buttons = document.querySelectorAll(
+    ".ais-InfiniteHits-loadMore, .directory_show_more_button"
+  );
+  const domCards = document.querySelectorAll(
+    "#hits .directory_card_container"
+  ).length;
+  const nbHits = renderState?.searchResults?.nbHits;
+  const infiniteResults = renderState?.infiniteHits?.results;
+  const hasMore = infiniteResults
+    ? infiniteResults.nbPages > infiniteResults.page + 1
+    : false;
 
-  updateUrlFromState(search.helper.state);
-  updateOnlyThpVisibility(search.helper.state, hasJobsFacet);
-}
+  buttons.forEach((btn) => {
+    const isDisabledBtn =
+      btn.classList.contains("ais-InfiniteHits-loadMore--disabled") ||
+      btn.hasAttribute("disabled");
 
+    const mustHide =
+      (typeof nbHits === "number" && domCards >= nbHits) ||
+      isDisabledBtn ||
+      !hasMore;
 
-      const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
-      const buttons = document.querySelectorAll(
-        ".ais-InfiniteHits-loadMore, .directory_show_more_button"
-      );
-      const domCards = document.querySelectorAll(
-        "#hits .directory_card_container"
-      ).length;
-      const nbHits = renderState?.searchResults?.nbHits;
-      const infiniteResults = renderState?.infiniteHits?.results;
-      const hasMore = infiniteResults
-        ? infiniteResults.nbPages > infiniteResults.page + 1
-        : false;
+    if (mustHide) {
+      btn.setAttribute("style", "display: none;");
+      btn.classList.add("is-hidden");
+      btn.setAttribute("aria-hidden", "true");
+    } else {
+      btn.setAttribute("style", "display: block;");
+      btn.classList.remove("is-hidden");
+      btn.removeAttribute("aria-hidden");
+    }
+  });
+});
 
-      buttons.forEach((btn) => {
-        const isDisabledBtn =
-          btn.classList.contains("ais-InfiniteHits-loadMore--disabled") ||
-          btn.hasAttribute("disabled");
-
-        const mustHide =
-          (typeof nbHits === "number" && domCards >= nbHits) ||
-          isDisabledBtn ||
-          !hasMore;
-
-        if (mustHide) {
-          btn.setAttribute("style", "display: none;");
-          btn.classList.add("is-hidden");
-          btn.setAttribute("aria-hidden", "true");
-        } else {
-          btn.setAttribute("style", "display: block;");
-          btn.classList.remove("is-hidden");
-          btn.removeAttribute("aria-hidden");
-        }
-      });
-    });
 
     // setup listeners
     setupSearchDropdown();
