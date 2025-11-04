@@ -712,11 +712,21 @@ function updateOnlyThpVisibility(helperState) {
 
             let partnerDetails2Html = "";
             if (therapeute) {
-              const jobsTxt = toArray(hit.jobs).join(", ");
-              partnerDetails2Html =
-                '<div class="directory_card_partner_details_2"><div>' +
-                jobsTxt +
-                "</div></div>";
+              const jobsArr = toArray(hit.jobs);
+let jobsTxt = "";
+if (jobsArr.length > 3) {
+  const firstThree = jobsArr.slice(0, 3).join(", ");
+  const extraCount = jobsArr.length - 3;
+  jobsTxt = `${firstThree} +${extraCount}`;
+} else {
+  jobsTxt = jobsArr.join(", ");
+}
+
+partnerDetails2Html =
+  '<div class="directory_card_partner_details_2"><div>' +
+  jobsTxt +
+  "</div></div>";
+
             } else {
               const shortTxt = truncate(hit.short_desc || "", 70);
               partnerDetails2Html =
