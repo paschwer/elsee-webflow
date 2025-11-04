@@ -859,6 +859,33 @@ function updateOnlyThpVisibility(helperState) {
     setupDiscountBlockClicks();
 
     // ---- setup functions ----
+    const mapsClearBtn = document.querySelector(".directory_search_clear");
+if (mapsClearBtn) {
+  mapsClearBtn.addEventListener("click", () => {
+    if (!searchInstance || !searchInstance.helper) return;
+    const helper = searchInstance.helper;
+
+    // on vide l'état de localisation
+    currentGeoFilter = null;
+    helper.setQueryParameter("aroundLatLng", undefined);
+    helper.setQueryParameter("aroundRadius", undefined);
+
+    // on nettoie le champ
+    const mapsInput = document.getElementById("maps_input");
+    const mapsBox = document.getElementById("maps_autocomplete");
+    if (mapsInput) {
+      mapsInput.value = "";
+      mapsInput.classList.remove("is-selected");
+    }
+    if (mapsBox) {
+      mapsBox.style.display = "none";
+    }
+    mapsClearBtn.style.display = "none";
+
+    // on relance la recherche
+    helper.search();
+  });
+}
 
     function setupBooleanBlockClicks() {
       const labelFilterWrapper = document.getElementById("label-filter");
