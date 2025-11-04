@@ -483,7 +483,7 @@ window.addEventListener("DOMContentLoaded", () => {
               const key = `reimbursment_percentage:::${item.name}`;
               const isSelected = selectedFacetTags.has(key);
               return `
-                <div class="directory_card_discount_tag ${
+                <div class="directory_category_tag_wrapper ${
                   isSelected ? "is-selected" : ""
                 }"
                   data-facet-name="reimbursment_percentage"
@@ -1195,7 +1195,7 @@ window.addEventListener("DOMContentLoaded", () => {
             label: geolabel ? decodeURIComponent(geolabel) : "",
           };
           helper.setQueryParameter("aroundLatLng", `${lat},${lng}`);
-          helper.setQueryParameter("aroundRadius", 100000);
+          helper.setQueryParameter("aroundRadius", 50000);
           const mapsInput = document.getElementById("maps_input");
           const mapsClear = document.querySelector(".directory_search_clear");
           if (mapsInput) {
