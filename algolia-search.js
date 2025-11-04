@@ -853,22 +853,8 @@ partnerDetails2Html =
   renderClearButton();
 
   if (search.helper && search.helper.state) {
-    const lr = search.helper.lastResults; // vrais résultats
-    let hasJobsFacet = false;
-
-    if (lr && lr.facets) {
-      // lr.facets ressemble à { mainjob: { "Coach": 12, ... }, jobs: { ... } }
-      const mainJobsData = lr.facets.mainjob || {};
-      const jobsData = lr.facets.jobs || {};
-
-      const mainHas = Object.values(mainJobsData).some((c) => c > 0);
-      const jobsHas = Object.values(jobsData).some((c) => c > 0);
-
-      hasJobsFacet = mainHas || jobsHas;
-    }
-
+    // on garde l’URL à jour
     updateUrlFromState(search.helper.state);
-    updateOnlyThpVisibility(search.helper.state, hasJobsFacet);
   }
 
   const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
@@ -905,6 +891,7 @@ partnerDetails2Html =
     }
   });
 });
+
 
 
 
