@@ -46,6 +46,23 @@ window.addEventListener("DOMContentLoaded", () => {
       const t = (hit.type || "").trim().toLowerCase();
       return t === "thérapeute" || t === "therapeute";
     }
+function updateOnlyThpVisibility(helperState) {
+  const el = document.getElementById("onlythp");
+  if (!el) return;
+
+  const disj = helperState.disjunctiveFacetsRefinements || {};
+  const facets = helperState.facetsRefinements || {};
+
+  const types =
+    (disj.type && disj.type.length ? disj.type : facets.type) || [];
+
+  // on considère les deux orthographes
+  const hasThera = types.some((t) =>
+    t.toLowerCase().trim() === "thérapeute" || t.toLowerCase().trim() === "therapeute"
+  );
+
+  el.style.display = hasThera ? "block" : "none";
+}
 
     // jobs + booléens → filters
     function buildFiltersStringFromJobsAndBooleans() {
@@ -786,7 +803,9 @@ window.addEventListener("DOMContentLoaded", () => {
       if (search.helper && search.helper.state) {
         updateUrlFromState(search.helper.state);
       }
-
+      if (search.helper && search.helper.state) {
+  updateOnlyThpVisibility(search.helper.state);
+}
       const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
       const buttons = document.querySelectorAll(
         ".ais-InfiniteHits-loadMore, .directory_show_more_button"
