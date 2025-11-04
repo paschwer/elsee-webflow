@@ -1232,4 +1232,3 @@ window.addEventListener("DOMContentLoaded", () => {
     setTimeout(applyUrlParamsToSearch, 50);
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   });
-});
