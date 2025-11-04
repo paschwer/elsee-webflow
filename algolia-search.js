@@ -392,77 +392,92 @@ if (speContainer) {
         }
 
         // 4. MÉTIERS (mainjob + jobs)
-        if (jobFilterWrapper) {
-          let mainFacetValues = results.getFacetValues("mainjob", {
-            sortBy: ["count:desc", "name:asc"],
-          });
-          let jobFacetValues = results.getFacetValues("jobs", {
-            sortBy: ["count:desc", "name:asc"],
-          });
-          if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
-          if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
+if (jobFilterWrapper) {
+  let mainFacetValues = results.getFacetValues("mainjob", {
+    sortBy: ["count:desc", "name:asc"],
+  });
+  let jobFacetValues = results.getFacetValues("jobs", {
+    sortBy: ["count:desc", "name:asc"],
+  });
 
-          const merged = new Map();
+  if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
+  if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
 
-          mainFacetValues.forEach((fv) => {
-            if (!fv || !fv.name) return;
-            merged.set(fv.name, {
-              name: fv.name,
-              mainCount: fv.count || 0,
-              jobCount: 0,
-            });
-          });
+  const merged = new Map();
 
-          jobFacetValues.forEach((fv) => {
-            const nameRaw = fv && fv.name ? fv.name.trim() : "";
-            if (!nameRaw) return;
-            if (merged.has(nameRaw)) {
-              const cur = merged.get(nameRaw);
-              cur.jobCount = fv.count || 0;
-            } else {
-              merged.set(nameRaw, {
-                name: nameRaw,
-                mainCount: 0,
-                jobCount: fv.count || 0,
-              });
-            }
-          });
+  // on merge mainjob
+  mainFacetValues.forEach((fv) => {
+    if (!fv || !fv.name) return;
+    merged.set(fv.name, {
+      name: fv.name,
+      mainCount: fv.count || 0,
+      jobCount: 0,
+    });
+  });
 
-          const mergedArr = Array.from(merged.values()).sort((a, b) => {
-            if (b.mainCount !== a.mainCount) return b.mainCount - a.mainCount;
-            return b.jobCount - a.jobCount;
-          });
+  // on merge jobs
+  jobFacetValues.forEach((fv) => {
+    const nameRaw = fv && fv.name ? fv.name.trim() : "";
+    if (!nameRaw) return;
+    if (merged.has(nameRaw)) {
+      const cur = merged.get(nameRaw);
+      cur.jobCount = fv.count || 0;
+    } else {
+      merged.set(nameRaw, {
+        name: nameRaw,
+        mainCount: 0,
+        jobCount: fv.count || 0,
+      });
+    }
+  });
 
-          const maxToShowJob = jobExpanded ? mergedArr.length : 6;
+  const mergedArr = Array.from(merged.values()).sort((a, b) => {
+    if (b.mainCount !== a.mainCount) return b.mainCount - a.mainCount;
+    return b.jobCount - a.jobCount;
+  });
 
-          const jobListHtml = mergedArr
-            .slice(0, maxToShowJob)
-            .map((item) => {
-              const value = (item.name || "").trim();
-              const key = `jobs:::${value}`;
-              const isSelected =
-                selectedFacetTags.has(key) ||
-                selectedJobTags.includes(value);
-              return (
-                '<div class="directory_category_tag_wrapper ' +
-                (isSelected ? "is-selected" : "") +
-                '" data-facet-name="jobs" data-facet-value="' +
-                value +
-                '">' +
-                value +
-                "</div>"
-              );
-            })
-            .join("");
-          jobFilterWrapper.innerHTML = jobListHtml;
+  // >>> nouvelle partie : savoir s'il y a au moins 1 job dans les facettes
+  const hasJobsFacet =
+    mainFacetValues.some((fv) => fv && fv.count > 0) ||
+    jobFacetValues.some((fv) => fv && fv.count > 0);
 
-          const moreJobBtn = document.getElementById("more-job");
-          if (moreJobBtn) {
-            moreJobBtn.textContent = jobExpanded
-              ? "En voir moins"
-              : "Voir tous les métiers";
-          }
-        }
+  // on met à jour l'affichage de #onlythp avec le VRAI state algolia
+  if (searchInstance && searchInstance.helper) {
+    updateOnlyThpVisibility(searchInstance.helper.state, hasJobsFacet);
+  }
+  // <<< fin nouvelle partie
+
+  const maxToShowJob = jobExpanded ? mergedArr.length : 6;
+
+  const jobListHtml = mergedArr
+    .slice(0, maxToShowJob)
+    .map((item) => {
+      const value = (item.name || "").trim();
+      const key = `jobs:::${value}`;
+      const isSelected =
+        selectedFacetTags.has(key) || selectedJobTags.includes(value);
+      return (
+        '<div class="directory_category_tag_wrapper ' +
+        (isSelected ? "is-selected" : "") +
+        '" data-facet-name="jobs" data-facet-value="' +
+        value +
+        '">' +
+        value +
+        "</div>"
+      );
+    })
+    .join("");
+
+  jobFilterWrapper.innerHTML = jobListHtml;
+
+  const moreJobBtn = document.getElementById("more-job");
+  if (moreJobBtn) {
+    moreJobBtn.textContent = jobExpanded
+      ? "En voir moins"
+      : "Voir tous les métiers";
+  }
+}
+
 
         // 5. BOOLÉENS
         if (labelFilterWrapper) {
