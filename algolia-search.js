@@ -826,15 +826,27 @@ partnerDetails2Html =
 
     // à chaque render
     search.on("render", () => {
-      renderClearButton();
+  renderClearButton();
 
-      if (search.helper && search.helper.state) {
-        updateUrlFromState(search.helper.state);
-      }
-      if (search.helper && search.helper.state) {
-  updateUrlFromState(search.helper.state);
-  updateOnlyThpVisibility(search.helper.state);
-}
+  if (search.helper && search.helper.state) {
+    // on récupère les facettes calculées par Algolia
+    const rs = search.renderState?.[ALGOLIA_INDEX_NAME];
+    const sr = rs ? rs.searchResults : null;
+
+    const mainJobs = sr
+      ? sr.getFacetValues("mainjob", { sortBy: ["count:desc"] }) || []
+      : [];
+    const otherJobs = sr
+      ? sr.getFacetValues("jobs", { sortBy: ["count:desc"] }) || []
+      : [];
+
+    const hasJobsFacet =
+      (Array.isArray(mainJobs) && mainJobs.some((fv) => fv && fv.count > 0)) ||
+      (Array.isArray(otherJobs) && otherJobs.some((fv) => fv && fv.count > 0));
+
+    updateUrlFromState(search.helper.state);
+    updateOnlyThpVisibility(search.helper.state, hasJobsFacet);
+  };
 
       const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
       const buttons = document.querySelectorAll(
