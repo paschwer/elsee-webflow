@@ -46,7 +46,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const t = (hit.type || "").trim().toLowerCase();
       return t === "thérapeute" || t === "therapeute";
     }
-function updateOnlyThpVisibility(helperState) {
+function updateOnlyThpVisibility(helperState, hasJobsFacet) {
   const el = document.getElementById("onlythp");
   if (!el) return;
 
@@ -63,12 +63,14 @@ function updateOnlyThpVisibility(helperState) {
     return tt === "thérapeute" || tt === "therapeute";
   });
 
-  if (noTypeSelected || hasThera) {
+  // on n'affiche que si (jobs > 0) ET (pas de type ou thérapeute)
+  if (hasJobsFacet && (noTypeSelected || hasThera)) {
     el.style.display = "flex";
   } else {
     el.style.display = "none";
   }
 }
+
 
     // jobs + booléens → filters
     function buildFiltersStringFromJobsAndBooleans() {
@@ -278,6 +280,11 @@ function updateOnlyThpVisibility(helperState) {
         });
         if (!Array.isArray(speFacetValues)) speFacetValues = [];
 
+        const speContainer = document.getElementById("speContainer");
+if (speContainer) {
+  const hasSpe = speFacetValues.some((fv) => fv && fv.count > 0);
+  speContainer.style.display = hasSpe ? "flex" : "none";
+};
         const selectedSpe = Array.from(selectedFacetTags)
           .filter((k) => k.startsWith("specialities:::"))
           .map((k) => k.split(":::")[1]);
@@ -350,6 +357,11 @@ function updateOnlyThpVisibility(helperState) {
             sortBy: ["count:desc", "name:asc"],
           });
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
+          const serviceContainer = document.getElementById("serviceContainer");
+  if (serviceContainer) {
+    const hasPresta = prestaFacetValues.some((fv) => fv && fv.count > 0);
+    serviceContainer.style.display = hasPresta ? "flex" : "none";
+  };
           const maxToShowPresta = prestaExpanded
             ? prestaFacetValues.length
             : 6;
