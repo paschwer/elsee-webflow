@@ -883,6 +883,7 @@ partnerDetails2Html =
 });
 
 
+
     // setup listeners
     setupSearchDropdown();
     setupSuggestionClicks();
