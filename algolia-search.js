@@ -56,12 +56,18 @@ function updateOnlyThpVisibility(helperState) {
   const types =
     (disj.type && disj.type.length ? disj.type : facets.type) || [];
 
-  // on considère les deux orthographes
-  const hasThera = types.some((t) =>
-    t.toLowerCase().trim() === "thérapeute" || t.toLowerCase().trim() === "therapeute"
-  );
+  const noTypeSelected = types.length === 0;
 
-  el.style.display = hasThera ? "block" : "none";
+  const hasThera = types.some((t) => {
+    const tt = t.toLowerCase().trim();
+    return tt === "thérapeute" || tt === "therapeute";
+  });
+
+  if (noTypeSelected || hasThera) {
+    el.style.display = "flex";
+  } else {
+    el.style.display = "none";
+  }
 }
 
     // jobs + booléens → filters
@@ -804,8 +810,10 @@ function updateOnlyThpVisibility(helperState) {
         updateUrlFromState(search.helper.state);
       }
       if (search.helper && search.helper.state) {
+  updateUrlFromState(search.helper.state);
   updateOnlyThpVisibility(search.helper.state);
 }
+
       const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
       const buttons = document.querySelectorAll(
         ".ais-InfiniteHits-loadMore, .directory_show_more_button"
