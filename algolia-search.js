@@ -590,7 +590,7 @@ if (jobFilterWrapper) {
       instantsearch.widgets.searchBox({
         container: "#searchbox",
         placeholder:
-          "Écrivez ici tout ce qui concerne vos besoins: Spécialité, trouble, praticien...",
+          "Écrivez ici tout ce qui concerne vos besoins...",
         cssClasses: {
           root: "directory_search_field_container",
           input: "directory_search_text",
