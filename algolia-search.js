@@ -932,6 +932,41 @@ if (mapsClearBtn) {
     helper.search();
   });
 }
+    const clearBtnMobile = document.getElementById("clear_button_mobile");
+if (clearBtnMobile) {
+  clearBtnMobile.addEventListener("click", () => {
+    if (!searchInstance || !searchInstance.helper) return;
+    const helper = searchInstance.helper;
+    selectedFacetTags.clear();
+    selectedJobTags.length = 0;
+    isNetworkSelected = false;
+    isRemoteSelected = false;
+    isAtHomeSelected = false;
+    helper.setQuery("");
+    helper.clearRefinements();
+    helper.setQueryParameter("filters", undefined);
+    helper.setQueryParameter("aroundLatLng", undefined);
+    helper.setQueryParameter("aroundRadius", undefined);
+    currentGeoFilter = null;
+
+    const mapsInput = document.getElementById("maps_input");
+    const mapsBox = document.getElementById("maps_autocomplete");
+    const mapsClear = document.querySelector(".directory_search_clear");
+    if (mapsInput) {
+      mapsInput.value = "";
+      mapsInput.classList.remove("is-selected");
+    }
+    if (mapsBox) {
+      mapsBox.style.display = "none";
+    }
+    if (mapsClear) {
+      mapsClear.style.display = "none";
+    }
+
+    helper.search();
+  });
+}
+
 
     function setupBooleanBlockClicks() {
       const labelFilterWrapper = document.getElementById("label-filter");
