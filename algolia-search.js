@@ -576,7 +576,6 @@ function updateOnlyThpVisibility(helperState) {
         container: "#hits",
         hitsPerPage: 48,
         showMore: true,
-        showMoreText: "Afficher plus de résultat",
         cssClasses: {
           loadMore: "directory_show_more_button",
         },
@@ -794,6 +793,7 @@ function updateOnlyThpVisibility(helperState) {
             );
           },
           empty: "<div>Aucun résultat trouvé.</div>",
+          showMoreText: "Afficher plus de résultat",
         },
       }),
 
