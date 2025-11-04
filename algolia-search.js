@@ -5,46 +5,26 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const selectedFacetTags = new Set();
   const selectedJobTags = [];
+
+  // booléens
   let isNetworkSelected = false;
   let isRemoteSelected = false;
   let isAtHomeSelected = false;
+
+  // états d’UI
   let speExpanded = false;
   let prestaExpanded = false;
   let jobExpanded = false;
+
+  // geo
   let currentGeoFilter = null;
+
+  // instance globale
   let searchInstance = null;
 
-  function buildFiltersStringFromJobsAndBooleans() {
-    const parts = [];
-
-    // métiers → (mainjob:X OR jobs:X) AND (mainjob:Y OR jobs:Y) ...
-    if (selectedJobTags.length > 0) {
-      const jobParts = selectedJobTags.map((job) => {
-        const safe = job.replace(/"/g, '\\"');
-        return `(mainjob:"${safe}" OR jobs:"${safe}")`;
-      });
-      parts.push(jobParts.join(" AND "));
-    }
-
-    if (isNetworkSelected) {
-      parts.push("is_elsee_network:true");
-    }
-    if (isRemoteSelected) {
-      parts.push("is_remote:true");
-    }
-    if (isAtHomeSelected) {
-      parts.push("is_at_home:true");
-    }
-
-    const finalStr = parts.join(" AND ");
-    return finalStr.length ? finalStr : undefined;
-  }
-
+  // --------- init algolia ----------
   function initAlgolia() {
-    if (
-      typeof algoliasearch === "undefined" ||
-      typeof instantsearch === "undefined"
-    ) {
+    if (typeof algoliasearch === "undefined" || typeof instantsearch === "undefined") {
       setTimeout(initAlgolia, 200);
       return;
     }
@@ -58,6 +38,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     searchInstance = search;
 
+    // --------------- helpers locaux ---------------
     function truncate(str, max) {
       if (!str) return "";
       return str.length > max ? str.slice(0, max) + "..." : str;
@@ -74,6 +55,29 @@ window.addEventListener("DOMContentLoaded", () => {
       return t === "thérapeute" || t === "therapeute";
     }
 
+    // jobs + booléens → string filters Algolia
+    function buildFiltersStringFromJobsAndBooleans() {
+      const parts = [];
+
+      // métiers : (mainjob:"x" OR jobs:"x") AND (mainjob:"y" OR jobs:"y") ...
+      if (selectedJobTags.length > 0) {
+        const jobParts = selectedJobTags.map((job) => {
+          const safe = job.replace(/"/g, '\\"');
+          return `(mainjob:"${safe}" OR jobs:"${safe}")`;
+        });
+        parts.push(jobParts.join(" AND "));
+      }
+
+      // booléens
+      if (isNetworkSelected) parts.push("is_elsee_network:true");
+      if (isRemoteSelected) parts.push("is_remote:true");
+      if (isAtHomeSelected) parts.push("is_at_home:true");
+
+      const finalStr = parts.join(" AND ");
+      return finalStr.length ? finalStr : undefined;
+    }
+
+    // ---------- URL sync ----------
     function updateUrlFromState(state) {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
@@ -118,12 +122,14 @@ window.addEventListener("DOMContentLoaded", () => {
         params.delete("prestations");
       }
 
+      // jobs (qu’on gère en front)
       if (selectedJobTags.length > 0) {
         params.set("jobs", selectedJobTags.join(","));
       } else {
         params.delete("jobs");
       }
 
+      // geo
       if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
         params.set("geo", `${currentGeoFilter.lat},${currentGeoFilter.lng}`);
         if (currentGeoFilter.label) {
@@ -136,21 +142,15 @@ window.addEventListener("DOMContentLoaded", () => {
         params.delete("geolabel");
       }
 
-      if (isNetworkSelected) {
-        params.set("network", "true");
-      } else {
-        params.delete("network");
-      }
-      if (isRemoteSelected) {
-        params.set("remote", "true");
-      } else {
-        params.delete("remote");
-      }
-      if (isAtHomeSelected) {
-        params.set("athome", "true");
-      } else {
-        params.delete("athome");
-      }
+      // booléens → pour reload même état
+      if (isNetworkSelected) params.set("network", "true");
+      else params.delete("network");
+
+      if (isRemoteSelected) params.set("remote", "true");
+      else params.delete("remote");
+
+      if (isAtHomeSelected) params.set("athome", "true");
+      else params.delete("athome");
 
       const newUrl = `${window.location.pathname}${
         params.toString() ? "?" + params.toString() : ""
@@ -158,6 +158,7 @@ window.addEventListener("DOMContentLoaded", () => {
       window.history.replaceState({}, "", newUrl);
     }
 
+    // -------------- widget qui reconstruit les tags --------------
     const dynamicSuggestionsWidget = {
       render({ results }) {
         if (!results) return;
@@ -168,19 +169,16 @@ window.addEventListener("DOMContentLoaded", () => {
         const prestaFilterWrapper = document.getElementById("presta_filtre");
         const jobFilterWrapper = document.getElementById("job_filtre");
         const labelFilterWrapper = document.getElementById("label-filter");
-        const remoteFilterWrapper =
-          document.getElementById("works-remotely-filter");
-        const atHomeFilterWrapper =
-          document.getElementById("works-at-home-filter");
-        const discountFilterWrapper =
-          document.getElementById("discount-tags");
+        const remoteFilterWrapper = document.getElementById("works-remotely-filter");
+        const atHomeFilterWrapper = document.getElementById("works-at-home-filter");
+        const discountFilterWrapper = document.getElementById("discount-tags");
 
         if (!typeWrapper || !speWrapper) return;
 
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
-        // ----------- TYPES -----------
+        // ---------- TYPES ----------
         let typeFacetValues = results.getFacetValues("type", {
           sortBy: ["count:desc", "name:asc"],
         });
@@ -205,7 +203,7 @@ window.addEventListener("DOMContentLoaded", () => {
           .join("");
         typeWrapper.innerHTML = typeHtml;
 
-        // ----------- TYPES ALT -----------
+        // ---------- TYPES ALT BLOCK ----------
         const typesAltWrapper = document.getElementById("directory_types");
         if (typesAltWrapper) {
           const hasTypeSelected = Array.from(selectedFacetTags).some((k) =>
@@ -240,7 +238,7 @@ window.addEventListener("DOMContentLoaded", () => {
           typesAltWrapper.innerHTML = altHtml;
         }
 
-        // ----------- SPECIALITIES -----------
+        // ---------- SPECIALITÉS ----------
         let speFacetValues = results.getFacetValues("specialities", {
           sortBy: ["count:desc", "name:asc"],
         });
@@ -284,7 +282,7 @@ window.addEventListener("DOMContentLoaded", () => {
           .join("");
         speWrapper.innerHTML = speHtml;
 
-        // ----------- SPECIALITIES ALT -----------
+        // ---------- SPECIALITÉS ALT ----------
         if (speFilterWrapper) {
           const maxToShow = speExpanded ? speFacetValues.length : 6;
           const speListHtml = speFacetValues
@@ -309,7 +307,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // ----------- PRESTATIONS -----------
+        // ---------- PRESTATIONS ----------
         if (prestaFilterWrapper) {
           let prestaFacetValues = results.getFacetValues("prestations", {
             sortBy: ["count:desc", "name:asc"],
@@ -340,7 +338,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // ----------- JOBS (mainjob + jobs fusion) -----------
+        // ---------- JOBS (mainjob + jobs fusionnés) ----------
         if (jobFilterWrapper) {
           let mainFacetValues = results.getFacetValues("mainjob", {
             sortBy: ["count:desc", "name:asc"],
@@ -405,7 +403,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // ----------- BOOLEAN FILTERS (réseau, visio, domicile) -----------
+        // ---------- BOOLÉENS (réseau / visio / domicile) ----------
         if (labelFilterWrapper) {
           labelFilterWrapper.innerHTML = `
             <div class="directory_category_tag_wrapper ${
@@ -451,64 +449,59 @@ window.addEventListener("DOMContentLoaded", () => {
           `;
         }
 
-        // ----------- REIMBURSEMENT / DISCOUNT TAGS -----------
+        // ---------- REMBOURSEMENT ----------
         if (discountFilterWrapper) {
-          let reimburseFacetValues = [];
-          try {
-            const tmp = results.getFacetValues("reimbursment_percentage", {
-              sortBy: ["name:asc"],
-            });
-            if (Array.isArray(tmp)) {
-              reimburseFacetValues = tmp;
-            } else if (tmp && Array.isArray(tmp.data)) {
-              // dans certains cas Algolia renvoie {data: [...]}
-              reimburseFacetValues = tmp.data;
-            }
-          } catch (err) {
-            console.warn(
-              "[ALGOLIA] pas de facette reimbursment_percentage dans les résultats:",
-              err
-            );
-          }
+          console.log("[DISCOUNT] wrapper trouvé ✔");
 
-          console.log(
-            "[ALGOLIA] rembours. bruts récupérés:",
-            reimburseFacetValues
+          let reimburseFacetValues = results.getFacetValues(
+            "reimbursment_percentage",
+            { sortBy: ["name:asc"] }
           );
 
+          console.log("[DISCOUNT] facetValues bruts :", reimburseFacetValues);
+
           if (!Array.isArray(reimburseFacetValues)) {
-            discountFilterWrapper.innerHTML = "";
-          } else {
-            const filtered = reimburseFacetValues
-              .filter((fv) => fv && fv.name !== undefined && fv.name !== null)
-              // tri num asc
-              .sort((a, b) => Number(a.name) - Number(b.name));
-
-            console.log("[ALGOLIA] rembours. après tri:", filtered);
-
-            const html = filtered
-              .map((item) => {
-                const val = item.name;
-                const key = `reimbursment_percentage:::${val}`;
-                const isSelected = selectedFacetTags.has(key);
-                return `
-                  <div class="directory_card_discount_tag ${
-                    isSelected ? "is-selected" : ""
-                  }"
-                       data-facet-name="reimbursment_percentage"
-                       data-facet-value="${val}">
-                    <div>${val}%</div>
-                  </div>
-                `;
-              })
-              .join("");
-
-            discountFilterWrapper.innerHTML = html;
+            reimburseFacetValues = [];
           }
+
+          const filtered = reimburseFacetValues
+            .filter((fv) => {
+              if (!fv || typeof fv.name === "undefined") return false;
+              const num = Number(fv.name);
+              return !Number.isNaN(num);
+            })
+            .map((fv) => ({
+              name: fv.name,
+              count: fv.count || 0,
+            }))
+            .sort((a, b) => Number(a.name) - Number(b.name));
+
+          console.log("[DISCOUNT] après filtrage/tri :", filtered);
+
+          const html = filtered
+            .map((item) => {
+              const key = `reimbursment_percentage:::${item.name}`;
+              const isSelected = selectedFacetTags.has(key);
+              return `
+                <div class="directory_card_discount_tag ${
+                  isSelected ? "is-selected" : ""
+                }"
+                  data-facet-name="reimbursment_percentage"
+                  data-facet-value="${item.name}">
+                  <div>${item.name}%</div>
+                </div>
+              `;
+            })
+            .join("");
+
+          discountFilterWrapper.innerHTML = html;
+        } else {
+          console.log("[DISCOUNT] ⚠️ div#discount-tags introuvable dans le DOM");
         }
       },
     };
 
+    // -------------- widgets --------------
     search.addWidgets([
       instantsearch.widgets.configure({
         facets: [
@@ -516,7 +509,7 @@ window.addEventListener("DOMContentLoaded", () => {
           "prestations",
           "mainjob",
           "jobs",
-          "reimbursment_percentage",
+          "reimbursment_percentage", // 👈 important
         ],
         disjunctiveFacets: ["type"],
         hitsPerPage: 48,
@@ -552,12 +545,14 @@ window.addEventListener("DOMContentLoaded", () => {
           loadMore: "directory_show_more_button",
         },
         transformItems(items) {
-          return items.slice().sort((a, b) => {
-            const aNet = a.is_elsee_network ? 1 : 0;
-            const bNet = b.is_elsee_network ? 1 : 0;
-            if (aNet !== bNet) return bNet - aNet;
-            return 0;
-          });
+          return items
+            .slice()
+            .sort((a, b) => {
+              const aNet = a.is_elsee_network ? 1 : 0;
+              const bNet = b.is_elsee_network ? 1 : 0;
+              if (aNet !== bNet) return bNet - aNet;
+              return 0;
+            });
         },
         templates: {
           item(hit) {
@@ -565,7 +560,7 @@ window.addEventListener("DOMContentLoaded", () => {
             const isNetwork = !!hit.is_elsee_network;
             const isRemote = !!hit.is_remote;
             const isAtHome = !!hit.is_at_home;
-            const reimbursement = hit.reimbursment_percentage || "";
+            const reimbursement = hit.reimbursment_percentage ?? "";
             const name = hit.name || "";
             const city = hit.city || "";
             const depNum = hit.department_number || "";
@@ -578,14 +573,11 @@ window.addEventListener("DOMContentLoaded", () => {
             const therapeute = isTherapeute(hit);
 
             const remoteSvg =
-              document.querySelector(".directory_remote_icon")?.innerHTML ||
-              "";
+              document.querySelector(".directory_remote_icon")?.innerHTML || "";
             const atHomeSvg =
-              document.querySelector(".directory_at_home_icon")?.innerHTML ||
-              "";
+              document.querySelector(".directory_at_home_icon")?.innerHTML || "";
             const discountSvg =
-              document.querySelector(".directory_discount_icon")?.innerHTML ||
-              "";
+              document.querySelector(".directory_discount_icon")?.innerHTML || "";
             const locationSvg =
               document.querySelector(".directory_card_location_icon")
                 ?.innerHTML || "";
@@ -739,8 +731,10 @@ window.addEventListener("DOMContentLoaded", () => {
       dynamicSuggestionsWidget,
     ]);
 
+    // -------------- start --------------
     search.start();
 
+    // -------------- après render --------------
     search.on("render", () => {
       renderClearButton();
 
@@ -783,6 +777,7 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     });
 
+    // -------------- setup listeners --------------
     setupSearchDropdown();
     setupSuggestionClicks();
     setupTypeBlockClicks();
@@ -791,7 +786,7 @@ window.addEventListener("DOMContentLoaded", () => {
     setupBooleanBlockClicks();
     setupDiscountBlockClicks();
 
-    // ---------- handlers ----------
+    // =================== LISTENERS ===================
 
     function setupBooleanBlockClicks() {
       const labelFilterWrapper = document.getElementById("label-filter");
@@ -804,15 +799,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
       function toggleAndSearch(flagName) {
         if (!searchInstance || !searchInstance.helper) return;
-        if (flagName === "network") {
-          isNetworkSelected = !isNetworkSelected;
-        }
-        if (flagName === "remote") {
-          isRemoteSelected = !isRemoteSelected;
-        }
-        if (flagName === "athome") {
-          isAtHomeSelected = !isAtHomeSelected;
-        }
+        if (flagName === "network") isNetworkSelected = !isNetworkSelected;
+        if (flagName === "remote") isRemoteSelected = !isRemoteSelected;
+        if (flagName === "athome") isAtHomeSelected = !isAtHomeSelected;
 
         const helper = searchInstance.helper;
         const filtersStr = buildFiltersStringFromJobsAndBooleans();
@@ -827,6 +816,7 @@ window.addEventListener("DOMContentLoaded", () => {
           toggleAndSearch(btn.getAttribute("data-bool-filter"));
         });
       }
+
       if (remoteFilterWrapper) {
         remoteFilterWrapper.addEventListener("click", (e) => {
           const btn = e.target.closest("[data-bool-filter]");
@@ -834,6 +824,7 @@ window.addEventListener("DOMContentLoaded", () => {
           toggleAndSearch(btn.getAttribute("data-bool-filter"));
         });
       }
+
       if (atHomeFilterWrapper) {
         atHomeFilterWrapper.addEventListener("click", (e) => {
           const btn = e.target.closest("[data-bool-filter]");
@@ -845,25 +836,20 @@ window.addEventListener("DOMContentLoaded", () => {
 
     function setupDiscountBlockClicks() {
       const discountWrapper = document.getElementById("discount-tags");
-      if (!discountWrapper) return;
-
+      if (!discountWrapper) {
+        console.log("[DISCOUNT] pas de div#discount-tags sur la page → pas de clic");
+        return;
+      }
       discountWrapper.addEventListener("click", (e) => {
         const tag = e.target.closest(".directory_card_discount_tag");
         if (!tag || !searchInstance || !searchInstance.helper) return;
-
         const facetName = tag.getAttribute("data-facet-name");
         const facetValue = tag.getAttribute("data-facet-value");
         const key = `${facetName}:::${facetValue}`;
         const helper = searchInstance.helper;
         const isSelected = selectedFacetTags.has(key);
 
-        console.log(
-          "[ALGOLIA] click reimbursement tag:",
-          facetName,
-          facetValue,
-          "selected=",
-          isSelected
-        );
+        console.log("[DISCOUNT] click:", facetName, facetValue, "selected?", isSelected);
 
         if (isSelected) {
           selectedFacetTags.delete(key);
@@ -913,9 +899,7 @@ window.addEventListener("DOMContentLoaded", () => {
         isNetworkSelected || isRemoteSelected || isAtHomeSelected;
 
       clearBtn.style.display =
-        hasQuery || hasFacets || hasGeo || hasJobs || hasBools
-          ? "flex"
-          : "none";
+        hasQuery || hasFacets || hasGeo || hasJobs || hasBools ? "flex" : "none";
     }
 
     const clearBtnInit = document.getElementById("clear_button");
@@ -1154,12 +1138,13 @@ window.addEventListener("DOMContentLoaded", () => {
       const spes = (params.get("specialities") || "")
         .split(",")
         .filter(Boolean);
-      const geo = params.get("geo") || "";
       const prestas = (params.get("prestations") || "")
         .split(",")
         .filter(Boolean);
       const jobs = (params.get("jobs") || "").split(",").filter(Boolean);
+      const geo = params.get("geo") || "";
       const geolabel = params.get("geolabel") || "";
+
       const urlNetwork = params.get("network") === "true";
       const urlRemote = params.get("remote") === "true";
       const urlAtHome = params.get("athome") === "true";
@@ -1231,10 +1216,12 @@ window.addEventListener("DOMContentLoaded", () => {
       helper.search();
     }
 
-    initAlgolia();
-    setTimeout(applyUrlParamsToSearch, 50);
+    // expose pour la map
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
-  });
 
-  // fin initAlgolia
+    // appliquer paramètres de l’URL
+    setTimeout(applyUrlParamsToSearch, 50);
+  }
+
+  initAlgolia();
 });
