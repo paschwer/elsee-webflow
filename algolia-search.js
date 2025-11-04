@@ -1,5 +1,4 @@
-<script>
-  window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", () => {
     const ALGOLIA_APP_ID = "DRTSPIHOUM";
     const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
     const ALGOLIA_INDEX_NAME = "elsee_index";
@@ -1178,4 +1177,4 @@
     setTimeout(applyUrlParamsToSearch, 50);
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   });
-</script>
+
