@@ -456,55 +456,69 @@ window.addEventListener("DOMContentLoaded", () => {
         }
 
         // DISCOUNT / REIMBURSEMENT FILTER
-        if (discountFilterWrapper) {
-          let reimburseFacetValues = results.getFacetValues(
-            "reimbursment_percentage",
-            {
-              sortBy: ["name:asc"],
-            }
-          );
+        // DISCOUNT / REIMBURSEMENT FILTER
+if (discountFilterWrapper) {
+  console.log("[DISCOUNT] div #discount-tags trouvée ✅");
 
-          console.log(
-            "[ALGOLIA] remboursement facets bruts:",
-            reimburseFacetValues
-          );
+  // on récupère ce que Algolia a vraiment
+  let reimburseFacetValues = results.getFacetValues("reimbursment_percentage", {
+    sortBy: ["name:asc"],
+  });
 
-          if (!Array.isArray(reimburseFacetValues))
-            reimburseFacetValues = [];
+  console.log("[DISCOUNT] raw getFacetValues('reimbursment_percentage') =>", reimburseFacetValues);
 
-          // on garde que ceux > 0
-          const filtered = reimburseFacetValues
-            .filter((fv) => fv && fv.name && Number(fv.name) >= 0)
-            .map((fv) => ({
-              name: fv.name,
+  // si Algolia ne renvoie rien, on loggue tout l'objet pour vérifier l'index
+  if (!Array.isArray(reimburseFacetValues) || reimburseFacetValues.length === 0) {
+    console.log("[DISCOUNT] ⚠️ Aucune facet reçue pour reimbursment_percentage.");
+    console.log("[DISCOUNT] results.facets dispo :", results.facets);
+    console.log("[DISCOUNT] results.rawResults (1er) :", results._rawResults ? results._rawResults[0] : "pas de rawResults");
+    // on vide la div dans ce cas
+    discountFilterWrapper.innerHTML = "";
+  } else {
+    // on normalise (au cas où ça revienne en number)
+    const normalized = reimburseFacetValues
+      .map((fv) => {
+        // parfois fv.name est un nombre
+        const val = fv && fv.name != null ? String(fv.name) : null;
+        return val
+          ? {
+              name: val,
               count: fv.count || 0,
-            }));
+            }
+          : null;
+      })
+      .filter(Boolean)
+      // on ne garde que >= 0
+      .filter((item) => !isNaN(Number(item.name)) && Number(item.name) >= 0)
+      // tri numérique croissant
+      .sort((a, b) => Number(a.name) - Number(b.name));
 
-          // tri numérique
-          filtered.sort((a, b) => Number(a.name) - Number(b.name));
+    console.log("[DISCOUNT] après normalisation/tri =>", normalized);
 
-          console.log("[ALGOLIA] remboursement après tri:", filtered);
+    const html = normalized
+      .map((item) => {
+        const key = `reimbursment_percentage:::${item.name}`;
+        const isSelected = selectedFacetTags.has(key);
+        return `
+          <div
+            class="directory_card_discount_tag ${isSelected ? "is-selected" : ""}"
+            data-facet-name="reimbursment_percentage"
+            data-facet-value="${item.name}"
+          >
+            <div>${item.name}%</div>
+          </div>
+        `;
+      })
+      .join("");
 
-          const html = filtered
-            .map((item) => {
-              const key = `reimbursment_percentage:::${item.name}`;
-              const isSelected = selectedFacetTags.has(key);
-              return `
-                <div class="directory_card_discount_tag ${
-                  isSelected ? "is-selected" : ""
-                }" data-facet-name="reimbursment_percentage" data-facet-value="${
-                item.name
-              }">
-                  <div>${item.name}%</div>
-                </div>
-              `;
-            })
-            .join("");
+    console.log("[DISCOUNT] html généré =>", html);
 
-          discountFilterWrapper.innerHTML = html;
-        }
-      },
-    };
+    discountFilterWrapper.innerHTML = html;
+  }
+} else {
+  console.log("[DISCOUNT] ❌ div #discount-tags introuvable dans le DOM");
+}
+
 
     search.addWidgets([
       instantsearch.widgets.configure({
