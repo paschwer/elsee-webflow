@@ -279,6 +279,10 @@ function updateOnlyThpVisibility(helperState, hasJobsFacet) {
           sortBy: ["count:desc", "name:asc"],
         });
         if (!Array.isArray(speFacetValues)) speFacetValues = [];
+// version triée A→Z pour le bloc de filtres
+const speFacetValuesAlpha = [...speFacetValues].sort((a, b) =>
+  (a.name || "").localeCompare(b.name || "")
+);
 
         const speContainer = document.getElementById("speContainer");
 if (speContainer) {
@@ -324,25 +328,25 @@ if (speContainer) {
         speWrapper.innerHTML = speHtml;
 
         if (speFilterWrapper) {
-          const maxToShow = speExpanded ? speFacetValues.length : 6;
-          const speListHtml = speFacetValues
-            .filter((fv) => fv && fv.name)
-            .slice(0, maxToShow)
-            .map((fv) => {
-              const key = `specialities:::${fv.name}`;
-              const isSelected = selectedFacetTags.has(key);
-              return (
-                '<div class="directory_category_tag_wrapper ' +
-                (isSelected ? "is-selected" : "") +
-                '" data-facet-name="specialities" data-facet-value="' +
-                fv.name +
-                '">' +
-                fv.name +
-                "</div>"
-              );
-            })
-            .join("");
-          speFilterWrapper.innerHTML = speListHtml;
+  const maxToShow = speExpanded ? speFacetValuesAlpha.length : 6;
+  const speListHtml = speFacetValuesAlpha
+    .filter((fv) => fv && fv.name)
+    .slice(0, maxToShow)
+    .map((fv) => {
+      const key = `specialities:::${fv.name}`;
+      const isSelected = selectedFacetTags.has(key);
+      return (
+        '<div class="directory_category_tag_wrapper ' +
+        (isSelected ? "is-selected" : "") +
+        '" data-facet-name="specialities" data-facet-value="' +
+        fv.name +
+        '">' +
+        fv.name +
+        "</div>"
+      );
+    })
+    .join("");
+  speFilterWrapper.innerHTML = speListHtml;
           const moreSpeBtn = document.getElementById("more-spe");
           if (moreSpeBtn) {
             moreSpeBtn.textContent = speExpanded
@@ -354,7 +358,7 @@ if (speContainer) {
         // 3. PRESTATIONS
         if (prestaFilterWrapper) {
           let prestaFacetValues = results.getFacetValues("prestations", {
-            sortBy: ["count:desc", "name:asc"],
+            sortBy: ["name:asc"],
           });
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
           const serviceContainer = document.getElementById("serviceContainer");
@@ -394,10 +398,10 @@ if (speContainer) {
         // 4. MÉTIERS (mainjob + jobs)
 if (jobFilterWrapper) {
   let mainFacetValues = results.getFacetValues("mainjob", {
-    sortBy: ["count:desc", "name:asc"],
+    sortBy: ["name:asc"],
   });
   let jobFacetValues = results.getFacetValues("jobs", {
-    sortBy: ["count:desc", "name:asc"],
+    sortBy: ["name:asc"],
   });
 
   if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
@@ -433,10 +437,10 @@ if (jobFilterWrapper) {
     }
   });
 
-  const mergedArr = Array.from(merged.values()).sort((a, b) => {
-    if (b.mainCount !== a.mainCount) return b.mainCount - a.mainCount;
-    return b.jobCount - a.jobCount;
-  });
+  const mergedArr = Array.from(merged.values()).sort((a, b) =>
+  (a.name || "").localeCompare(b.name || "")
+);
+
 
   // est-ce qu’on a au moins 1 job ?
   const hasJobsFacet =
