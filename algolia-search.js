@@ -42,9 +42,9 @@ window.addEventListener("DOMContentLoaded", () => {
       return [v];
     }
 
-    function isTherapeute(hit) {
+    function isTherapeutes(hit) {
       const t = (hit.type || "").trim().toLowerCase();
-      return t === "thérapeute" || t === "therapeute";
+      return t === "Thérapeutes" || t === "therapeutes";
     }
 function updateOnlyThpVisibility(helperState, hasJobsFacet) {
   const el = document.getElementById("onlythp");
@@ -60,10 +60,10 @@ function updateOnlyThpVisibility(helperState, hasJobsFacet) {
 
   const hasThera = types.some((t) => {
     const tt = t.toLowerCase().trim();
-    return tt === "thérapeute" || tt === "therapeute";
+    return tt === "Thérapeutes" || tt === "therapeutes";
   });
 
-  // on n'affiche que si (jobs > 0) ET (pas de type ou thérapeute)
+  // on n'affiche que si (jobs > 0) ET (pas de type ou Thérapeutes)
   if (hasJobsFacet && (noTypeSelected || hasThera)) {
     el.style.display = "flex";
   } else {
@@ -642,7 +642,7 @@ if (jobFilterWrapper) {
             const source = hit.source_collection || "";
             const isSport =
               source === "sports_studio" || source === "studio_enfant";
-            const therapeute = isTherapeute(hit);
+            const Therapeutes = isTherapeutes(hit);
 
             const remoteSvg =
               document.querySelector(".directory_remote_icon")?.innerHTML ||
@@ -692,7 +692,7 @@ if (jobFilterWrapper) {
               '<div class="tooltip">Se déplace à votre domicile</div>' +
               "</div>";
 
-            const showDiscount = !therapeute;
+            const showDiscount = !Therapeutes;
             const discountDiv =
               '<div class="directory_card_discount_tag" style="display:' +
               (showDiscount ? "flex" : "none") +
@@ -713,7 +713,7 @@ if (jobFilterWrapper) {
             const prestationsArr = toArray(hit.prestations);
             const specialitiesArr = toArray(hit.specialities);
             let partnerDetails1 = "";
-            if (therapeute) {
+            if (Therapeutes) {
               partnerDetails1 = hit.mainjob || "";
             } else {
               if (prestationsArr.length > 0) {
@@ -747,7 +747,7 @@ if (jobFilterWrapper) {
               "</div></div>";
 
             let partnerDetails2Html = "";
-            if (therapeute) {
+            if (Therapeutes) {
               const jobsArr = toArray(hit.jobs);
 let jobsTxt = "";
 if (jobsArr.length > 3) {
@@ -777,7 +777,7 @@ partnerDetails2Html =
             if (!city && !depNum) showLocation = false;
 
             const locationText =
-              therapeute || isSport
+              Therapeutes || isSport
                 ? city + (depNum ? " (" + depNum + ")" : "")
                 : city;
 
@@ -794,7 +794,7 @@ partnerDetails2Html =
               "</div>";
 
             let tagItems = [];
-            if (therapeute) {
+            if (Therapeutes) {
               tagItems = toArray(hit.prestations).slice(0, 2);
             } else {
               tagItems = toArray(hit.specialities).slice(0, 2);
