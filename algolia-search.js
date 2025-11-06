@@ -14,6 +14,8 @@ window.addEventListener("DOMContentLoaded", () => {
   let jobExpanded = false;
   let currentGeoFilter = null;
   let searchInstance = null;
+  let hasUserLaunchedSearch = false; // <- AJOUT
+
 
   function initAlgolia() {
     if (typeof algoliasearch === "undefined" || typeof instantsearch === "undefined") {
@@ -23,10 +25,34 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
 
-    const search = instantsearch({
+        const search = instantsearch({
       indexName: ALGOLIA_INDEX_NAME,
       searchClient,
+      searchFunction(helper) {
+        const query = (helper.state.query || "").trim();
+
+        // est-ce qu'il y a déjà une action utilisateur ?
+        const userHasFilters =
+          selectedFacetTags.size > 0 ||
+          selectedJobTags.length > 0 ||
+          isNetworkSelected ||
+          isRemoteSelected ||
+          isAtHomeSelected ||
+          currentGeoFilter;
+
+        if (query !== "" || userHasFilters) {
+          hasUserLaunchedSearch = true;
+        }
+
+        // on reconstruit les filtres métier existants
+        const userFilters = buildFiltersStringFromJobsAndBooleans();
+        const finalFilters = composeFilters(userFilters);
+
+        helper.setQueryParameter("filters", finalFilters);
+        helper.search();
+      },
     });
+
 
     searchInstance = search;
 
@@ -97,6 +123,24 @@ function updateOnlyThpVisibility(helperState, hasJobsFacet) {
 
       const finalStr = parts.join(" AND ");
       return finalStr.length ? finalStr : undefined;
+    }
+    // filtre d'affichage de base selon l'état de la recherche
+    function getVisibilityFilter() {
+      // avant recherche → on exclut ceux qui sont "réservés à l'après-recherche"
+      if (!hasUserLaunchedSearch) {
+        return "NOT show_search:true";
+      }
+      // après recherche → on exclut ceux qui sont "home"
+      return "NOT show_home:true";
+    }
+
+    // combine les filtres métier (jobs/booléens) avec le filtre de visibilité
+    function composeFilters(userFilters) {
+      const visibility = getVisibilityFilter();
+      if (userFilters && userFilters.length) {
+        return userFilters + " AND " + visibility;
+      }
+      return visibility;
     }
 
     // met l'état dans l’URL
@@ -952,6 +996,7 @@ if (clearBtnMobile) {
     helper.setQueryParameter("aroundLatLng", undefined);
     helper.setQueryParameter("aroundRadius", undefined);
     currentGeoFilter = null;
+    hasUserLaunchedSearch = false; // <- AJOUT
 
     const mapsInput = document.getElementById("maps_input");
     const mapsBox = document.getElementById("maps_autocomplete");
@@ -1106,6 +1151,8 @@ if (clearBtnMobile) {
         helper.setQueryParameter("aroundLatLng", undefined);
         helper.setQueryParameter("aroundRadius", undefined);
         currentGeoFilter = null;
+        hasUserLaunchedSearch = false; // <- AJOUT
+
 
         const mapsInput = document.getElementById("maps_input");
         const mapsBox = document.getElementById("maps_autocomplete");
