@@ -877,46 +877,43 @@ window.addEventListener("DOMContentLoaded", () => {
     search.start();
 
     search.on("render", () => {
-      renderClearButton();
+  // on garde ce que tu avais déjà
+  renderClearButton();
 
-      if (search.helper && search.helper.state) {
-        updateUrlFromState(search.helper.state);
-      }
+  if (search.helper && search.helper.state) {
+    updateUrlFromState(search.helper.state);
+  }
 
-      const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
-      const buttons = document.querySelectorAll(
-        ".ais-InfiniteHits-loadMore, .directory_show_more_button"
-      );
-      const domCards = document.querySelectorAll(
-        "#hits .directory_card_container"
-      ).length;
-      const nbHits = renderState?.searchResults?.nbHits;
-      const infiniteResults = renderState?.infiniteHits?.results;
-      const hasMore = infiniteResults
-        ? infiniteResults.nbPages > infiniteResults.page + 1
-        : false;
+  // on récupère le bouton à CHAQUE render (il est recréé)
+  const loadMoreBtn = document.querySelector(
+    ".ais-InfiniteHits-loadMore, .directory_show_more_button"
+  );
 
-      buttons.forEach((btn) => {
-        const isDisabledBtn =
-          btn.classList.contains("ais-InfiniteHits-loadMore--disabled") ||
-          btn.hasAttribute("disabled");
-
-        const mustHide =
-          (typeof nbHits === "number" && domCards >= nbHits) ||
-          isDisabledBtn ||
-          !hasMore;
-
-        if (mustHide) {
-          btn.setAttribute("style", "display: none;");
-          btn.classList.add("is-hidden");
-          btn.setAttribute("aria-hidden", "true");
-        } else {
-          btn.setAttribute("style", "display: block;");
-          btn.classList.remove("is-hidden");
-          btn.removeAttribute("aria-hidden");
-        }
-      });
+  if (loadMoreBtn) {
+    console.log("[DIR] render → bouton trouvé", {
+      disabled: loadMoreBtn.disabled,
+      classes: loadMoreBtn.className,
     });
+
+    // on n'accroche le listener qu'une seule fois
+    if (!loadMoreBtn.dataset.dirClickHooked) {
+      loadMoreBtn.dataset.dirClickHooked = "1";
+      loadMoreBtn.addEventListener("click", (ev) => {
+        console.log("[DIR] load-more CLICK reçu", {
+          disabled: loadMoreBtn.disabled,
+          classes: loadMoreBtn.className,
+        });
+      });
+    }
+  } else {
+    console.log("[DIR] render → pas de bouton loadMore sur ce render");
+  }
+
+  // on log aussi l’état d’infiniteHits pour voir si Algolia pense avoir d’autres pages
+  const rs = search.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
+  console.log("[DIR] render → infiniteHits state =", rs);
+});
+
 
     setupSearchDropdown();
     setupSuggestionClicks();
