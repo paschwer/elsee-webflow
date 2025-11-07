@@ -876,45 +876,37 @@ window.addEventListener("DOMContentLoaded", () => {
 
     search.start();
 
-    search.on("render", () => {
+    // juste après search.start();
+
+// 1. on log à chaque render
+search.on("render", () => {
   renderClearButton();
 
   if (search.helper && search.helper.state) {
     updateUrlFromState(search.helper.state);
   }
 
-  // état d'infiniteHits fourni par Algolia
   const inf = search.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
   console.log("[DIR] render → infiniteHits state =", inf);
+});
 
-  // on récupère TON bouton custom
-  const btn = document.querySelector(".directory_show_more_button");
-  if (btn && inf && typeof inf.showMore === "function") {
-    console.log("[DIR] render → bouton trouvé", {
-      classes: btn.className,
-      isLastPage: inf.isLastPage,
-    });
+// 2. on écoute les clics globalement (élément recréé à chaque render)
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".directory_show_more_button");
+  if (!btn) return;
 
-    // on évite de brancher 15 fois
-    if (!btn.dataset.dirClickHooked) {
-      btn.dataset.dirClickHooked = "1";
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        console.log("[DIR] click → showMore()");
-        inf.showMore(); // on déclenche la pagination Algolia
-      });
-    }
+  // on récupère l'état courant DANS le clic, pas au render
+  const inf = searchInstance?.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
+  console.log("[DIR] show-more CLICK", inf);
 
-    // si dernière page → on cache ou on disable
-    if (inf.isLastPage) {
-      btn.style.display = "none";
-    } else {
-      btn.style.display = "block";
-    }
+  if (inf && typeof inf.showMore === "function") {
+    e.preventDefault();
+    inf.showMore();
   } else {
-    console.log("[DIR] render → pas de bouton OU pas de showMore disponible");
+    console.warn("[DIR] showMore non dispo au clic");
   }
 });
+
 
 
     setupSearchDropdown();
