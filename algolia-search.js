@@ -1,38 +1,73 @@
-const search = instantsearch({
-  indexName: ALGOLIA_INDEX_NAME,
-  searchClient,
-  searchFunction(helper) {
-    // on garde la page demandée (utile pour showMore)
-    const currentPage = helper.state.page;
+window.addEventListener("DOMContentLoaded", () => {
+  const ALGOLIA_APP_ID = "DRTSPIHOUM";
+  const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
+  const ALGOLIA_INDEX_NAME = "elsee_index";
 
-    const query = (helper.state.query || "").trim();
+  // placeholders
+  const THERAPIST_PLACEHOLDER_URL =
+    "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd36e1367cf7f0391812d_Fichier%20Convertio%20(3).webp";
+  const DEFAULT_PLACEHOLDER_URL =
+    "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd373de251816ebaa511c_Placeholder%20de%20marque.webp";
 
-    const userHasFilters =
-      selectedFacetTags.size > 0 ||
-      selectedJobTags.length > 0 ||
-      isNetworkSelected ||
-      isRemoteSelected ||
-      isAtHomeSelected ||
-      currentGeoFilter;
+  // état front
+  const selectedFacetTags = new Set();
+  const selectedJobTags = [];
+  let isNetworkSelected = false;
+  let isRemoteSelected = false;
+  let isAtHomeSelected = false;
+  let speExpanded = false;
+  let prestaExpanded = false;
+  let jobExpanded = false;
+  let currentGeoFilter = null;
+  let searchInstance = null;
+  let hasUserLaunchedSearch = false;
 
-    if (query !== "" || userHasFilters) {
-      hasUserLaunchedSearch = true;
+  function initAlgolia() {
+    if (
+      typeof algoliasearch === "undefined" ||
+      typeof instantsearch === "undefined"
+    ) {
+      setTimeout(initAlgolia, 200);
+      return;
     }
 
-    const userFilters = buildFiltersStringFromJobsAndBooleans();
-    const finalFilters = composeFilters(userFilters);
+    const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
 
-    // on applique les filtres...
-    helper.setQueryParameter("filters", finalFilters);
+    const search = instantsearch({
+      indexName: ALGOLIA_INDEX_NAME,
+      searchClient,
+      searchFunction(helper) {
+        // on garde la page demandée par le widget (important pour showMore)
+        const currentPage =
+          typeof helper.state.page === "number" ? helper.state.page : 0;
 
-    // ...mais on remet la page que le widget voulait
-    helper.setPage(currentPage);
+        const query = (helper.state.query || "").trim();
 
-    // et on lance la recherche
-    helper.search();
-  },
-});
+        const userHasFilters =
+          selectedFacetTags.size > 0 ||
+          selectedJobTags.length > 0 ||
+          isNetworkSelected ||
+          isRemoteSelected ||
+          isAtHomeSelected ||
+          currentGeoFilter;
 
+        if (query !== "" || userHasFilters) {
+          hasUserLaunchedSearch = true;
+        }
+
+        const userFilters = buildFiltersStringFromJobsAndBooleans();
+        const finalFilters = composeFilters(userFilters);
+
+        // on applique nos filtres
+        helper.setQueryParameter("filters", finalFilters);
+
+        // on remet la page que voulait le widget
+        helper.setPage(currentPage);
+
+        // on lance la recherche
+        helper.search();
+      },
+    });
 
     searchInstance = search;
 
@@ -77,6 +112,7 @@ const search = instantsearch({
       }
     }
 
+    // jobs + booléens → filters
     function buildFiltersStringFromJobsAndBooleans() {
       const parts = [];
 
@@ -102,6 +138,7 @@ const search = instantsearch({
       return finalStr.length ? finalStr : undefined;
     }
 
+    // filtre d'affichage de base selon l'état de la recherche
     function getVisibilityFilter() {
       if (!hasUserLaunchedSearch) {
         return "NOT show_search:true";
@@ -109,6 +146,7 @@ const search = instantsearch({
       return "NOT show_home:true";
     }
 
+    // combine les filtres métier (jobs/booléens) avec le filtre de visibilité
     function composeFilters(userFilters) {
       const visibility = getVisibilityFilter();
       if (userFilters && userFilters.length) {
@@ -117,6 +155,7 @@ const search = instantsearch({
       return visibility;
     }
 
+    // met l'état dans l’URL
     function updateUrlFromState(state) {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
@@ -215,6 +254,7 @@ const search = instantsearch({
       window.history.replaceState({}, "", newUrl);
     }
 
+    // widget custom pour tous nos tags
     const dynamicSuggestionsWidget = {
       render({ results }) {
         if (!results) return;
@@ -225,9 +265,14 @@ const search = instantsearch({
         const prestaFilterWrapper = document.getElementById("presta_filtre");
         const jobFilterWrapper = document.getElementById("job_filtre");
         const labelFilterWrapper = document.getElementById("label-filter");
-        const remoteFilterWrapper = document.getElementById("works-remotely-filter");
-        const atHomeFilterWrapper = document.getElementById("works-at-home-filter");
-        const discountFilterWrapper = document.getElementById("discount-tags");
+        const remoteFilterWrapper = document.getElementById(
+          "works-remotely-filter"
+        );
+        const atHomeFilterWrapper = document.getElementById(
+          "works-at-home-filter"
+        );
+        const discountFilterWrapper =
+          document.getElementById("discount-tags");
 
         if (!typeWrapper || !speWrapper) return;
 
@@ -304,6 +349,7 @@ const search = instantsearch({
           const hasSpe = speFacetValues.some((fv) => fv && fv.count > 0);
           speContainer.style.display = hasSpe ? "flex" : "none";
         }
+
         const selectedSpe = Array.from(selectedFacetTags)
           .filter((k) => k.startsWith("specialities:::"))
           .map((k) => k.split(":::")[1]);
@@ -376,9 +422,12 @@ const search = instantsearch({
             sortBy: ["name:asc"],
           });
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
-          const serviceContainer = document.getElementById("serviceContainer");
+          const serviceContainer =
+            document.getElementById("serviceContainer");
           if (serviceContainer) {
-            const hasPresta = prestaFacetValues.some((fv) => fv && fv.count > 0);
+            const hasPresta = prestaFacetValues.some(
+              (fv) => fv && fv.count > 0
+            );
             serviceContainer.style.display = hasPresta ? "flex" : "none";
           }
           const maxToShowPresta = prestaExpanded
@@ -468,7 +517,8 @@ const search = instantsearch({
               const value = (item.name || "").trim();
               const key = `jobs:::${value}`;
               const isSelected =
-                selectedFacetTags.has(key) || selectedJobTags.includes(value);
+                selectedFacetTags.has(key) ||
+                selectedJobTags.includes(value);
               return (
                 '<div class="directory_category_tag_wrapper ' +
                 (isSelected ? "is-selected" : "") +
@@ -576,6 +626,7 @@ const search = instantsearch({
       },
     };
 
+    // widgets algolia
     search.addWidgets([
       instantsearch.widgets.configure({
         facets: ["specialities", "prestations", "mainjob", "jobs"],
@@ -611,6 +662,7 @@ const search = instantsearch({
           loadMore: "directory_show_more_button",
         },
         transformItems(items) {
+          // réseau en premier
           return items
             .slice()
             .sort((a, b) => {
@@ -639,36 +691,45 @@ const search = instantsearch({
             const Therapeutes = isTherapeutes(hit);
 
             const remoteSvg =
-              document.querySelector(".directory_remote_icon")?.innerHTML || "";
+              document.querySelector(".directory_remote_icon")?.innerHTML ||
+              "";
             const atHomeSvg =
-              document.querySelector(".directory_at_home_icon")?.innerHTML || "";
+              document.querySelector(".directory_at_home_icon")?.innerHTML ||
+              "";
             const discountSvg =
-              document.querySelector(".directory_discount_icon")?.innerHTML || "";
+              document.querySelector(".directory_discount_icon")?.innerHTML ||
+              "";
             const locationSvg =
               document.querySelector(".directory_card_location_icon")
                 ?.innerHTML || "";
 
-            // styles
-            const containStyle = "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
-            const coverStyle = "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
+            const containStyle =
+              "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
+            const coverStyle =
+              "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
 
-            // on choisit l'URL d'image + le style
-            let finalBgUrl = "";
             let finalStyle = "";
-
             if (photoUrl) {
-              // on a une vraie photo
               if (Therapeutes) {
-                finalStyle = coverStyle + "background-image:url('" + photoUrl + "');";
+                finalStyle =
+                  coverStyle + "background-image:url('" + photoUrl + "');";
               } else {
-                finalStyle = containStyle + "background-image:url('" + photoUrl + "');";
+                finalStyle =
+                  containStyle + "background-image:url('" + photoUrl + "');";
               }
             } else {
-              // pas de photo → placeholder en cover
               if (Therapeutes) {
-                finalStyle = coverStyle + "background-image:url('" + THERAPIST_PLACEHOLDER_URL + "');";
+                finalStyle =
+                  coverStyle +
+                  "background-image:url('" +
+                  THERAPIST_PLACEHOLDER_URL +
+                  "');";
               } else {
-                finalStyle = coverStyle + "background-image:url('" + DEFAULT_PLACEHOLDER_URL + "');";
+                finalStyle =
+                  coverStyle +
+                  "background-image:url('" +
+                  DEFAULT_PLACEHOLDER_URL +
+                  "');";
               }
             }
 
@@ -717,7 +778,9 @@ const search = instantsearch({
               "</div>";
 
             const titleDiv =
-              '<div class="directory_card_title"><div>' + name + "</div></div>";
+              '<div class="directory_card_title"><div>' +
+              name +
+              "</div></div>";
 
             const prestationsArr = toArray(hit.prestations);
             const specialitiesArr = toArray(hit.specialities);
@@ -856,39 +919,37 @@ const search = instantsearch({
 
     search.start();
 
-    // juste après search.start();
+    // log à chaque render
+    search.on("render", () => {
+      renderClearButton();
 
-// 1. on log à chaque render
-search.on("render", () => {
-  renderClearButton();
+      if (search.helper && search.helper.state) {
+        updateUrlFromState(search.helper.state);
+      }
 
-  if (search.helper && search.helper.state) {
-    updateUrlFromState(search.helper.state);
-  }
+      const inf =
+        search.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
+      console.log("[DIR] render → infiniteHits state =", inf);
+    });
 
-  const inf = search.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
-  console.log("[DIR] render → infiniteHits state =", inf);
-});
+    // clic global sur le bouton show more
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".directory_show_more_button");
+      if (!btn) return;
 
-// 2. on écoute les clics globalement (élément recréé à chaque render)
-document.addEventListener("click", (e) => {
-  const btn = e.target.closest(".directory_show_more_button");
-  if (!btn) return;
+      const inf =
+        searchInstance?.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
+      console.log("[DIR] show-more CLICK", inf);
 
-  // on récupère l'état courant DANS le clic, pas au render
-  const inf = searchInstance?.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
-  console.log("[DIR] show-more CLICK", inf);
+      if (inf && typeof inf.showMore === "function") {
+        e.preventDefault();
+        inf.showMore();
+      } else {
+        console.warn("[DIR] showMore non dispo au clic");
+      }
+    });
 
-  if (inf && typeof inf.showMore === "function") {
-    e.preventDefault();
-    inf.showMore();
-  } else {
-    console.warn("[DIR] showMore non dispo au clic");
-  }
-});
-
-
-
+    // ---- setup listeners
     setupSearchDropdown();
     setupSuggestionClicks();
     setupTypeBlockClicks();
@@ -1141,7 +1202,9 @@ document.addEventListener("click", (e) => {
             } else {
               tag.classList.add("is-selected");
               selectedFacetTags.add(key);
-              helper.addDisjunctiveFacetRefinement(facetName, facetValue).search();
+              helper
+                .addDisjunctiveFacetRefinement(facetName, facetValue)
+                .search();
             }
           } else {
             if (isSelected) {
@@ -1310,9 +1373,13 @@ document.addEventListener("click", (e) => {
       const params = new URLSearchParams(window.location.search);
       const query = params.get("q") || "";
       const types = (params.get("type") || "").split(",").filter(Boolean);
-      const spes = (params.get("specialities") || "").split(",").filter(Boolean);
+      const spes = (params.get("specialities") || "")
+        .split(",")
+        .filter(Boolean);
       const geo = params.get("geo") || "";
-      const prestas = (params.get("prestations") || "").split(",").filter(Boolean);
+      const prestas = (params.get("prestations") || "")
+        .split(",")
+        .filter(Boolean);
       const jobs = (params.get("jobs") || "").split(",").filter(Boolean);
       const reimb = (params.get("reimbursment_percentage") || "")
         .split(",")
