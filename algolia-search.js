@@ -16,7 +16,6 @@ window.addEventListener("DOMContentLoaded", () => {
   let searchInstance = null;
   let hasUserLaunchedSearch = false; // <- AJOUT
 
-
   function initAlgolia() {
     if (typeof algoliasearch === "undefined" || typeof instantsearch === "undefined") {
       setTimeout(initAlgolia, 200);
@@ -25,13 +24,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
 
-        const search = instantsearch({
+    const search = instantsearch({
       indexName: ALGOLIA_INDEX_NAME,
       searchClient,
       searchFunction(helper) {
         const query = (helper.state.query || "").trim();
 
-        // est-ce qu'il y a déjà une action utilisateur ?
         const userHasFilters =
           selectedFacetTags.size > 0 ||
           selectedJobTags.length > 0 ||
@@ -44,7 +42,6 @@ window.addEventListener("DOMContentLoaded", () => {
           hasUserLaunchedSearch = true;
         }
 
-        // on reconstruit les filtres métier existants
         const userFilters = buildFiltersStringFromJobsAndBooleans();
         const finalFilters = composeFilters(userFilters);
 
@@ -52,7 +49,6 @@ window.addEventListener("DOMContentLoaded", () => {
         helper.search();
       },
     });
-
 
     searchInstance = search;
 
@@ -72,33 +68,31 @@ window.addEventListener("DOMContentLoaded", () => {
       const t = (hit.type || "").trim().toLowerCase();
       return t === "Thérapeutes" || t === "therapeutes";
     }
-function updateOnlyThpVisibility(helperState, hasJobsFacet) {
-  const el = document.getElementById("onlythp");
-  if (!el) return;
 
-  const disj = helperState.disjunctiveFacetsRefinements || {};
-  const facets = helperState.facetsRefinements || {};
+    function updateOnlyThpVisibility(helperState, hasJobsFacet) {
+      const el = document.getElementById("onlythp");
+      if (!el) return;
 
-  const types =
-    (disj.type && disj.type.length ? disj.type : facets.type) || [];
+      const disj = helperState.disjunctiveFacetsRefinements || {};
+      const facets = helperState.facetsRefinements || {};
 
-  const noTypeSelected = types.length === 0;
+      const types =
+        (disj.type && disj.type.length ? disj.type : facets.type) || [];
 
-  const hasThera = types.some((t) => {
-    const tt = t.toLowerCase().trim();
-    return tt === "Thérapeutes" || tt === "therapeutes";
-  });
+      const noTypeSelected = types.length === 0;
 
-  // on n'affiche que si (jobs > 0) ET (pas de type ou Thérapeutes)
-  if (hasJobsFacet && (noTypeSelected || hasThera)) {
-    el.style.display = "flex";
-  } else {
-    el.style.display = "none";
-  }
-}
+      const hasThera = types.some((t) => {
+        const tt = t.toLowerCase().trim();
+        return tt === "Thérapeutes" || tt === "therapeutes";
+      });
 
+      if (hasJobsFacet && (noTypeSelected || hasThera)) {
+        el.style.display = "flex";
+      } else {
+        el.style.display = "none";
+      }
+    }
 
-    // jobs + booléens → filters
     function buildFiltersStringFromJobsAndBooleans() {
       const parts = [];
 
@@ -107,7 +101,6 @@ function updateOnlyThpVisibility(helperState, hasJobsFacet) {
           const safe = job.replace(/"/g, '\\"');
           return `(mainjob:"${safe}" OR jobs:"${safe}")`;
         });
-        // AND entre métiers
         parts.push(jobParts.join(" AND "));
       }
 
@@ -124,17 +117,14 @@ function updateOnlyThpVisibility(helperState, hasJobsFacet) {
       const finalStr = parts.join(" AND ");
       return finalStr.length ? finalStr : undefined;
     }
-    // filtre d'affichage de base selon l'état de la recherche
+
     function getVisibilityFilter() {
-      // avant recherche → on exclut ceux qui sont "réservés à l'après-recherche"
       if (!hasUserLaunchedSearch) {
         return "NOT show_search:true";
       }
-      // après recherche → on exclut ceux qui sont "home"
       return "NOT show_home:true";
     }
 
-    // combine les filtres métier (jobs/booléens) avec le filtre de visibilité
     function composeFilters(userFilters) {
       const visibility = getVisibilityFilter();
       if (userFilters && userFilters.length) {
@@ -143,7 +133,6 @@ function updateOnlyThpVisibility(helperState, hasJobsFacet) {
       return visibility;
     }
 
-    // met l'état dans l’URL
     function updateUrlFromState(state) {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
@@ -242,7 +231,6 @@ function updateOnlyThpVisibility(helperState, hasJobsFacet) {
       window.history.replaceState({}, "", newUrl);
     }
 
-    // widget custom pour tous nos tags
     const dynamicSuggestionsWidget = {
       render({ results }) {
         if (!results) return;
@@ -262,7 +250,6 @@ function updateOnlyThpVisibility(helperState, hasJobsFacet) {
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
-        // 1. TYPES
         let typeFacetValues = results.getFacetValues("type", {
           sortBy: ["count:desc", "name:asc"],
         });
@@ -318,21 +305,19 @@ function updateOnlyThpVisibility(helperState, hasJobsFacet) {
           typesAltWrapper.innerHTML = altHtml;
         }
 
-        // 2. SPECIALITIES
         let speFacetValues = results.getFacetValues("specialities", {
           sortBy: ["count:desc", "name:asc"],
         });
         if (!Array.isArray(speFacetValues)) speFacetValues = [];
-// version triée A→Z pour le bloc de filtres
-const speFacetValuesAlpha = [...speFacetValues].sort((a, b) =>
-  (a.name || "").localeCompare(b.name || "")
-);
+        const speFacetValuesAlpha = [...speFacetValues].sort((a, b) =>
+          (a.name || "").localeCompare(b.name || "")
+        );
 
         const speContainer = document.getElementById("speContainer");
-if (speContainer) {
-  const hasSpe = speFacetValues.some((fv) => fv && fv.count > 0);
-  speContainer.style.display = hasSpe ? "flex" : "none";
-};
+        if (speContainer) {
+          const hasSpe = speFacetValues.some((fv) => fv && fv.count > 0);
+          speContainer.style.display = hasSpe ? "flex" : "none";
+        }
         const selectedSpe = Array.from(selectedFacetTags)
           .filter((k) => k.startsWith("specialities:::"))
           .map((k) => k.split(":::")[1]);
@@ -372,25 +357,25 @@ if (speContainer) {
         speWrapper.innerHTML = speHtml;
 
         if (speFilterWrapper) {
-  const maxToShow = speExpanded ? speFacetValuesAlpha.length : 6;
-  const speListHtml = speFacetValuesAlpha
-    .filter((fv) => fv && fv.name)
-    .slice(0, maxToShow)
-    .map((fv) => {
-      const key = `specialities:::${fv.name}`;
-      const isSelected = selectedFacetTags.has(key);
-      return (
-        '<div class="directory_category_tag_wrapper ' +
-        (isSelected ? "is-selected" : "") +
-        '" data-facet-name="specialities" data-facet-value="' +
-        fv.name +
-        '">' +
-        fv.name +
-        "</div>"
-      );
-    })
-    .join("");
-  speFilterWrapper.innerHTML = speListHtml;
+          const maxToShow = speExpanded ? speFacetValuesAlpha.length : 6;
+          const speListHtml = speFacetValuesAlpha
+            .filter((fv) => fv && fv.name)
+            .slice(0, maxToShow)
+            .map((fv) => {
+              const key = `specialities:::${fv.name}`;
+              const isSelected = selectedFacetTags.has(key);
+              return (
+                '<div class="directory_category_tag_wrapper ' +
+                (isSelected ? "is-selected" : "") +
+                '" data-facet-name="specialities" data-facet-value="' +
+                fv.name +
+                '">' +
+                fv.name +
+                "</div>"
+              );
+            })
+            .join("");
+          speFilterWrapper.innerHTML = speListHtml;
           const moreSpeBtn = document.getElementById("more-spe");
           if (moreSpeBtn) {
             moreSpeBtn.textContent = speExpanded
@@ -399,17 +384,16 @@ if (speContainer) {
           }
         }
 
-        // 3. PRESTATIONS
         if (prestaFilterWrapper) {
           let prestaFacetValues = results.getFacetValues("prestations", {
             sortBy: ["name:asc"],
           });
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
           const serviceContainer = document.getElementById("serviceContainer");
-  if (serviceContainer) {
-    const hasPresta = prestaFacetValues.some((fv) => fv && fv.count > 0);
-    serviceContainer.style.display = hasPresta ? "flex" : "none";
-  };
+          if (serviceContainer) {
+            const hasPresta = prestaFacetValues.some((fv) => fv && fv.count > 0);
+            serviceContainer.style.display = hasPresta ? "flex" : "none";
+          }
           const maxToShowPresta = prestaExpanded
             ? prestaFacetValues.length
             : 6;
@@ -439,104 +423,98 @@ if (speContainer) {
           }
         }
 
-        // 4. MÉTIERS (mainjob + jobs)
-if (jobFilterWrapper) {
-  let mainFacetValues = results.getFacetValues("mainjob", {
-    sortBy: ["name:asc"],
-  });
-  let jobFacetValues = results.getFacetValues("jobs", {
-    sortBy: ["name:asc"],
-  });
+        if (jobFilterWrapper) {
+          let mainFacetValues = results.getFacetValues("mainjob", {
+            sortBy: ["name:asc"],
+          });
+          let jobFacetValues = results.getFacetValues("jobs", {
+            sortBy: ["name:asc"],
+          });
 
-  if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
-  if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
+          if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
+          if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
 
-  // LOG 1 : ce qu’Algolia nous renvoie vraiment
-  console.log("[ALGOLIA] mainjob facetValues =", mainFacetValues);
-  console.log("[ALGOLIA] jobs facetValues =", jobFacetValues);
+          console.log("[ALGOLIA] mainjob facetValues =", mainFacetValues);
+          console.log("[ALGOLIA] jobs facetValues =", jobFacetValues);
 
-  const merged = new Map();
+          const merged = new Map();
 
-  mainFacetValues.forEach((fv) => {
-    if (!fv || !fv.name) return;
-    merged.set(fv.name, {
-      name: fv.name,
-      mainCount: fv.count || 0,
-      jobCount: 0,
-    });
-  });
+          mainFacetValues.forEach((fv) => {
+            if (!fv || !fv.name) return;
+            merged.set(fv.name, {
+              name: fv.name,
+              mainCount: fv.count || 0,
+              jobCount: 0,
+            });
+          });
 
-  jobFacetValues.forEach((fv) => {
-    const nameRaw = fv && fv.name ? fv.name.trim() : "";
-    if (!nameRaw) return;
-    if (merged.has(nameRaw)) {
-      const cur = merged.get(nameRaw);
-      cur.jobCount = fv.count || 0;
-    } else {
-      merged.set(nameRaw, {
-        name: nameRaw,
-        mainCount: 0,
-        jobCount: fv.count || 0,
-      });
-    }
-  });
+          jobFacetValues.forEach((fv) => {
+            const nameRaw = fv && fv.name ? fv.name.trim() : "";
+            if (!nameRaw) return;
+            if (merged.has(nameRaw)) {
+              const cur = merged.get(nameRaw);
+              cur.jobCount = fv.count || 0;
+            } else {
+              merged.set(nameRaw, {
+                name: nameRaw,
+                mainCount: 0,
+                jobCount: fv.count || 0,
+              });
+            }
+          });
 
-  const mergedArr = Array.from(merged.values()).sort((a, b) =>
-  (a.name || "").localeCompare(b.name || "")
-);
+          const mergedArr = Array.from(merged.values()).sort((a, b) =>
+            (a.name || "").localeCompare(b.name || "")
+          );
 
+          const hasJobsFacet =
+            mainFacetValues.some((fv) => fv && fv.count > 0) ||
+            jobFacetValues.some((fv) => fv && fv.count > 0);
 
-  // est-ce qu’on a au moins 1 job ?
-  const hasJobsFacet =
-    mainFacetValues.some((fv) => fv && fv.count > 0) ||
-    jobFacetValues.some((fv) => fv && fv.count > 0);
+          console.log("[DIR] hasJobsFacet =", hasJobsFacet);
 
-  console.log("[DIR] hasJobsFacet =", hasJobsFacet);
+          if (searchInstance && searchInstance.helper) {
+            console.log(
+              "[DIR] helper state types =",
+              (searchInstance.helper.state.disjunctiveFacetsRefinements?.type ||
+                searchInstance.helper.state.facetsRefinements?.type ||
+                [])
+            );
+            updateOnlyThpVisibility(searchInstance.helper.state, hasJobsFacet);
+          } else {
+            console.log("[DIR] pas de searchInstance/helper dispo");
+          }
 
-  // on check aussi le state pour voir les types sélectionnés
-  if (searchInstance && searchInstance.helper) {
-    console.log(
-      "[DIR] helper state types =",
-      (searchInstance.helper.state.disjunctiveFacetsRefinements?.type ||
-        searchInstance.helper.state.facetsRefinements?.type ||
-        [])
-    );
-    updateOnlyThpVisibility(searchInstance.helper.state, hasJobsFacet);
-  } else {
-    console.log("[DIR] pas de searchInstance/helper dispo");
-  }
+          const maxToShowJob = jobExpanded ? mergedArr.length : 6;
 
-  const maxToShowJob = jobExpanded ? mergedArr.length : 6;
+          const jobListHtml = mergedArr
+            .slice(0, maxToShowJob)
+            .map((item) => {
+              const value = (item.name || "").trim();
+              const key = `jobs:::${value}`;
+              const isSelected =
+                selectedFacetTags.has(key) || selectedJobTags.includes(value);
+              return (
+                '<div class="directory_category_tag_wrapper ' +
+                (isSelected ? "is-selected" : "") +
+                '" data-facet-name="jobs" data-facet-value="' +
+                value +
+                '">' +
+                value +
+                "</div>"
+              );
+            })
+            .join("");
+          jobFilterWrapper.innerHTML = jobListHtml;
 
-  const jobListHtml = mergedArr
-    .slice(0, maxToShowJob)
-    .map((item) => {
-      const value = (item.name || "").trim();
-      const key = `jobs:::${value}`;
-      const isSelected =
-        selectedFacetTags.has(key) || selectedJobTags.includes(value);
-      return (
-        '<div class="directory_category_tag_wrapper ' +
-        (isSelected ? "is-selected" : "") +
-        '" data-facet-name="jobs" data-facet-value="' +
-        value +
-        '">' +
-        value +
-        "</div>"
-      );
-    })
-    .join("");
-  jobFilterWrapper.innerHTML = jobListHtml;
+          const moreJobBtn = document.getElementById("more-job");
+          if (moreJobBtn) {
+            moreJobBtn.textContent = jobExpanded
+              ? "En voir moins"
+              : "Voir tous les métiers";
+          }
+        }
 
-  const moreJobBtn = document.getElementById("more-job");
-  if (moreJobBtn) {
-    moreJobBtn.textContent = jobExpanded
-      ? "En voir moins"
-      : "Voir tous les métiers";
-  }
-}
-
-        // 5. BOOLÉENS
         if (labelFilterWrapper) {
           labelFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
@@ -579,7 +557,6 @@ if (jobFilterWrapper) {
             "</div>";
         }
 
-        // 6. REMBOURSEMENT (disjunctif)
         if (discountFilterWrapper) {
           let reimburseFacetValues = results.getFacetValues(
             "reimbursment_percentage",
@@ -622,23 +599,16 @@ if (jobFilterWrapper) {
       },
     };
 
-    // widgets algolia
     search.addWidgets([
       instantsearch.widgets.configure({
-        facets: [
-          "specialities",
-          "prestations",
-          "mainjob",
-          "jobs"
-        ],
+        facets: ["specialities", "prestations", "mainjob", "jobs"],
         disjunctiveFacets: ["type", "reimbursment_percentage"],
         hitsPerPage: 48,
       }),
 
       instantsearch.widgets.searchBox({
         container: "#searchbox",
-        placeholder:
-          "Écrivez ici tout ce qui concerne vos besoins...",
+        placeholder: "Écrivez ici tout ce qui concerne vos besoins...",
         cssClasses: {
           root: "directory_search_field_container",
           input: "directory_search_text",
@@ -664,7 +634,6 @@ if (jobFilterWrapper) {
           loadMore: "directory_show_more_button",
         },
         transformItems(items) {
-          // réseau en premier
           return items
             .slice()
             .sort((a, b) => {
@@ -677,7 +646,7 @@ if (jobFilterWrapper) {
         templates: {
           item(hit) {
             const photoUrl = hit.photo_url || "";
-            const isNetwork = !!hit.is_elsee_network;
+            const isNetwork = true; // on force le label pour tous
             const isRemote = !!hit.is_remote;
             const isAtHome = !!hit.is_at_home;
             const reimbursement = hit.reimbursment_percentage ?? "";
@@ -693,27 +662,29 @@ if (jobFilterWrapper) {
             const Therapeutes = isTherapeutes(hit);
 
             const remoteSvg =
-              document.querySelector(".directory_remote_icon")?.innerHTML ||
-              "";
+              document.querySelector(".directory_remote_icon")?.innerHTML || "";
             const atHomeSvg =
-              document.querySelector(".directory_at_home_icon")?.innerHTML ||
-              "";
+              document.querySelector(".directory_at_home_icon")?.innerHTML || "";
             const discountSvg =
-              document.querySelector(".directory_discount_icon")?.innerHTML ||
-              "";
+              document.querySelector(".directory_discount_icon")?.innerHTML || "";
             const locationSvg =
               document.querySelector(".directory_card_location_icon")
                 ?.innerHTML || "";
+
+            // style de base demandé
+            const basePhotoStyle =
+              "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
 
             const photoDiv =
               '<div class="directory_card_photo_container">' +
               '<div class="directory_card_photo' +
               (isNetwork ? " is-label" : "") +
               '" style="' +
+              basePhotoStyle +
               (photoUrl
                 ? "background-image:url('" +
                   photoUrl +
-                  "');background-size:cover;background-position:center;"
+                  "');"
                 : "") +
               '">' +
               '<div class="directory_card_label_tag" style="display:' +
@@ -754,9 +725,7 @@ if (jobFilterWrapper) {
               "</div>";
 
             const titleDiv =
-              '<div class="directory_card_title"><div>' +
-              name +
-              "</div></div>";
+              '<div class="directory_card_title"><div>' + name + "</div></div>";
 
             const prestationsArr = toArray(hit.prestations);
             const specialitiesArr = toArray(hit.specialities);
@@ -797,20 +766,19 @@ if (jobFilterWrapper) {
             let partnerDetails2Html = "";
             if (Therapeutes) {
               const jobsArr = toArray(hit.jobs);
-let jobsTxt = "";
-if (jobsArr.length > 3) {
-  const firstThree = jobsArr.slice(0, 3).join(", ");
-  const extraCount = jobsArr.length - 3;
-  jobsTxt = `${firstThree} +${extraCount}`;
-} else {
-  jobsTxt = jobsArr.join(", ");
-}
+              let jobsTxt = "";
+              if (jobsArr.length > 3) {
+                const firstThree = jobsArr.slice(0, 3).join(", ");
+                const extraCount = jobsArr.length - 3;
+                jobsTxt = `${firstThree} +${extraCount}`;
+              } else {
+                jobsTxt = jobsArr.join(", ");
+              }
 
-partnerDetails2Html =
-  '<div class="directory_card_partner_details_2"><div>' +
-  jobsTxt +
-  "</div></div>";
-
+              partnerDetails2Html =
+                '<div class="directory_card_partner_details_2"><div>' +
+                jobsTxt +
+                "</div></div>";
             } else {
               const shortTxt = truncate(hit.short_desc || "", 70);
               partnerDetails2Html =
@@ -896,54 +864,48 @@ partnerDetails2Html =
 
     search.start();
 
-    // à chaque render
     search.on("render", () => {
-  renderClearButton();
+      renderClearButton();
 
-  if (search.helper && search.helper.state) {
-    // on garde l’URL à jour
-    updateUrlFromState(search.helper.state);
-  }
+      if (search.helper && search.helper.state) {
+        updateUrlFromState(search.helper.state);
+      }
 
-  const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
-  const buttons = document.querySelectorAll(
-    ".ais-InfiniteHits-loadMore, .directory_show_more_button"
-  );
-  const domCards = document.querySelectorAll(
-    "#hits .directory_card_container"
-  ).length;
-  const nbHits = renderState?.searchResults?.nbHits;
-  const infiniteResults = renderState?.infiniteHits?.results;
-  const hasMore = infiniteResults
-    ? infiniteResults.nbPages > infiniteResults.page + 1
-    : false;
+      const renderState = search.renderState?.[ALGOLIA_INDEX_NAME];
+      const buttons = document.querySelectorAll(
+        ".ais-InfiniteHits-loadMore, .directory_show_more_button"
+      );
+      const domCards = document.querySelectorAll(
+        "#hits .directory_card_container"
+      ).length;
+      const nbHits = renderState?.searchResults?.nbHits;
+      const infiniteResults = renderState?.infiniteHits?.results;
+      const hasMore = infiniteResults
+        ? infiniteResults.nbPages > infiniteResults.page + 1
+        : false;
 
-  buttons.forEach((btn) => {
-    const isDisabledBtn =
-      btn.classList.contains("ais-InfiniteHits-loadMore--disabled") ||
-      btn.hasAttribute("disabled");
+      buttons.forEach((btn) => {
+        const isDisabledBtn =
+          btn.classList.contains("ais-InfiniteHits-loadMore--disabled") ||
+          btn.hasAttribute("disabled");
 
-    const mustHide =
-      (typeof nbHits === "number" && domCards >= nbHits) ||
-      isDisabledBtn ||
-      !hasMore;
+        const mustHide =
+          (typeof nbHits === "number" && domCards >= nbHits) ||
+          isDisabledBtn ||
+          !hasMore;
 
-    if (mustHide) {
-      btn.setAttribute("style", "display: none;");
-      btn.classList.add("is-hidden");
-      btn.setAttribute("aria-hidden", "true");
-    } else {
-      btn.setAttribute("style", "display: block;");
-      btn.classList.remove("is-hidden");
-      btn.removeAttribute("aria-hidden");
-    }
-  });
-});
+        if (mustHide) {
+          btn.setAttribute("style", "display: none;");
+          btn.classList.add("is-hidden");
+          btn.setAttribute("aria-hidden", "true");
+        } else {
+          btn.setAttribute("style", "display: block;");
+          btn.classList.remove("is-hidden");
+          btn.removeAttribute("aria-hidden");
+        }
+      });
+    });
 
-
-
-
-    // setup listeners
     setupSearchDropdown();
     setupSuggestionClicks();
     setupTypeBlockClicks();
@@ -952,70 +914,66 @@ partnerDetails2Html =
     setupBooleanBlockClicks();
     setupDiscountBlockClicks();
 
-    // ---- setup functions ----
     const mapsClearBtn = document.querySelector(".directory_search_clear");
-if (mapsClearBtn) {
-  mapsClearBtn.addEventListener("click", () => {
-    if (!searchInstance || !searchInstance.helper) return;
-    const helper = searchInstance.helper;
+    if (mapsClearBtn) {
+      mapsClearBtn.addEventListener("click", () => {
+        if (!searchInstance || !searchInstance.helper) return;
+        const helper = searchInstance.helper;
 
-    // on vide l'état de localisation
-    currentGeoFilter = null;
-    helper.setQueryParameter("aroundLatLng", undefined);
-    helper.setQueryParameter("aroundRadius", undefined);
+        currentGeoFilter = null;
+        helper.setQueryParameter("aroundLatLng", undefined);
+        helper.setQueryParameter("aroundRadius", undefined);
 
-    // on nettoie le champ
-    const mapsInput = document.getElementById("maps_input");
-    const mapsBox = document.getElementById("maps_autocomplete");
-    if (mapsInput) {
-      mapsInput.value = "";
-      mapsInput.classList.remove("is-selected");
+        const mapsInput = document.getElementById("maps_input");
+        const mapsBox = document.getElementById("maps_autocomplete");
+        if (mapsInput) {
+          mapsInput.value = "";
+          mapsInput.classList.remove("is-selected");
+        }
+        if (mapsBox) {
+          mapsBox.style.display = "none";
+        }
+        mapsClearBtn.style.display = "none";
+
+        helper.search();
+      });
     }
-    if (mapsBox) {
-      mapsBox.style.display = "none";
-    }
-    mapsClearBtn.style.display = "none";
 
-    // on relance la recherche
-    helper.search();
-  });
-}
     const clearBtnMobile = document.getElementById("clear_button_mobile");
-if (clearBtnMobile) {
-  clearBtnMobile.addEventListener("click", () => {
-    if (!searchInstance || !searchInstance.helper) return;
-    const helper = searchInstance.helper;
-    selectedFacetTags.clear();
-    selectedJobTags.length = 0;
-    isNetworkSelected = false;
-    isRemoteSelected = false;
-    isAtHomeSelected = false;
-    helper.setQuery("");
-    helper.clearRefinements();
-    helper.setQueryParameter("filters", undefined);
-    helper.setQueryParameter("aroundLatLng", undefined);
-    helper.setQueryParameter("aroundRadius", undefined);
-    currentGeoFilter = null;
-    hasUserLaunchedSearch = false; // <- AJOUT
+    if (clearBtnMobile) {
+      clearBtnMobile.addEventListener("click", () => {
+        if (!searchInstance || !searchInstance.helper) return;
+        const helper = searchInstance.helper;
+        selectedFacetTags.clear();
+        selectedJobTags.length = 0;
+        isNetworkSelected = false;
+        isRemoteSelected = false;
+        isAtHomeSelected = false;
+        helper.setQuery("");
+        helper.clearRefinements();
+        helper.setQueryParameter("filters", undefined);
+        helper.setQueryParameter("aroundLatLng", undefined);
+        helper.setQueryParameter("aroundRadius", undefined);
+        currentGeoFilter = null;
+        hasUserLaunchedSearch = false;
 
-    const mapsInput = document.getElementById("maps_input");
-    const mapsBox = document.getElementById("maps_autocomplete");
-    const mapsClear = document.querySelector(".directory_search_clear");
-    if (mapsInput) {
-      mapsInput.value = "";
-      mapsInput.classList.remove("is-selected");
-    }
-    if (mapsBox) {
-      mapsBox.style.display = "none";
-    }
-    if (mapsClear) {
-      mapsClear.style.display = "none";
-    }
+        const mapsInput = document.getElementById("maps_input");
+        const mapsBox = document.getElementById("maps_autocomplete");
+        const mapsClear = document.querySelector(".directory_search_clear");
+        if (mapsInput) {
+          mapsInput.value = "";
+          mapsInput.classList.remove("is-selected");
+        }
+        if (mapsBox) {
+          mapsBox.style.display = "none";
+        }
+        if (mapsClear) {
+          mapsClear.style.display = "none";
+        }
 
-    helper.search();
-  });
-}
-
+        helper.search();
+      });
+    }
 
     function setupBooleanBlockClicks() {
       const labelFilterWrapper = document.getElementById("label-filter");
@@ -1151,8 +1109,7 @@ if (clearBtnMobile) {
         helper.setQueryParameter("aroundLatLng", undefined);
         helper.setQueryParameter("aroundRadius", undefined);
         currentGeoFilter = null;
-        hasUserLaunchedSearch = false; // <- AJOUT
-
+        hasUserLaunchedSearch = false;
 
         const mapsInput = document.getElementById("maps_input");
         const mapsBox = document.getElementById("maps_autocomplete");
