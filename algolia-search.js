@@ -141,20 +141,34 @@ window.addEventListener("DOMContentLoaded", function () {
     }
 
     // filtre de visibilité commun
-    function getVisibilityFilter() {
-      if (!hasUserLaunchedSearch) {
-        return "NOT show_search:true";
-      }
-      return "NOT show_home:true";
-    }
+   function getVisibilityFilter() {
+  // cas spécial : on veut voir tous les membres réseau
+  if (isNetworkSelected) {
+    return "";
+  }
+
+  // seulement la recherche géolocalisée doit masquer les show_home
+  if (currentGeoFilter) {
+    return "NOT show_home:true";
+  }
+
+  // toutes les autres recherches/états -> on masque ceux faits pour la recherche
+  return "NOT show_search:true";
+}
+
 
     function composeFilters(userFilters) {
-      var visibility = getVisibilityFilter();
-      if (userFilters && userFilters.length) {
-        return userFilters + " AND " + visibility;
-      }
-      return visibility;
-    }
+  var visibility = getVisibilityFilter();
+
+  if (userFilters && userFilters.length && visibility) {
+    return userFilters + " AND " + visibility;
+  }
+  if (userFilters && userFilters.length) {
+    return userFilters;
+  }
+  return visibility;
+}
+
 
     function updateUrlFromState(state) {
       if (typeof window === "undefined") return;
