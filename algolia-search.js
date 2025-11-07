@@ -268,91 +268,75 @@ window.addEventListener("DOMContentLoaded", function () {
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
-        // ... dans dynamicSuggestionsWidget.render: function (opts) { ... }
+        // TYPES ----------------------------------------------------------------
+        var typeFacetValues =
+          results.getFacetValues("type", {
+            sortBy: ["count:desc", "name:asc"]
+          }) || [];
+        if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
 
-// TYPES ----------------------------------------------------------------
-var typeFacetValues =
-  results.getFacetValues("type", {
-    sortBy: ["count:desc", "name:asc"]
-  }) || [];
-if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
+        // on détecte si "Thérapeutes" est présent dans les facettes
+        var hasTherapeutes = typeFacetValues.some(function (fv) {
+          var name = (fv && fv.name ? fv.name : "").toLowerCase();
+          return name === "thérapeutes" || name === "therapeutes";
+        });
 
-// on regarde ce que l'utilisateur a VRAIMENT sélectionné
-var selectedTypes = Array.from(selectedFacetTags)
-  .filter(function (k) {
-    return k.indexOf("type:::") === 0;
-  })
-  .map(function (k) {
-    return k.split(":::")[1] || "";
-  });
+        var typeHtml = typeFacetValues
+          .filter(function (fv) {
+            return fv && fv.name;
+          })
+          .map(function (fv) {
+            var key = "type:::" + fv.name;
+            var isSelected = selectedFacetTags.has(key);
+            if (fv.count === 0 && !isSelected) return "";
+            return (
+              '<div class="directory_suggestions_tag is-type ' +
+              (isSelected ? "is-selected" : "") +
+              '" data-facet-name="type" data-facet-value="' +
+              fv.name +
+              '">' +
+              fv.name +
+              "</div>"
+            );
+          })
+          .join("");
+        typeWrapper.innerHTML = typeHtml;
 
-// est-ce qu'un type est sélectionné ?
-var noTypeSelected = selectedTypes.length === 0;
+        var typesAltWrapper = document.getElementById("directory_types");
+        if (typesAltWrapper) {
+          var hasTypeSelected = Array.from(selectedFacetTags).some(function (
+            k
+          ) {
+            return k.indexOf("type:::") === 0;
+          });
 
-// est-ce que "thérapeutes" est parmi les types sélectionnés ? (case insensitive, accents gérés mollement)
-var hasTheraSelected = selectedTypes.some(function (t) {
-  var norm = t.toLowerCase();
-  return norm === "thérapeutes" || norm === "therapeutes";
-});
+          var altHtml =
+            '<div class="directory_category_tag_wrapper ' +
+            (hasTypeSelected ? "" : "is-selected") +
+            '" data-facet-name="type" data-facet-value="__ALL_TYPES__">Toutes les catégories</div>';
 
-// c’est cette règle qui commande l’affichage des 2 filtres
-var shouldShowTheraOnlyFilters = noTypeSelected || hasTheraSelected;
+          altHtml += typeFacetValues
+            .filter(function (fv) {
+              return fv && fv.name;
+            })
+            .map(function (fv) {
+              var key = "type:::" + fv.name;
+              var isSelected = selectedFacetTags.has(key);
+              var label = "Les " + fv.name.toLowerCase();
+              return (
+                '<div class="directory_category_tag_wrapper ' +
+                (isSelected ? "is-selected" : "") +
+                '" data-facet-name="type" data-facet-value="' +
+                fv.name +
+                '">' +
+                label +
+                "</div>"
+              );
+            })
+            .join("");
 
-var typeHtml = typeFacetValues
-  .filter(function (fv) {
-    return fv && fv.name;
-  })
-  .map(function (fv) {
-    var key = "type:::" + fv.name;
-    var isSelected = selectedFacetTags.has(key);
-    if (fv.count === 0 && !isSelected) return "";
-    return (
-      '<div class="directory_suggestions_tag is-type ' +
-      (isSelected ? "is-selected" : "") +
-      '" data-facet-name="type" data-facet-value="' +
-      fv.name +
-      '">' +
-      fv.name +
-      "</div>"
-    );
-  })
-  .join("");
-typeWrapper.innerHTML = typeHtml;
-
-// ...
-
-// BOOLÉENS -------------------------------------------------------------
-if (labelFilterWrapper) {
-  labelFilterWrapper.innerHTML =
-    '<div class="directory_category_tag_wrapper ' +
-    (isNetworkSelected ? "is-selected" : "") +
-    '" data-bool-filter="network">' +
-    '<span class="directory_option_icon">...</span>' +
-    "<span>Membres réseaux</span>" +
-    "</div>";
-}
-
-// on affiche ces 2 filtres SEULEMENT si aucun type ou si "thérapeutes" est sélectionné
-if (remoteFilterWrapper) {
-  remoteFilterWrapper.style.display = shouldShowTheraOnlyFilters
-    ? "flex"
-    : "none";
-  remoteFilterWrapper.innerHTML =
-    '<div class="directory_category_tag_wrapper ' +
-    (isRemoteSelected ? "is-selected" : "") +
-    '" data-bool-filter="remote"> ... </div>';
-}
-
-if (atHomeFilterWrapper) {
-  atHomeFilterWrapper.style.display = shouldShowTheraOnlyFilters
-    ? "flex"
-    : "none";
-  atHomeFilterWrapper.innerHTML =
-    '<div class="directory_category_tag_wrapper ' +
-    (isAtHomeSelected ? "is-selected" : "") +
-    '" data-bool-filter="athome"> ... </div>';
-}
-
+          typesAltWrapper.innerHTML = altHtml;
+        }
 
         // SPÉCIALITÉS ---------------------------------------------------------
         var speFacetValues =
