@@ -1,28 +1,48 @@
+// ============================================================================
+// FICHIER : algolia-search.js
+// RÔLE    : initialiser InstantSearch + gérer tous les filtres custom + rendu
+// CONTEXTE :
+//  - On utilise Algolia InstantSearch
+//  - On a beaucoup de filtres "maison" (jobs, booléens, géo, URL, placeholders)
+//  - On veut pouvoir modifier facilement chaque bloc
+// ============================================================================
+
 window.addEventListener("DOMContentLoaded", () => {
+  // --------------------------------------------------------------------------
+  // 1. CONSTANTES GLOBALES
+  // --------------------------------------------------------------------------
   const ALGOLIA_APP_ID = "DRTSPIHOUM";
   const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
   const ALGOLIA_INDEX_NAME = "elsee_index";
 
-  // placeholders
+  // placeholders images quand il n’y a PAS de photo_url
+  // thérapeutes → cover
   const THERAPIST_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd36e1367cf7f0391812d_Fichier%20Convertio%20(3).webp";
+  // autres → cover
   const DEFAULT_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd373de251816ebaa511c_Placeholder%20de%20marque.webp";
 
-  // état front
-  const selectedFacetTags = new Set();
-  const selectedJobTags = [];
-  let isNetworkSelected = false;
-  let isRemoteSelected = false;
-  let isAtHomeSelected = false;
-  let speExpanded = false;
-  let prestaExpanded = false;
-  let jobExpanded = false;
-  let currentGeoFilter = null;
-  let searchInstance = null;
-  let hasUserLaunchedSearch = false;
+  // --------------------------------------------------------------------------
+  // 2. ÉTAT FRONT (tout ce qu’on manipule en JS pour reconstruire la recherche)
+  // --------------------------------------------------------------------------
+  const selectedFacetTags = new Set(); // ex: "specialities:::Yoga"
+  const selectedJobTags = [];          // métiers sélectionnés (pour filtre custom)
+  let isNetworkSelected = false;       // bool "Membres réseaux"
+  let isRemoteSelected = false;        // bool "Travail en visio"
+  let isAtHomeSelected = false;        // bool "Se déplace à domicile"
+  let speExpanded = false;             // UI "voir toutes les spécialités"
+  let prestaExpanded = false;          // UI "voir tous les services"
+  let jobExpanded = false;             // UI "voir tous les métiers"
+  let currentGeoFilter = null;         // {lat, lng, label}
+  let searchInstance = null;           // référence InstantSearch
+  let hasUserLaunchedSearch = false;   // pour alterner le filtre "home" / "search"
 
+  // --------------------------------------------------------------------------
+  // 3. FONCTION PRINCIPALE D’INIT
+  // --------------------------------------------------------------------------
   function initAlgolia() {
+    // on attend que les libs soient dispos (cas d’un chargement async)
     if (
       typeof algoliasearch === "undefined" ||
       typeof instantsearch === "undefined"
@@ -31,18 +51,28 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // client Algolia
     const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
 
+    // ------------------------------------------------------------------------
+    // 3.1 InstantSearch : création avec searchFunction custom
+    //     → c’est ici qu’on applique nos filtres "métiers" + qu’on conserve la page
+    // ------------------------------------------------------------------------
     const search = instantsearch({
       indexName: ALGOLIA_INDEX_NAME,
       searchClient,
       searchFunction(helper) {
-        // on garde la page demandée par le widget (important pour showMore)
+        // IMPORTANT : instantsearch.infiniteHits appelle showMore() → ça veut dire
+        // "je veux la page suivante". Sauf que nous, on modifie les queryParameters
+        // (filters). Quand on fait ça, Algolia repasse à la page 0.
+        // Donc on SAUVE la page demandée ici, puis on la remet après les setQueryParameter.
         const currentPage =
           typeof helper.state.page === "number" ? helper.state.page : 0;
 
+        // query saisie par l’utilisateur
         const query = (helper.state.query || "").trim();
 
+        // est-ce qu’il y a des filtres utilisateur ?
         const userHasFilters =
           selectedFacetTags.size > 0 ||
           selectedJobTags.length > 0 ||
@@ -51,27 +81,33 @@ window.addEventListener("DOMContentLoaded", () => {
           isAtHomeSelected ||
           currentGeoFilter;
 
+        // sert juste à savoir si on affiche les "home" ou les "search"
         if (query !== "" || userHasFilters) {
           hasUserLaunchedSearch = true;
         }
 
+        // on reconstruit notre filtre métier (jobs + booléens)
         const userFilters = buildFiltersStringFromJobsAndBooleans();
+        // on le combine avec le filtre de visibilité (home/search)
         const finalFilters = composeFilters(userFilters);
 
-        // on applique nos filtres
+        // on applique nos filtres custom à la requête Algolia
         helper.setQueryParameter("filters", finalFilters);
 
-        // on remet la page que voulait le widget
+        // on remet la page que voulait le widget (clé pour faire marcher showMore)
         helper.setPage(currentPage);
 
-        // on lance la recherche
+        // on lance la requête
         helper.search();
       },
     });
 
+    // on garde la réf globale
     searchInstance = search;
 
-    // utils
+    // ------------------------------------------------------------------------
+    // 4. PETITES UTILITAIRES
+    // ------------------------------------------------------------------------
     function truncate(str, max) {
       if (!str) return "";
       return str.length > max ? str.slice(0, max) + "..." : str;
@@ -83,11 +119,13 @@ window.addEventListener("DOMContentLoaded", () => {
       return [v];
     }
 
+    // détermine si un hit est un thérapeute (on a des règles visuelles pour eux)
     function isTherapeutes(hit) {
       const t = (hit.type || "").trim().toLowerCase();
       return t === "thérapeutes" || t === "therapeutes";
     }
 
+    // affiche/masque le bloc "onlythp" selon les types sélectionnés + présence de jobs
     function updateOnlyThpVisibility(helperState, hasJobsFacet) {
       const el = document.getElementById("onlythp");
       if (!el) return;
@@ -105,6 +143,7 @@ window.addEventListener("DOMContentLoaded", () => {
         return tt === "thérapeutes" || tt === "therapeutes";
       });
 
+      // on n'affiche que si (jobs > 0) ET (pas de type ou Thérapeutes)
       if (hasJobsFacet && (noTypeSelected || hasThera)) {
         el.style.display = "flex";
       } else {
@@ -112,10 +151,17 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // jobs + booléens → filters
+    // ------------------------------------------------------------------------
+    // 5. CONSTRUCTION DES FILTRES CUSTOM
+    // ------------------------------------------------------------------------
+
+    // 5.1 construit une string de filtres Algolia à partir :
+    //     - des métiers sélectionnés (selectedJobTags)
+    //     - des booléens (réseau, visio, domicile)
     function buildFiltersStringFromJobsAndBooleans() {
       const parts = [];
 
+      // métiers → (mainjob:"X" OR jobs:"X") AND ...
       if (selectedJobTags.length > 0) {
         const jobParts = selectedJobTags.map((job) => {
           const safe = job.replace(/"/g, '\\"');
@@ -124,6 +170,7 @@ window.addEventListener("DOMContentLoaded", () => {
         parts.push(jobParts.join(" AND "));
       }
 
+      // booléens
       if (isNetworkSelected) {
         parts.push("is_elsee_network:true");
       }
@@ -138,15 +185,35 @@ window.addEventListener("DOMContentLoaded", () => {
       return finalStr.length ? finalStr : undefined;
     }
 
-    // filtre d'affichage de base selon l'état de la recherche
+    // 5.2 filtre de visibilité : avant recherche → on cache ceux marqués "show_search"
+    //     après recherche → on cache ceux marqués "show_home"
     function getVisibilityFilter() {
-      if (!hasUserLaunchedSearch) {
-        return "NOT show_search:true";
-      }
-      return "NOT show_home:true";
-    }
+  // groupes pour les sports
+  const sportsFilter =
+    '(source_collection:"sports_studio" OR source_collection:"studio_enfant")';
+  const nonSportsFilter =
+    'NOT source_collection:"sports_studio" AND NOT source_collection:"studio_enfant"';
 
-    // combine les filtres métier (jobs/booléens) avec le filtre de visibilité
+  // 1. S'il y a une localisation → les sports passent en "mode search"
+  //    - sports : on montre seulement ceux qui ont show_search:true
+  //    - autres : on garde le comportement normal = on cache show_home:true
+  if (currentGeoFilter) {
+    return `(${sportsFilter} AND show_search:true) OR (${nonSportsFilter} AND NOT show_home:true)`;
+  }
+
+  // 2. S'il y a une recherche (query, facettes…) mais PAS de geo
+  //    - sports : on continue d’afficher leurs show_home:true
+  //    - autres : on cache les show_home:true comme avant
+  if (hasUserLaunchedSearch) {
+    return `(${sportsFilter} AND show_home:true) OR (${nonSportsFilter} AND NOT show_home:true)`;
+  }
+
+  // 3. État initial (pas de recherche) → tout le monde comme avant
+  return "NOT show_search:true";
+}
+
+
+    // 5.3 combine filtre métier + filtre de visibilité
     function composeFilters(userFilters) {
       const visibility = getVisibilityFilter();
       if (userFilters && userFilters.length) {
@@ -155,11 +222,12 @@ window.addEventListener("DOMContentLoaded", () => {
       return visibility;
     }
 
-    // met l'état dans l’URL
+    // 5.4 met l’état courant dans l’URL (query, facettes, géo, bools…)
     function updateUrlFromState(state) {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
 
+      // query
       const query = state.query || "";
       if (query.trim() !== "") {
         params.set("q", query.trim());
@@ -170,6 +238,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const facetRef = state.facetsRefinements || {};
       const disjRef = state.disjunctiveFacetsRefinements || {};
 
+      // on récupère les refines actifs
       const typeRef =
         (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) ||
         [];
@@ -190,6 +259,7 @@ window.addEventListener("DOMContentLoaded", () => {
           ? disjRef.reimbursment_percentage
           : []) || [];
 
+      // on met dans l’URL seulement si non vide
       if (typeRef.length > 0) {
         params.set("type", typeRef.join(","));
       } else {
@@ -220,6 +290,7 @@ window.addEventListener("DOMContentLoaded", () => {
         params.delete("jobs");
       }
 
+      // géo
       if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
         params.set("geo", `${currentGeoFilter.lat},${currentGeoFilter.lng}`);
         if (currentGeoFilter.label) {
@@ -232,6 +303,7 @@ window.addEventListener("DOMContentLoaded", () => {
         params.delete("geolabel");
       }
 
+      // booléens
       if (isNetworkSelected) {
         params.set("network", "true");
       } else {
@@ -254,11 +326,14 @@ window.addEventListener("DOMContentLoaded", () => {
       window.history.replaceState({}, "", newUrl);
     }
 
-    // widget custom pour tous nos tags
+    // ------------------------------------------------------------------------
+    // 6. WIDGET CUSTOM QUI REND TOUS LES TAGS (types, spe, presta, jobs, bools…)
+    // ------------------------------------------------------------------------
     const dynamicSuggestionsWidget = {
       render({ results }) {
         if (!results) return;
 
+        // on récupère tous les containers HTML
         const typeWrapper = document.getElementById("tags_autocomplete_type");
         const speWrapper = document.getElementById("tags_autocomplete_spe");
         const speFilterWrapper = document.getElementById("spe_filtre");
@@ -279,7 +354,9 @@ window.addEventListener("DOMContentLoaded", () => {
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
-        // 1. TYPES
+        // --------------------------------------------------------------------
+        // 6.1 TYPES
+        // --------------------------------------------------------------------
         let typeFacetValues = results.getFacetValues("type", {
           sortBy: ["count:desc", "name:asc"],
         });
@@ -290,6 +367,7 @@ window.addEventListener("DOMContentLoaded", () => {
           .map((fv) => {
             const key = `type:::${fv.name}`;
             const isSelected = selectedFacetTags.has(key);
+            // si count 0 et pas sélectionné → on ne l’affiche pas
             if (fv.count === 0 && !isSelected) return "";
             return (
               '<div class="directory_suggestions_tag is-type ' +
@@ -304,6 +382,7 @@ window.addEventListener("DOMContentLoaded", () => {
           .join("");
         typeWrapper.innerHTML = typeHtml;
 
+        // bloc alternatif de types (gros boutons)
         const typesAltWrapper = document.getElementById("directory_types");
         if (typesAltWrapper) {
           const hasTypeSelected = Array.from(selectedFacetTags).some((k) =>
@@ -335,21 +414,27 @@ window.addEventListener("DOMContentLoaded", () => {
           typesAltWrapper.innerHTML = altHtml;
         }
 
-        // 2. SPECIALITIES
+        // --------------------------------------------------------------------
+        // 6.2 SPÉCIALITÉS
+        // --------------------------------------------------------------------
         let speFacetValues = results.getFacetValues("specialities", {
           sortBy: ["count:desc", "name:asc"],
         });
         if (!Array.isArray(speFacetValues)) speFacetValues = [];
+
+        // version triée A→Z pour le bloc de filtres
         const speFacetValuesAlpha = [...speFacetValues].sort((a, b) =>
           (a.name || "").localeCompare(b.name || "")
         );
 
+        // on masque le bloc si aucune spé
         const speContainer = document.getElementById("speContainer");
         if (speContainer) {
           const hasSpe = speFacetValues.some((fv) => fv && fv.count > 0);
           speContainer.style.display = hasSpe ? "flex" : "none";
         }
 
+        // on garde les spé déjà sélectionnées pour les mettre devant
         const selectedSpe = Array.from(selectedFacetTags)
           .filter((k) => k.startsWith("specialities:::"))
           .map((k) => k.split(":::")[1]);
@@ -357,11 +442,13 @@ window.addEventListener("DOMContentLoaded", () => {
         const seen = new Set();
         const speBlocks = [];
 
+        // d’abord celles sélectionnées
         selectedSpe.forEach((value) => {
           seen.add(value);
           speBlocks.push({ name: value, count: null });
         });
 
+        // puis on complète avec les plus fréquentes
         for (const fv of speFacetValues) {
           if (!fv || !fv.name) continue;
           if (seen.has(fv.name)) continue;
@@ -371,6 +458,7 @@ window.addEventListener("DOMContentLoaded", () => {
           seen.add(fv.name);
         }
 
+        // rendu dans le dropdown
         const speHtml = speBlocks
           .map((item) => {
             const key = `specialities:::${item.name}`;
@@ -388,6 +476,7 @@ window.addEventListener("DOMContentLoaded", () => {
           .join("");
         speWrapper.innerHTML = speHtml;
 
+        // rendu dans le bloc de filtres sur la page
         if (speFilterWrapper) {
           const maxToShow = speExpanded ? speFacetValuesAlpha.length : 6;
           const speListHtml = speFacetValuesAlpha
@@ -416,12 +505,16 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // 3. PRESTATIONS
+        // --------------------------------------------------------------------
+        // 6.3 PRESTATIONS
+        // --------------------------------------------------------------------
         if (prestaFilterWrapper) {
           let prestaFacetValues = results.getFacetValues("prestations", {
             sortBy: ["name:asc"],
           });
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
+
+          // on masque le container si aucune presta
           const serviceContainer =
             document.getElementById("serviceContainer");
           if (serviceContainer) {
@@ -430,6 +523,7 @@ window.addEventListener("DOMContentLoaded", () => {
             );
             serviceContainer.style.display = hasPresta ? "flex" : "none";
           }
+
           const maxToShowPresta = prestaExpanded
             ? prestaFacetValues.length
             : 6;
@@ -459,7 +553,9 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // 4. MÉTIERS
+        // --------------------------------------------------------------------
+        // 6.4 MÉTIERS (mainjob + jobs)
+        // --------------------------------------------------------------------
         if (jobFilterWrapper) {
           let mainFacetValues = results.getFacetValues("mainjob", {
             sortBy: ["name:asc"],
@@ -471,6 +567,7 @@ window.addEventListener("DOMContentLoaded", () => {
           if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
           if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
 
+          // on fusionne mainjob + jobs sous le même label
           const merged = new Map();
 
           mainFacetValues.forEach((fv) => {
@@ -505,6 +602,7 @@ window.addEventListener("DOMContentLoaded", () => {
             mainFacetValues.some((fv) => fv && fv.count > 0) ||
             jobFacetValues.some((fv) => fv && fv.count > 0);
 
+          // on met à jour le bloc "onlythp" en fonction de ça
           if (searchInstance && searchInstance.helper) {
             updateOnlyThpVisibility(searchInstance.helper.state, hasJobsFacet);
           }
@@ -540,13 +638,16 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // 5. BOOLÉENS
+        // --------------------------------------------------------------------
+        // 6.5 BOOLÉENS (réseau, visio, domicile)
+        // --------------------------------------------------------------------
         if (labelFilterWrapper) {
           labelFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
             (isNetworkSelected ? "is-selected" : "") +
             '" data-bool-filter="network">' +
             '<span class="directory_option_icon">' +
+            // icône réseau
             '<svg width="auto" height="auto" viewBox="0 0 25 21" fill="none" xmlns="http://www.w3.org/2000/svg">' +
             '<path d="M23.984 17.5351L23.8018 17.3529C23.644 17.1937 23.3902 17.178 23.2152 17.32C21.8196 18.4516 20.2132 19.0167 18.393 19.0167C16.8483 19.0167 15.5201 18.509 14.41 17.4921C13.3973 16.567 12.6558 15.3435 12.1825 13.8231C12.1065 13.5778 12.2556 13.3197 12.5052 13.2594C14.4272 12.8062 16.091 12.34 17.498 11.8624C19.0155 11.3475 20.249 10.7853 21.1971 10.1757C22.1466 9.56609 22.8451 8.89483 23.2912 8.16333C23.7387 7.4304 23.9624 6.63149 23.9624 5.76517C23.9624 4.30074 23.3385 3.12891 22.0921 2.24824C20.8457 1.36758 19.2063 0.927246 17.1739 0.927246C15.7094 0.927246 14.354 1.17825 13.1076 1.67882C11.8612 2.18083 10.7912 2.87791 9.89618 3.77292C9.00261 4.66792 8.29693 5.72358 7.78345 6.94274C7.26853 8.16333 7.01035 9.4915 7.01035 10.9272V10.933C7.01035 11.2055 7.26136 11.4092 7.53101 11.3618C8.78459 11.1395 10.0511 10.9287 11.2344 10.6533C11.4381 10.606 11.5786 10.4195 11.5729 10.2101C11.5672 10.0451 11.5643 9.87733 11.5643 9.70809C11.5643 8.5965 11.6919 7.59391 11.9501 6.6989C12.2069 5.80533 12.5654 5.03224 13.0273 4.3825C13.4877 3.73132 14.0356 3.23075 14.6739 2.87791C15.3093 2.5265 16.0078 2.35008 16.7665 2.35008C17.716 2.35008 18.4604 2.62116 19.0026 3.16333C19.5448 3.7055 19.8159 4.42266 19.8159 5.31767C19.8159 7.31709 18.601 8.98089 16.1742 10.3091C16.1612 10.3162 16.1498 10.3248 16.1383 10.3334C15.8055 10.5715 15.1242 10.8986 13.9237 11.3432C13.8334 11.3762 13.7387 11.4063 13.6469 11.4393L13.6426 11.4422C13.5824 11.4637 13.5207 11.4823 13.4604 11.5024C13.4203 11.5167 13.3801 11.5297 13.34 11.5426C12.9613 11.6673 12.5812 11.7835 12.2011 11.8882C12.0448 11.9341 11.8884 11.98 11.7264 12.0245L11.7249 12.0159C6.89131 13.2451 2.14661 12.9338 0.111328 12.7072C1.45671 13.1705 5.65063 13.661 7.08494 13.8217C9.05711 17.3773 11.963 19.7755 13.1693 20.2359C15.6549 20.9272 19.8288 20.6633 21.0766 20.1341C22.1853 19.6651 23.1549 19.0067 23.9854 18.1605Z" fill="currentColor"></path>' +
             "</svg>" +
@@ -583,7 +684,9 @@ window.addEventListener("DOMContentLoaded", () => {
             "</div>";
         }
 
-        // 6. REMBOURSEMENT
+        // --------------------------------------------------------------------
+        // 6.6 REMBOURSEMENT (facette disj)
+        // --------------------------------------------------------------------
         if (discountFilterWrapper) {
           let reimburseFacetValues = results.getFacetValues(
             "reimbursment_percentage",
@@ -626,14 +729,18 @@ window.addEventListener("DOMContentLoaded", () => {
       },
     };
 
-    // widgets algolia
+    // ------------------------------------------------------------------------
+    // 7. AJOUT DES WIDGETS ALGOLIA
+    // ------------------------------------------------------------------------
     search.addWidgets([
+      // 7.1 configure : facettes qu’on veut à dispo + hits/page
       instantsearch.widgets.configure({
         facets: ["specialities", "prestations", "mainjob", "jobs"],
         disjunctiveFacets: ["type", "reimbursment_percentage"],
         hitsPerPage: 48,
       }),
 
+      // 7.2 searchbox
       instantsearch.widgets.searchBox({
         container: "#searchbox",
         placeholder: "Écrivez ici tout ce qui concerne vos besoins...",
@@ -643,6 +750,7 @@ window.addEventListener("DOMContentLoaded", () => {
         },
       }),
 
+      // 7.3 stats
       instantsearch.widgets.stats({
         container: "#search_count",
         templates: {
@@ -654,15 +762,17 @@ window.addEventListener("DOMContentLoaded", () => {
         },
       }),
 
+      // 7.4 hits avec pagination infinie
       instantsearch.widgets.infiniteHits({
         container: "#hits",
         hitsPerPage: 48,
         showMore: true,
+        // on remplace la classe du bouton par la nôtre
         cssClasses: {
           loadMore: "directory_show_more_button",
         },
+        // on veut d’abord les partenaires du réseau
         transformItems(items) {
-          // réseau en premier
           return items
             .slice()
             .sort((a, b) => {
@@ -673,9 +783,13 @@ window.addEventListener("DOMContentLoaded", () => {
             });
         },
         templates: {
+          // --------------------------------------------------------------
+          // 7.4.1 rendu d’un hit
+          // --------------------------------------------------------------
           item(hit) {
+            // data Algolia
             const photoUrl = hit.photo_url || "";
-            const isNetwork = true; // on force le badge
+            const isNetwork = true; // on force le badge pour tous les items
             const isRemote = !!hit.is_remote;
             const isAtHome = !!hit.is_at_home;
             const reimbursement = hit.reimbursment_percentage ?? "";
@@ -690,6 +804,7 @@ window.addEventListener("DOMContentLoaded", () => {
               source === "sports_studio" || source === "studio_enfant";
             const Therapeutes = isTherapeutes(hit);
 
+            // on récupère les SVG déjà dans le DOM (icônes)
             const remoteSvg =
               document.querySelector(".directory_remote_icon")?.innerHTML ||
               "";
@@ -703,21 +818,27 @@ window.addEventListener("DOMContentLoaded", () => {
               document.querySelector(".directory_card_location_icon")
                 ?.innerHTML || "";
 
+            // styles inline pour les images
             const containStyle =
               "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
             const coverStyle =
               "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
 
+            // on choisit le style + l’URL finale
             let finalStyle = "";
             if (photoUrl) {
+              // il y a une vraie photo
               if (Therapeutes) {
+                // thérapeutes → cover
                 finalStyle =
                   coverStyle + "background-image:url('" + photoUrl + "');";
               } else {
+                // autres → contain
                 finalStyle =
                   containStyle + "background-image:url('" + photoUrl + "');";
               }
             } else {
+              // pas de photo → placeholder en cover
               if (Therapeutes) {
                 finalStyle =
                   coverStyle +
@@ -733,6 +854,7 @@ window.addEventListener("DOMContentLoaded", () => {
               }
             }
 
+            // bloc photo + badge
             const photoDiv =
               '<div class="directory_card_photo_container">' +
               '<div class="directory_card_photo' +
@@ -748,6 +870,7 @@ window.addEventListener("DOMContentLoaded", () => {
               "</div>" +
               "</div>";
 
+            // icône visio
             const remoteIcon =
               '<div class="directory_remote_icon" style="display:' +
               (isRemote ? "block" : "none") +
@@ -756,6 +879,7 @@ window.addEventListener("DOMContentLoaded", () => {
               '<div class="tooltip">Consultation en visio</div>' +
               "</div>";
 
+            // icône domicile
             const atHomeIcon =
               '<div class="directory_at_home_icon" style="display:' +
               (isAtHome ? "block" : "none") +
@@ -764,6 +888,7 @@ window.addEventListener("DOMContentLoaded", () => {
               '<div class="tooltip">Se déplace à votre domicile</div>' +
               "</div>";
 
+            // tag de remboursement (pas pour thérapeutes)
             const showDiscount = !Therapeutes;
             const discountDiv =
               '<div class="directory_card_discount_tag" style="display:' +
@@ -777,11 +902,13 @@ window.addEventListener("DOMContentLoaded", () => {
               "</div>" +
               "</div>";
 
+            // titre
             const titleDiv =
               '<div class="directory_card_title"><div>' +
               name +
               "</div></div>";
 
+            // détails 1 (prestations / spécialités / mainjob)
             const prestationsArr = toArray(hit.prestations);
             const specialitiesArr = toArray(hit.specialities);
             let partnerDetails1 = "";
@@ -818,6 +945,7 @@ window.addEventListener("DOMContentLoaded", () => {
               partnerDetails1 +
               "</div></div>";
 
+            // détails 2 (jobs pour thérapeutes, short_desc pour les autres)
             let partnerDetails2Html = "";
             if (Therapeutes) {
               const jobsArr = toArray(hit.jobs);
@@ -842,6 +970,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 "</div></div>";
             }
 
+            // localisation : masquée dans certains cas (sport + home, pas de ville…)
             let showLocation = true;
             if (isSport && showHome === true) showLocation = false;
             if (!showSearch) showLocation = false;
@@ -864,6 +993,7 @@ window.addEventListener("DOMContentLoaded", () => {
               "</div></div>" +
               "</div>";
 
+            // tags (on en affiche 2 max)
             let tagItems = [];
             if (Therapeutes) {
               tagItems = toArray(hit.prestations).slice(0, 2);
@@ -885,6 +1015,7 @@ window.addEventListener("DOMContentLoaded", () => {
               prestasHtml +
               "</div>";
 
+            // on renvoie la carte complète
             return (
               '<li class="directory_card_container">' +
               '<a href="' +
@@ -914,12 +1045,18 @@ window.addEventListener("DOMContentLoaded", () => {
         },
       }),
 
+      // widget custom
       dynamicSuggestionsWidget,
     ]);
 
+    // ------------------------------------------------------------------------
+    // 8. LANCEMENT DE LA RECHERCHE
+    // ------------------------------------------------------------------------
     search.start();
 
-    // log à chaque render
+    // ------------------------------------------------------------------------
+    // 9. RENDER GLOBAL : on log + on met l’URL à jour
+    // ------------------------------------------------------------------------
     search.on("render", () => {
       renderClearButton();
 
@@ -927,20 +1064,26 @@ window.addEventListener("DOMContentLoaded", () => {
         updateUrlFromState(search.helper.state);
       }
 
+      // log pour debogage : on voit ce qu’Algolia pense de l’infiniteHits
       const inf =
         search.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
       console.log("[DIR] render → infiniteHits state =", inf);
     });
 
-    // clic global sur le bouton show more
+    // ------------------------------------------------------------------------
+    // 10. CLICK GLOBAL SUR LE BOUTON "AFFICHER PLUS"
+    //     → très important car on a changé la classe par défaut
+    // ------------------------------------------------------------------------
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".directory_show_more_button");
       if (!btn) return;
 
+      // on récupère l’état courant à l’instant du clic
       const inf =
         searchInstance?.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
       console.log("[DIR] show-more CLICK", inf);
 
+      // si Algolia fournit bien showMore → on le déclenche
       if (inf && typeof inf.showMore === "function") {
         e.preventDefault();
         inf.showMore();
@@ -949,7 +1092,9 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // ---- setup listeners
+    // ------------------------------------------------------------------------
+    // 11. SETUP DES LISTENERS UI (filtres, dropdowns, clear…)
+    // ------------------------------------------------------------------------
     setupSearchDropdown();
     setupSuggestionClicks();
     setupTypeBlockClicks();
@@ -958,16 +1103,21 @@ window.addEventListener("DOMContentLoaded", () => {
     setupBooleanBlockClicks();
     setupDiscountBlockClicks();
 
+    // ------------------------------------------------------------------------
+    // 12. BOUTON CLEAR GÉO
+    // ------------------------------------------------------------------------
     const mapsClearBtn = document.querySelector(".directory_search_clear");
     if (mapsClearBtn) {
       mapsClearBtn.addEventListener("click", () => {
         if (!searchInstance || !searchInstance.helper) return;
         const helper = searchInstance.helper;
 
+        // on supprime la localisation
         currentGeoFilter = null;
         helper.setQueryParameter("aroundLatLng", undefined);
         helper.setQueryParameter("aroundRadius", undefined);
 
+        // on nettoie le champ
         const mapsInput = document.getElementById("maps_input");
         const mapsBox = document.getElementById("maps_autocomplete");
         if (mapsInput) {
@@ -983,6 +1133,9 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // ------------------------------------------------------------------------
+    // 13. BOUTON CLEAR MOBILE (reset total)
+    // ------------------------------------------------------------------------
     const clearBtnMobile = document.getElementById("clear_button_mobile");
     if (clearBtnMobile) {
       clearBtnMobile.addEventListener("click", () => {
@@ -1019,6 +1172,11 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // ------------------------------------------------------------------------
+    // 14. FONCTIONS DE SETUP (click sur les différents blocs)
+    // ------------------------------------------------------------------------
+
+    // 14.1 booléens (réseau, visio, domicile)
     function setupBooleanBlockClicks() {
       const labelFilterWrapper = document.getElementById("label-filter");
       const remoteFilterWrapper = document.getElementById(
@@ -1072,6 +1230,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // 14.2 clic sur les pourcentages de remboursement
     function setupDiscountBlockClicks() {
       const discountWrapper = document.getElementById("discount-tags");
       if (!discountWrapper) return;
@@ -1096,6 +1255,7 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // 14.3 ouverture/fermeture du dropdown de recherche
     function setupSearchDropdown() {
       const input = document.querySelector(".directory_search_field_container");
       const dropdown =
@@ -1117,6 +1277,7 @@ window.addEventListener("DOMContentLoaded", () => {
       document.addEventListener("click", closeDropdown);
     }
 
+    // 14.4 bouton clear global (le gros bouton "effacer")
     function renderClearButton() {
       const clearBtn = document.getElementById("clear_button");
       if (!clearBtn) return;
@@ -1137,6 +1298,7 @@ window.addEventListener("DOMContentLoaded", () => {
           : "none";
     }
 
+    // 14.5 clic sur le bouton clear global
     const clearBtnInit = document.getElementById("clear_button");
     if (clearBtnInit) {
       clearBtnInit.addEventListener("click", () => {
@@ -1173,6 +1335,7 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // 14.6 clic sur les tags du dropdown (types, spé, presta… dans la popover)
     function setupSuggestionClicks() {
       const dropdown =
         document.getElementById("tags_autocomplete") ||
@@ -1193,6 +1356,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
         if (helper) {
           if (facetName === "type") {
+            // type = facette disj
             if (isSelected) {
               tag.classList.remove("is-selected");
               selectedFacetTags.delete(key);
@@ -1207,6 +1371,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 .search();
             }
           } else {
+            // les autres = facettes normales
             if (isSelected) {
               tag.classList.remove("is-selected");
               selectedFacetTags.delete(key);
@@ -1219,10 +1384,12 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
+        // on laisse le dropdown ouvert
         dropdown.style.display = "flex";
       });
     }
 
+    // 14.7 clic sur le bloc de types (gros boutons horizontaux)
     function setupTypeBlockClicks() {
       const typesAltWrapper = document.getElementById("directory_types");
       if (!typesAltWrapper) return;
@@ -1236,6 +1403,7 @@ window.addEventListener("DOMContentLoaded", () => {
         facetValue = facetValue.trim();
         const helper = searchInstance.helper;
 
+        // bouton "toutes les catégories"
         if (facetValue === "__ALL_TYPES__") {
           helper.clearRefinements("type");
           Array.from(selectedFacetTags)
@@ -1250,14 +1418,19 @@ window.addEventListener("DOMContentLoaded", () => {
 
         if (isSelected) {
           selectedFacetTags.delete(key);
-          helper.removeDisjunctiveFacetRefinement(facetName, facetValue).search();
+          helper
+            .removeDisjunctiveFacetRefinement(facetName, facetValue)
+            .search();
         } else {
           selectedFacetTags.add(key);
-          helper.addDisjunctiveFacetRefinement(facetName, facetValue).search();
+          helper
+            .addDisjunctiveFacetRefinement(facetName, facetValue)
+            .search();
         }
       });
     }
 
+    // 14.8 clic sur les blocs de spécialités et prestations (dans la page)
     function setupSpePrestaBlockClicks() {
       const speWrapper = document.getElementById("spe_filtre");
       const moreSpe = document.getElementById("more-spe");
@@ -1314,6 +1487,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // 14.9 clic sur les métiers
     function setupJobBlockClicks() {
       const jobWrapper = document.getElementById("job_filtre");
       const moreJob = document.getElementById("more-job");
@@ -1327,6 +1501,7 @@ window.addEventListener("DOMContentLoaded", () => {
           const key = `jobs:::${value}`;
           const idx = selectedJobTags.indexOf(value);
 
+          // toggle dans notre array + dans le set
           if (idx > -1) {
             selectedJobTags.splice(idx, 1);
             selectedFacetTags.delete(key);
@@ -1335,6 +1510,7 @@ window.addEventListener("DOMContentLoaded", () => {
             selectedFacetTags.add(key);
           }
 
+          // on reconstruit les filtres custom
           const filtersStr = buildFiltersStringFromJobsAndBooleans();
           helper.setQueryParameter("filters", filtersStr);
           helper.search();
@@ -1349,6 +1525,9 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // ------------------------------------------------------------------------
+    // 15. GÉO : fonction appelée par l’autocomplete maps
+    // ------------------------------------------------------------------------
     function applyGeoFilterFromMaps(lat, lng, label = "") {
       currentGeoFilter = { lat, lng, label };
       if (searchInstance && searchInstance.helper) {
@@ -1368,6 +1547,9 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // ------------------------------------------------------------------------
+    // 16. À L’ARRIVÉE SUR LA PAGE : on applique ce qu’il y a dans l’URL
+    // ------------------------------------------------------------------------
     function applyUrlParamsToSearch() {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
@@ -1392,16 +1574,19 @@ window.addEventListener("DOMContentLoaded", () => {
       if (!searchInstance || !searchInstance.helper) return;
       const helper = searchInstance.helper;
 
+      // query
       if (query) {
         helper.setQuery(query);
       }
 
+      // on nettoie tout avant de remettre ce qu’il y a dans l’URL
       helper.clearRefinements("type");
       helper.clearRefinements("specialities");
       helper.clearRefinements("prestations");
       helper.clearRefinements("jobs");
       helper.clearRefinements("reimbursment_percentage");
 
+      // on remet types/spe/presta/remb
       types.forEach((t) => helper.addDisjunctiveFacetRefinement("type", t));
       spes.forEach((s) => helper.addFacetRefinement("specialities", s));
       prestas.forEach((p) => helper.addFacetRefinement("prestations", p));
@@ -1409,6 +1594,7 @@ window.addEventListener("DOMContentLoaded", () => {
         helper.addDisjunctiveFacetRefinement("reimbursment_percentage", r)
       );
 
+      // on les remet aussi dans notre set de tags
       types.forEach((t) => selectedFacetTags.add(`type:::${t}`));
       spes.forEach((s) => selectedFacetTags.add(`specialities:::${s}`));
       prestas.forEach((p) => selectedFacetTags.add(`prestations:::${p}`));
@@ -1416,6 +1602,7 @@ window.addEventListener("DOMContentLoaded", () => {
         selectedFacetTags.add(`reimbursment_percentage:::${r}`)
       );
 
+      // métiers dans l’URL
       jobs.forEach((j) => {
         const cleanJob = j.trim();
         if (!cleanJob) return;
@@ -1424,13 +1611,16 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       });
 
+      // booléens dans l’URL
       isNetworkSelected = urlNetwork;
       isRemoteSelected = urlRemote;
       isAtHomeSelected = urlAtHome;
 
+      // on remet nos filtres custom
       const filtersStr = buildFiltersStringFromJobsAndBooleans();
       helper.setQueryParameter("filters", filtersStr);
 
+      // géo depuis l’URL
       if (geo) {
         const [latStr, lngStr] = geo.split(",");
         const lat = parseFloat(latStr);
@@ -1463,9 +1653,15 @@ window.addEventListener("DOMContentLoaded", () => {
       helper.search();
     }
 
+    // petit délai pour laisser les widgets se monter
     setTimeout(applyUrlParamsToSearch, 50);
+
+    // on expose la fonction de géo au global
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   }
 
+  // --------------------------------------------------------------------------
+  // 17. LANCEMENT
+  // --------------------------------------------------------------------------
   initAlgolia();
 });
