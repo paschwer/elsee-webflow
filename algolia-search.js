@@ -1,48 +1,43 @@
 // ============================================================================
 // FICHIER : algolia-search.js
-// RÔLE    : initialiser InstantSearch + gérer tous les filtres custom + rendu
-// CONTEXTE :
-//  - On utilise Algolia InstantSearch
-//  - On a beaucoup de filtres "maison" (jobs, booléens, géo, URL, placeholders)
-//  - On veut pouvoir modifier facilement chaque bloc
+// RÔLE    : branche Algolia InstantSearch sur notre UI très custom
+// NOTE     : on reste 100% front pour la règle spéciale "sports + geo"
 // ============================================================================
 
 window.addEventListener("DOMContentLoaded", () => {
   // --------------------------------------------------------------------------
-  // 1. CONSTANTES GLOBALES
+  // 1. CONSTANTES ALGOLIA + PLACEHOLDERS
   // --------------------------------------------------------------------------
   const ALGOLIA_APP_ID = "DRTSPIHOUM";
   const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
   const ALGOLIA_INDEX_NAME = "elsee_index";
 
-  // placeholders images quand il n’y a PAS de photo_url
-  // thérapeutes → cover
+  // placeholders si pas de photo_url
   const THERAPIST_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd36e1367cf7f0391812d_Fichier%20Convertio%20(3).webp";
-  // autres → cover
   const DEFAULT_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd373de251816ebaa511c_Placeholder%20de%20marque.webp";
 
   // --------------------------------------------------------------------------
-  // 2. ÉTAT FRONT (tout ce qu’on manipule en JS pour reconstruire la recherche)
+  // 2. ÉTAT FRONT (tout ce qu’on garde en mémoire côté JS)
   // --------------------------------------------------------------------------
   const selectedFacetTags = new Set(); // ex: "specialities:::Yoga"
-  const selectedJobTags = [];          // métiers sélectionnés (pour filtre custom)
-  let isNetworkSelected = false;       // bool "Membres réseaux"
-  let isRemoteSelected = false;        // bool "Travail en visio"
-  let isAtHomeSelected = false;        // bool "Se déplace à domicile"
-  let speExpanded = false;             // UI "voir toutes les spécialités"
-  let prestaExpanded = false;          // UI "voir tous les services"
-  let jobExpanded = false;             // UI "voir tous les métiers"
-  let currentGeoFilter = null;         // {lat, lng, label}
-  let searchInstance = null;           // référence InstantSearch
-  let hasUserLaunchedSearch = false;   // pour alterner le filtre "home" / "search"
+  const selectedJobTags = []; // métiers sélectionnés
+  let isNetworkSelected = false;
+  let isRemoteSelected = false;
+  let isAtHomeSelected = false;
+  let speExpanded = false;
+  let prestaExpanded = false;
+  let jobExpanded = false;
+  let currentGeoFilter = null; // {lat, lng, label} si l’utilisateur cherche une localisation
+  let searchInstance = null;
+  let hasUserLaunchedSearch = false; // sert à basculer home → search
 
   // --------------------------------------------------------------------------
-  // 3. FONCTION PRINCIPALE D’INIT
+  // 3. INIT PRINCIPALE
   // --------------------------------------------------------------------------
   function initAlgolia() {
-    // on attend que les libs soient dispos (cas d’un chargement async)
+    // on attend les libs si elles sont chargées en async
     if (
       typeof algoliasearch === "undefined" ||
       typeof instantsearch === "undefined"
@@ -51,28 +46,24 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // client Algolia
     const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
 
     // ------------------------------------------------------------------------
-    // 3.1 InstantSearch : création avec searchFunction custom
-    //     → c’est ici qu’on applique nos filtres "métiers" + qu’on conserve la page
+    // 3.1 création InstantSearch
+    //     on garde la page demandée (important pour le bouton "Afficher plus")
+    //     puis on applique nos filtres custom
     // ------------------------------------------------------------------------
     const search = instantsearch({
       indexName: ALGOLIA_INDEX_NAME,
       searchClient,
       searchFunction(helper) {
-        // IMPORTANT : instantsearch.infiniteHits appelle showMore() → ça veut dire
-        // "je veux la page suivante". Sauf que nous, on modifie les queryParameters
-        // (filters). Quand on fait ça, Algolia repasse à la page 0.
-        // Donc on SAUVE la page demandée ici, puis on la remet après les setQueryParameter.
+        // page courante demandée par le widget (showMore)
         const currentPage =
           typeof helper.state.page === "number" ? helper.state.page : 0;
 
-        // query saisie par l’utilisateur
         const query = (helper.state.query || "").trim();
 
-        // est-ce qu’il y a des filtres utilisateur ?
+        // est-ce qu’il y a déjà une action utilisateur ?
         const userHasFilters =
           selectedFacetTags.size > 0 ||
           selectedJobTags.length > 0 ||
@@ -81,23 +72,21 @@ window.addEventListener("DOMContentLoaded", () => {
           isAtHomeSelected ||
           currentGeoFilter;
 
-        // sert juste à savoir si on affiche les "home" ou les "search"
         if (query !== "" || userHasFilters) {
           hasUserLaunchedSearch = true;
         }
 
-        // on reconstruit notre filtre métier (jobs + booléens)
+        // filtres custom métier
         const userFilters = buildFiltersStringFromJobsAndBooleans();
-        // on le combine avec le filtre de visibilité (home/search)
         const finalFilters = composeFilters(userFilters);
 
-        // on applique nos filtres custom à la requête Algolia
+        // on les met dans la requête
         helper.setQueryParameter("filters", finalFilters);
 
-        // on remet la page que voulait le widget (clé pour faire marcher showMore)
+        // on remet la page que le widget voulait
         helper.setPage(currentPage);
 
-        // on lance la requête
+        // recherche
         helper.search();
       },
     });
@@ -106,11 +95,11 @@ window.addEventListener("DOMContentLoaded", () => {
     searchInstance = search;
 
     // ------------------------------------------------------------------------
-    // 4. PETITES UTILITAIRES
+    // 4. UTILITAIRES
     // ------------------------------------------------------------------------
     function truncate(str, max) {
       if (!str) return "";
-      return str.length > max ? str.slice(0, max) + "..." : str;
+      return str.length > max ? str.slice(0, max) + "...";
     }
 
     function toArray(v) {
@@ -119,13 +108,12 @@ window.addEventListener("DOMContentLoaded", () => {
       return [v];
     }
 
-    // détermine si un hit est un thérapeute (on a des règles visuelles pour eux)
     function isTherapeutes(hit) {
       const t = (hit.type || "").trim().toLowerCase();
       return t === "thérapeutes" || t === "therapeutes";
     }
 
-    // affiche/masque le bloc "onlythp" selon les types sélectionnés + présence de jobs
+    // affiche/masque le petit bloc "onlythp" selon les types + présence de jobs
     function updateOnlyThpVisibility(helperState, hasJobsFacet) {
       const el = document.getElementById("onlythp");
       if (!el) return;
@@ -143,7 +131,6 @@ window.addEventListener("DOMContentLoaded", () => {
         return tt === "thérapeutes" || tt === "therapeutes";
       });
 
-      // on n'affiche que si (jobs > 0) ET (pas de type ou Thérapeutes)
       if (hasJobsFacet && (noTypeSelected || hasThera)) {
         el.style.display = "flex";
       } else {
@@ -152,16 +139,14 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. CONSTRUCTION DES FILTRES CUSTOM
+    // 5. FILTRES CUSTOM ENVOYÉS À ALGOLIA (génériques)
     // ------------------------------------------------------------------------
 
-    // 5.1 construit une string de filtres Algolia à partir :
-    //     - des métiers sélectionnés (selectedJobTags)
-    //     - des booléens (réseau, visio, domicile)
+    // métiers + booléens → string de filtres Algolia
     function buildFiltersStringFromJobsAndBooleans() {
       const parts = [];
 
-      // métiers → (mainjob:"X" OR jobs:"X") AND ...
+      // métiers
       if (selectedJobTags.length > 0) {
         const jobParts = selectedJobTags.map((job) => {
           const safe = job.replace(/"/g, '\\"');
@@ -171,31 +156,25 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       // booléens
-      if (isNetworkSelected) {
-        parts.push("is_elsee_network:true");
-      }
-      if (isRemoteSelected) {
-        parts.push("is_remote:true");
-      }
-      if (isAtHomeSelected) {
-        parts.push("is_at_home:true");
-      }
+      if (isNetworkSelected) parts.push("is_elsee_network:true");
+      if (isRemoteSelected) parts.push("is_remote:true");
+      if (isAtHomeSelected) parts.push("is_at_home:true");
 
       const finalStr = parts.join(" AND ");
       return finalStr.length ? finalStr : undefined;
     }
 
-    // 5.2 filtre de visibilité : avant recherche → on cache ceux marqués "show_search"
-    //     après recherche → on cache ceux marqués "show_home"
+    // filtre d’affichage de base (home vs search) — version qui marche
     function getVisibilityFilter() {
-  if (!hasUserLaunchedSearch) {
-    return "NOT show_search:true";
-  }
-  return "NOT show_home:true";
-}
+      if (!hasUserLaunchedSearch) {
+        // état initial → on cache ceux réservés à la recherche
+        return "NOT show_search:true";
+      }
+      // après première action → on cache ceux réservés à la home
+      return "NOT show_home:true";
+    }
 
-
-    // 5.3 combine filtre métier + filtre de visibilité
+    // on colle le filtre métier + le filtre d’affichage
     function composeFilters(userFilters) {
       const visibility = getVisibilityFilter();
       if (userFilters && userFilters.length) {
@@ -204,73 +183,51 @@ window.addEventListener("DOMContentLoaded", () => {
       return visibility;
     }
 
-    // 5.4 met l’état courant dans l’URL (query, facettes, géo, bools…)
+    // on garde l’état dans l’URL
     function updateUrlFromState(state) {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
 
-      // query
       const query = state.query || "";
-      if (query.trim() !== "") {
-        params.set("q", query.trim());
-      } else {
-        params.delete("q");
-      }
+      if (query.trim() !== "") params.set("q", query.trim());
+      else params.delete("q");
 
       const facetRef = state.facetsRefinements || {};
       const disjRef = state.disjunctiveFacetsRefinements || {};
 
-      // on récupère les refines actifs
       const typeRef =
         (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) ||
         [];
-
       const speRef =
         (disjRef.specialities && disjRef.specialities.length
           ? disjRef.specialities
           : facetRef.specialities) || [];
-
       const prestaRef =
         (facetRef.prestations && facetRef.prestations.length
           ? facetRef.prestations
           : []) || [];
-
       const reimbRef =
         (disjRef.reimbursment_percentage &&
           disjRef.reimbursment_percentage.length
           ? disjRef.reimbursment_percentage
           : []) || [];
 
-      // on met dans l’URL seulement si non vide
-      if (typeRef.length > 0) {
-        params.set("type", typeRef.join(","));
-      } else {
-        params.delete("type");
-      }
+      if (typeRef.length > 0) params.set("type", typeRef.join(","));
+      else params.delete("type");
 
-      if (speRef.length > 0) {
-        params.set("specialities", speRef.join(","));
-      } else {
-        params.delete("specialities");
-      }
+      if (speRef.length > 0) params.set("specialities", speRef.join(","));
+      else params.delete("specialities");
 
-      if (prestaRef.length > 0) {
-        params.set("prestations", prestaRef.join(","));
-      } else {
-        params.delete("prestations");
-      }
+      if (prestaRef.length > 0) params.set("prestations", prestaRef.join(","));
+      else params.delete("prestations");
 
-      if (reimbRef.length > 0) {
+      if (reimbRef.length > 0)
         params.set("reimbursment_percentage", reimbRef.join(","));
-      } else {
-        params.delete("reimbursment_percentage");
-      }
+      else params.delete("reimbursment_percentage");
 
-      if (selectedJobTags.length > 0) {
+      if (selectedJobTags.length > 0)
         params.set("jobs", selectedJobTags.join(","));
-      } else {
-        params.delete("jobs");
-      }
+      else params.delete("jobs");
 
       // géo
       if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
@@ -286,21 +243,14 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       // booléens
-      if (isNetworkSelected) {
-        params.set("network", "true");
-      } else {
-        params.delete("network");
-      }
-      if (isRemoteSelected) {
-        params.set("remote", "true");
-      } else {
-        params.delete("remote");
-      }
-      if (isAtHomeSelected) {
-        params.set("athome", "true");
-      } else {
-        params.delete("athome");
-      }
+      if (isNetworkSelected) params.set("network", "true");
+      else params.delete("network");
+
+      if (isRemoteSelected) params.set("remote", "true");
+      else params.delete("remote");
+
+      if (isAtHomeSelected) params.set("athome", "true");
+      else params.delete("athome");
 
       const newUrl = `${window.location.pathname}${
         params.toString() ? "?" + params.toString() : ""
@@ -309,13 +259,12 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // ------------------------------------------------------------------------
-    // 6. WIDGET CUSTOM QUI REND TOUS LES TAGS (types, spe, presta, jobs, bools…)
+    // 6. WIDGET CUSTOM QUI REND LES TAGS (types, spé, presta, jobs, bools…)
     // ------------------------------------------------------------------------
     const dynamicSuggestionsWidget = {
       render({ results }) {
         if (!results) return;
 
-        // on récupère tous les containers HTML
         const typeWrapper = document.getElementById("tags_autocomplete_type");
         const speWrapper = document.getElementById("tags_autocomplete_spe");
         const speFilterWrapper = document.getElementById("spe_filtre");
@@ -336,20 +285,17 @@ window.addEventListener("DOMContentLoaded", () => {
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
-        // --------------------------------------------------------------------
-        // 6.1 TYPES
-        // --------------------------------------------------------------------
+        // ---------------- TYPES ----------------
         let typeFacetValues = results.getFacetValues("type", {
           sortBy: ["count:desc", "name:asc"],
         });
         if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
 
-        const typeHtml = typeFacetValues
+        typeWrapper.innerHTML = typeFacetValues
           .filter((fv) => fv && fv.name)
           .map((fv) => {
             const key = `type:::${fv.name}`;
             const isSelected = selectedFacetTags.has(key);
-            // si count 0 et pas sélectionné → on ne l’affiche pas
             if (fv.count === 0 && !isSelected) return "";
             return (
               '<div class="directory_suggestions_tag is-type ' +
@@ -362,9 +308,8 @@ window.addEventListener("DOMContentLoaded", () => {
             );
           })
           .join("");
-        typeWrapper.innerHTML = typeHtml;
 
-        // bloc alternatif de types (gros boutons)
+        // bloc alternatif types
         const typesAltWrapper = document.getElementById("directory_types");
         if (typesAltWrapper) {
           const hasTypeSelected = Array.from(selectedFacetTags).some((k) =>
@@ -396,27 +341,22 @@ window.addEventListener("DOMContentLoaded", () => {
           typesAltWrapper.innerHTML = altHtml;
         }
 
-        // --------------------------------------------------------------------
-        // 6.2 SPÉCIALITÉS
-        // --------------------------------------------------------------------
+        // ---------------- SPÉ ----------------
         let speFacetValues = results.getFacetValues("specialities", {
           sortBy: ["count:desc", "name:asc"],
         });
         if (!Array.isArray(speFacetValues)) speFacetValues = [];
 
-        // version triée A→Z pour le bloc de filtres
         const speFacetValuesAlpha = [...speFacetValues].sort((a, b) =>
           (a.name || "").localeCompare(b.name || "")
         );
 
-        // on masque le bloc si aucune spé
         const speContainer = document.getElementById("speContainer");
         if (speContainer) {
           const hasSpe = speFacetValues.some((fv) => fv && fv.count > 0);
           speContainer.style.display = hasSpe ? "flex" : "none";
         }
 
-        // on garde les spé déjà sélectionnées pour les mettre devant
         const selectedSpe = Array.from(selectedFacetTags)
           .filter((k) => k.startsWith("specialities:::"))
           .map((k) => k.split(":::")[1]);
@@ -424,13 +364,13 @@ window.addEventListener("DOMContentLoaded", () => {
         const seen = new Set();
         const speBlocks = [];
 
-        // d’abord celles sélectionnées
+        // d’abord les sélectionnées
         selectedSpe.forEach((value) => {
           seen.add(value);
           speBlocks.push({ name: value, count: null });
         });
 
-        // puis on complète avec les plus fréquentes
+        // puis on complète
         for (const fv of speFacetValues) {
           if (!fv || !fv.name) continue;
           if (seen.has(fv.name)) continue;
@@ -440,8 +380,7 @@ window.addEventListener("DOMContentLoaded", () => {
           seen.add(fv.name);
         }
 
-        // rendu dans le dropdown
-        const speHtml = speBlocks
+        speWrapper.innerHTML = speBlocks
           .map((item) => {
             const key = `specialities:::${item.name}`;
             const isSelected = selectedFacetTags.has(key);
@@ -456,9 +395,7 @@ window.addEventListener("DOMContentLoaded", () => {
             );
           })
           .join("");
-        speWrapper.innerHTML = speHtml;
 
-        // rendu dans le bloc de filtres sur la page
         if (speFilterWrapper) {
           const maxToShow = speExpanded ? speFacetValuesAlpha.length : 6;
           const speListHtml = speFacetValuesAlpha
@@ -479,6 +416,7 @@ window.addEventListener("DOMContentLoaded", () => {
             })
             .join("");
           speFilterWrapper.innerHTML = speListHtml;
+
           const moreSpeBtn = document.getElementById("more-spe");
           if (moreSpeBtn) {
             moreSpeBtn.textContent = speExpanded
@@ -487,16 +425,13 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // --------------------------------------------------------------------
-        // 6.3 PRESTATIONS
-        // --------------------------------------------------------------------
+        // ---------------- PRESTATIONS ----------------
         if (prestaFilterWrapper) {
           let prestaFacetValues = results.getFacetValues("prestations", {
             sortBy: ["name:asc"],
           });
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
 
-          // on masque le container si aucune presta
           const serviceContainer =
             document.getElementById("serviceContainer");
           if (serviceContainer) {
@@ -527,6 +462,7 @@ window.addEventListener("DOMContentLoaded", () => {
             })
             .join("");
           prestaFilterWrapper.innerHTML = prestaListHtml;
+
           const morePrestaBtn = document.getElementById("more-presta");
           if (morePrestaBtn) {
             morePrestaBtn.textContent = prestaExpanded
@@ -535,9 +471,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // --------------------------------------------------------------------
-        // 6.4 MÉTIERS (mainjob + jobs)
-        // --------------------------------------------------------------------
+        // ---------------- MÉTIERS ----------------
         if (jobFilterWrapper) {
           let mainFacetValues = results.getFacetValues("mainjob", {
             sortBy: ["name:asc"],
@@ -549,7 +483,6 @@ window.addEventListener("DOMContentLoaded", () => {
           if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
           if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
 
-          // on fusionne mainjob + jobs sous le même label
           const merged = new Map();
 
           mainFacetValues.forEach((fv) => {
@@ -584,14 +517,13 @@ window.addEventListener("DOMContentLoaded", () => {
             mainFacetValues.some((fv) => fv && fv.count > 0) ||
             jobFacetValues.some((fv) => fv && fv.count > 0);
 
-          // on met à jour le bloc "onlythp" en fonction de ça
           if (searchInstance && searchInstance.helper) {
             updateOnlyThpVisibility(searchInstance.helper.state, hasJobsFacet);
           }
 
           const maxToShowJob = jobExpanded ? mergedArr.length : 6;
 
-          const jobListHtml = mergedArr
+          jobFilterWrapper.innerHTML = mergedArr
             .slice(0, maxToShowJob)
             .map((item) => {
               const value = (item.name || "").trim();
@@ -610,7 +542,6 @@ window.addEventListener("DOMContentLoaded", () => {
               );
             })
             .join("");
-          jobFilterWrapper.innerHTML = jobListHtml;
 
           const moreJobBtn = document.getElementById("more-job");
           if (moreJobBtn) {
@@ -620,19 +551,15 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // --------------------------------------------------------------------
-        // 6.5 BOOLÉENS (réseau, visio, domicile)
-        // --------------------------------------------------------------------
+        // ---------------- BOOLÉENS ----------------
         if (labelFilterWrapper) {
           labelFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
             (isNetworkSelected ? "is-selected" : "") +
             '" data-bool-filter="network">' +
             '<span class="directory_option_icon">' +
-            // icône réseau
-            '<svg width="auto" height="auto" viewBox="0 0 25 21" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-            '<path d="M23.984 17.5351L23.8018 17.3529C23.644 17.1937 23.3902 17.178 23.2152 17.32C21.8196 18.4516 20.2132 19.0167 18.393 19.0167C16.8483 19.0167 15.5201 18.509 14.41 17.4921C13.3973 16.567 12.6558 15.3435 12.1825 13.8231C12.1065 13.5778 12.2556 13.3197 12.5052 13.2594C14.4272 12.8062 16.091 12.34 17.498 11.8624C19.0155 11.3475 20.249 10.7853 21.1971 10.1757C22.1466 9.56609 22.8451 8.89483 23.2912 8.16333C23.7387 7.4304 23.9624 6.63149 23.9624 5.76517C23.9624 4.30074 23.3385 3.12891 22.0921 2.24824C20.8457 1.36758 19.2063 0.927246 17.1739 0.927246C15.7094 0.927246 14.354 1.17825 13.1076 1.67882C11.8612 2.18083 10.7912 2.87791 9.89618 3.77292C9.00261 4.66792 8.29693 5.72358 7.78345 6.94274C7.26853 8.16333 7.01035 9.4915 7.01035 10.9272V10.933C7.01035 11.2055 7.26136 11.4092 7.53101 11.3618C8.78459 11.1395 10.0511 10.9287 11.2344 10.6533C11.4381 10.606 11.5786 10.4195 11.5729 10.2101C11.5672 10.0451 11.5643 9.87733 11.5643 9.70809C11.5643 8.5965 11.6919 7.59391 11.9501 6.6989C12.2069 5.80533 12.5654 5.03224 13.0273 4.3825C13.4877 3.73132 14.0356 3.23075 14.6739 2.87791C15.3093 2.5265 16.0078 2.35008 16.7665 2.35008C17.716 2.35008 18.4604 2.62116 19.0026 3.16333C19.5448 3.7055 19.8159 4.42266 19.8159 5.31767C19.8159 7.31709 18.601 8.98089 16.1742 10.3091C16.1612 10.3162 16.1498 10.3248 16.1383 10.3334C15.8055 10.5715 15.1242 10.8986 13.9237 11.3432C13.8334 11.3762 13.7387 11.4063 13.6469 11.4393L13.6426 11.4422C13.5824 11.4637 13.5207 11.4823 13.4604 11.5024C13.4203 11.5167 13.3801 11.5297 13.34 11.5426C12.9613 11.6673 12.5812 11.7835 12.2011 11.8882C12.0448 11.9341 11.8884 11.98 11.7264 12.0245L11.7249 12.0159C6.89131 13.2451 2.14661 12.9338 0.111328 12.7072C1.45671 13.1705 5.65063 13.661 7.08494 13.8217C9.05711 17.3773 11.963 19.7755 13.1693 20.2359C15.6549 20.9272 19.8288 20.6633 21.0766 20.1341C22.1853 19.6651 23.1549 19.0067 23.9854 18.1605Z" fill="currentColor"></path>' +
-            "</svg>" +
+            // icône
+            '<svg width="auto" height="auto" viewBox="0 0 25 21" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M23.984 17.5351L23.8018 17.3529C23.644 17.1937 23.3902 17.178 23.2152 17.32C21.8196 18.4516 20.2132 19.0167 18.393 19.0167C16.8483 19.0167 15.5201 18.509 14.41 17.4921C13.3973 16.567 12.6558 15.3435 12.1825 13.8231C12.1065 13.5778 12.2556 13.3197 12.5052 13.2594C14.4272 12.8062 16.091 12.34 17.498 11.8624C19.0155 11.3475 20.249 10.7853 21.1971 10.1757C22.1466 9.56609 22.8451 8.89483 23.2912 8.16333C23.7387 7.4304 23.9624 6.63149 23.9624 5.76517C23.9624 4.30074 23.3385 3.12891 22.0921 2.24824C20.8457 1.36758 19.2063 0.927246 17.1739 0.927246C15.7094 0.927246 14.354 1.17825 13.1076 1.67882C11.8612 2.18083 10.7912 2.87791 9.89618 3.77292C9.00261 4.66792 8.29693 5.72358 7.78345 6.94274C7.26853 8.16333 7.01035 9.4915 7.01035 10.9272V10.933C7.01035 11.2055 7.26136 11.4092 7.53101 11.3618C8.78459 11.1395 10.0511 10.9287 11.2344 10.6533C11.4381 10.606 11.5786 10.4195 11.5729 10.2101C11.5672 10.0451 11.5643 9.87733 11.5643 9.70809C11.5643 8.5965 11.6919 7.59391 11.9501 6.6989C12.2069 5.80533 12.5654 5.03224 13.0273 4.3825C13.4877 3.73132 14.0356 3.23075 14.6739 2.87791C15.3093 2.5265 16.0078 2.35008 16.7665 2.35008C17.716 2.35008 18.4604 2.62116 19.0026 3.16333C19.5448 3.7055 19.8159 4.42266 19.8159 5.31767C19.8159 7.31709 18.601 8.98089 16.1742 10.3091C16.1612 10.3162 16.1498 10.3248 16.1383 10.3334C15.8055 10.5715 15.1242 10.8986 13.9237 11.3432C13.8334 11.3762 13.7387 11.4063 13.6469 11.4393L13.6426 11.4422C13.5824 11.4637 13.5207 11.4823 13.4604 11.5024C13.4203 11.5167 13.3801 11.5297 13.34 11.5426C12.9613 11.6673 12.5812 11.7835 12.2011 11.8882C12.0448 11.9341 11.8884 11.98 11.7264 12.0245L11.7249 12.0159C6.89131 13.2451 2.14661 12.9338 0.111328 12.7072C1.45671 13.1705 5.65063 13.661 7.08494 13.8217C9.05711 17.3773 11.963 19.7755 13.1693 20.2359C15.6549 20.9272 19.8288 20.6633 21.0766 20.1341C22.1853 19.6651 23.1549 19.0067 23.9854 18.1605Z" fill="currentColor"></path></svg>' +
             "</span>" +
             "<span>Membres réseaux</span>" +
             "</div>";
@@ -644,9 +571,7 @@ window.addEventListener("DOMContentLoaded", () => {
             (isRemoteSelected ? "is-selected" : "") +
             '" data-bool-filter="remote">' +
             '<span class="directory_option_icon">' +
-            '<svg width="auto" height="auto" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-            '<path fill-rule="evenodd" clip-rule="evenodd" d="M0 10.5697C0 4.73221 4.5667 0 10.2 0C15.8333 0 20.4 4.73222 20.4 10.5697V14.4485C20.4 14.9305 20.0229 15.3212 19.5578 15.3212C19.0927 15.3212 18.7156 14.9305 18.7156 14.4485V10.5697C18.7156 5.6962 14.903 1.74545 10.2 1.74545C5.49697 1.74545 1.6844 5.6962 1.6844 10.5697V14.4485C1.6844 14.9305 1.30734 15.3212 0.842202 15.3212C0.377067 15.3212 0 14.9305 0 14.4485V10.5697ZM2.80734 12.9939C2.80734 11.1731 4.23181 9.69697 5.98899 9.69697C7.74617 9.69697 9.17064 11.1731 9.17064 12.9939V15.903C9.17064 17.7239 7.74617 19.2 5.98899 19.2C4.23181 19.2 2.80734 17.7239 2.80734 15.903V12.9939ZM5.98899 11.4424C5.16208 11.4424 4.49174 12.1371 4.49174 12.9939V15.903C4.49174 16.7599 5.16208 17.4545 5.98899 17.4545C6.8159 17.4545 7.48624 16.7599 7.48624 15.903V12.9939C7.48624 12.1371 6.8159 11.4424 5.98899 11.4424ZM11.2294 12.9939C11.2294 11.1731 12.6538 9.69697 14.411 9.69697C16.1682 9.69697 17.5927 11.1731 17.5927 12.9939V15.903C17.5927 17.7239 16.1682 19.2 14.411 19.2C12.6538 19.2 11.2294 17.7239 11.2294 15.903V12.9939ZM14.411 11.4424C13.5841 11.4424 12.9138 12.1371 12.9138 12.9939V15.903C12.9138 16.7599 13.5841 17.4545 14.411 17.4545C15.2379 17.4545 15.9083 16.7599 15.9083 15.903V12.9939C15.9083 12.1371 15.2379 11.4424 14.411 11.4424Z" fill="currentColor"></path>' +
-            "</svg>" +
+            '<svg width="auto" height="auto" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 10.5697C0 4.73221 4.5667 0 10.2 0C15.8333 0 20.4 4.73222 20.4 10.5697V14.4485C20.4 14.9305 20.0229 15.3212 19.5578 15.3212C19.0927 15.3212 18.7156 14.9305 18.7156 14.4485V10.5697C18.7156 5.6962 14.903 1.74545 10.2 1.74545C5.49697 1.74545 1.6844 5.6962 1.6844 10.5697V14.4485C1.6844 14.9305 1.30734 15.3212 0.842202 15.3212C0.377067 15.3212 0 14.9305 0 14.4485V10.5697ZM2.80734 12.9939C2.80734 11.1731 4.23181 9.69697 5.98899 9.69697C7.74617 9.69697 9.17064 11.1731 9.17064 12.9939V15.903C9.17064 17.7239 7.74617 19.2 5.98899 19.2C4.23181 19.2 2.80734 17.7239 2.80734 15.903V12.9939ZM5.98899 11.4424C5.16208 11.4424 4.49174 12.1371 4.49174 12.9939V15.903C4.49174 16.7599 5.16208 17.4545 5.98899 17.4545C6.8159 17.4545 7.48624 16.7599 7.48624 15.903V12.9939C7.48624 12.1371 6.8159 11.4424 5.98899 11.4424ZM11.2294 12.9939C11.2294 11.1731 12.6538 9.69697 14.411 9.69697C16.1682 9.69697 17.5927 11.1731 17.5927 12.9939V15.903C17.5927 17.7239 16.1682 19.2 14.411 19.2C12.6538 19.2 11.2294 17.7239 11.2294 15.903V12.9939ZM14.411 11.4424C13.5841 11.4424 12.9138 12.1371 12.9138 12.9939V15.903C12.9138 16.7599 13.5841 17.4545 14.411 17.4545C15.2379 17.4545 15.9083 16.7599 15.9083 15.903V12.9939C15.9083 12.1371 15.2379 11.4424 14.411 11.4424Z" fill="currentColor"></path></svg>' +
             "</span>" +
             "<span>Travail en visio</span>" +
             "</div>";
@@ -658,17 +583,13 @@ window.addEventListener("DOMContentLoaded", () => {
             (isAtHomeSelected ? "is-selected" : "") +
             '" data-bool-filter="athome">' +
             '<span class="directory_option_icon">' +
-            '<svg width="auto" height="auto" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-            '<path fill-rule="evenodd" clip-rule="evenodd" d="M9.72983 1.95795C9.655 1.90735 9.545 1.90735 9.47017 1.95795L1.98217 7.02182C1.9314 7.05615 1.92 7.09646 1.92 7.11941V16.5967C1.92 16.9292 2.21782 17.28 2.688 17.28H16.512C16.9822 17.28 17.28 16.9292 17.28 16.5967V7.11941C17.28 7.09646 17.2686 7.05615 17.2178 7.02182L9.72983 1.95795ZM8.39461 0.367496C9.11917 -0.1225 10.0808 -0.122498 10.8054 0.367497L18.2934 5.43136C18.8504 5.80805 19.2 6.43312 19.2 7.11941V16.5967C19.2 18.0793 17.9505 19.2 16.512 19.2H2.688C1.24948 19.2 0 18.0793 0 16.5967V7.11941C0 6.43312 0.349589 5.80805 0.906605 5.43136L8.39461 0.367496Z" fill="currentColor"></path>' +
-            "</svg>" +
+            '<svg width="auto" height="auto" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.72983 1.95795C9.655 1.90735 9.545 1.90735 9.47017 1.95795L1.98217 7.02182C1.9314 7.05615 1.92 7.09646 1.92 7.11941V16.5967C1.92 16.9292 2.21782 17.28 2.688 17.28H16.512C16.9822 17.28 17.28 16.9292 17.28 16.5967V7.11941C17.28 7.09646 17.2686 7.05615 17.2178 7.02182L9.72983 1.95795ZM8.39461 0.367496C9.11917 -0.1225 10.0808 -0.122498 10.8054 0.367497L18.2934 5.43136C18.8504 5.80805 19.2 6.43312 19.2 7.11941V16.5967C19.2 18.0793 17.9505 19.2 16.512 19.2H2.688C1.24948 19.2 0 18.0793 0 16.5967V7.11941C0 6.43312 0.349589 5.80805 0.906605 5.43136L8.39461 0.367496Z" fill="currentColor"></path></svg>' +
             "</span>" +
             "<span>Se déplace à domicile</span>" +
             "</div>";
         }
 
-        // --------------------------------------------------------------------
-        // 6.6 REMBOURSEMENT (facette disj)
-        // --------------------------------------------------------------------
+        // ---------------- REMBOURSEMENTS ----------------
         if (discountFilterWrapper) {
           let reimburseFacetValues = results.getFacetValues(
             "reimbursment_percentage",
@@ -712,17 +633,15 @@ window.addEventListener("DOMContentLoaded", () => {
     };
 
     // ------------------------------------------------------------------------
-    // 7. AJOUT DES WIDGETS ALGOLIA
+    // 7. WIDGETS ALGOLIA
     // ------------------------------------------------------------------------
     search.addWidgets([
-      // 7.1 configure : facettes qu’on veut à dispo + hits/page
       instantsearch.widgets.configure({
         facets: ["specialities", "prestations", "mainjob", "jobs"],
         disjunctiveFacets: ["type", "reimbursment_percentage"],
         hitsPerPage: 48,
       }),
 
-      // 7.2 searchbox
       instantsearch.widgets.searchBox({
         container: "#searchbox",
         placeholder: "Écrivez ici tout ce qui concerne vos besoins...",
@@ -732,7 +651,6 @@ window.addEventListener("DOMContentLoaded", () => {
         },
       }),
 
-      // 7.3 stats
       instantsearch.widgets.stats({
         container: "#search_count",
         templates: {
@@ -744,57 +662,54 @@ window.addEventListener("DOMContentLoaded", () => {
         },
       }),
 
-      // 7.4 hits avec pagination infinie
-      instantsearch.widgets.instantsearch.widgets.infiniteHits({
-  container: "#hits",
-  hitsPerPage: 48,
-  showMore: true,
-  cssClasses: {
-    loadMore: "directory_show_more_button",
-  },
-  transformItems(items) {
-    // on filtre d’abord les sports selon la présence de la geo,
-    // puis on fait le tri réseau comme avant
+      // --------------------------------------------------------------------
+      // 7.1 hits avec pagination infinie
+      //      ICI on met la logique "sports visibles en home tant que pas de geo"
+      // --------------------------------------------------------------------
+      instantsearch.widgets.infiniteHits({
+        container: "#hits",
+        hitsPerPage: 48,
+        showMore: true,
+        cssClasses: {
+          loadMore: "directory_show_more_button",
+        },
 
-    const filtered = items.filter((hit) => {
-      const source = hit.source_collection || "";
-      const isSport =
-        source === "sports_studio" || source === "studio_enfant";
+        // filtrage/tri côté front
+        transformItems(items) {
+          // 1. on applique la règle spéciale sports ici
+          const filtered = items.filter((hit) => {
+            const source = hit.source_collection || "";
+            const isSport =
+              source === "sports_studio" || source === "studio_enfant";
 
-      // si ce n’est pas un sport → on le garde tel quel
-      if (!isSport) return true;
+            // pas un sport → on le garde
+            if (!isSport) return true;
 
-      // sport + PAS de geo → on ne garde que les show_home
-      if (!currentGeoFilter) {
-        return hit.show_home === true;
-      }
+            // sport + pas de géo → on garde seulement ceux prévus pour la home
+            if (!currentGeoFilter) {
+              return hit.show_home === true;
+            }
 
-      // sport + geo → on ne garde que les pensés pour la recherche
-      return hit.show_search === true;
-    });
+            // sport + géo → on garde seulement ceux prévus pour la recherche
+            return hit.show_search === true;
+          });
 
-    // on garde ton tri réseau en premier
-    return filtered
-      .slice()
-      .sort((a, b) => {
-        const aNet = a.is_elsee_network ? 1 : 0;
-        const bNet = b.is_elsee_network ? 1 : 0;
-        if (aNet !== bNet) return bNet - aNet;
-        return 0;
-      });
-  },
-  templates: {
-    /* ... ton item(...) inchangé ... */
-  },
-})
+          // 2. on trie pour mettre les membres réseau en premier (comme avant)
+          return filtered
+            .slice()
+            .sort((a, b) => {
+              const aNet = a.is_elsee_network ? 1 : 0;
+              const bNet = b.is_elsee_network ? 1 : 0;
+              if (aNet !== bNet) return bNet - aNet;
+              return 0;
+            });
+        },
 
-          // --------------------------------------------------------------
-          // 7.4.1 rendu d’un hit
-          // --------------------------------------------------------------
+        // rendu d’un hit
+        templates: {
           item(hit) {
-            // data Algolia
             const photoUrl = hit.photo_url || "";
-            const isNetwork = true; // on force le badge pour tous les items
+            const isNetwork = true; // on force le label pour tous
             const isRemote = !!hit.is_remote;
             const isAtHome = !!hit.is_at_home;
             const reimbursement = hit.reimbursment_percentage ?? "";
@@ -809,7 +724,7 @@ window.addEventListener("DOMContentLoaded", () => {
               source === "sports_studio" || source === "studio_enfant";
             const Therapeutes = isTherapeutes(hit);
 
-            // on récupère les SVG déjà dans le DOM (icônes)
+            // icônes prises dans le DOM
             const remoteSvg =
               document.querySelector(".directory_remote_icon")?.innerHTML ||
               "";
@@ -823,27 +738,23 @@ window.addEventListener("DOMContentLoaded", () => {
               document.querySelector(".directory_card_location_icon")
                 ?.innerHTML || "";
 
-            // styles inline pour les images
+            // styles inline
             const containStyle =
               "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
             const coverStyle =
               "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
 
-            // on choisit le style + l’URL finale
+            // choix de l’image
             let finalStyle = "";
             if (photoUrl) {
-              // il y a une vraie photo
               if (Therapeutes) {
-                // thérapeutes → cover
                 finalStyle =
                   coverStyle + "background-image:url('" + photoUrl + "');";
               } else {
-                // autres → contain
                 finalStyle =
                   containStyle + "background-image:url('" + photoUrl + "');";
               }
             } else {
-              // pas de photo → placeholder en cover
               if (Therapeutes) {
                 finalStyle =
                   coverStyle +
@@ -859,7 +770,6 @@ window.addEventListener("DOMContentLoaded", () => {
               }
             }
 
-            // bloc photo + badge
             const photoDiv =
               '<div class="directory_card_photo_container">' +
               '<div class="directory_card_photo' +
@@ -875,7 +785,6 @@ window.addEventListener("DOMContentLoaded", () => {
               "</div>" +
               "</div>";
 
-            // icône visio
             const remoteIcon =
               '<div class="directory_remote_icon" style="display:' +
               (isRemote ? "block" : "none") +
@@ -884,7 +793,6 @@ window.addEventListener("DOMContentLoaded", () => {
               '<div class="tooltip">Consultation en visio</div>' +
               "</div>";
 
-            // icône domicile
             const atHomeIcon =
               '<div class="directory_at_home_icon" style="display:' +
               (isAtHome ? "block" : "none") +
@@ -893,7 +801,6 @@ window.addEventListener("DOMContentLoaded", () => {
               '<div class="tooltip">Se déplace à votre domicile</div>' +
               "</div>";
 
-            // tag de remboursement (pas pour thérapeutes)
             const showDiscount = !Therapeutes;
             const discountDiv =
               '<div class="directory_card_discount_tag" style="display:' +
@@ -907,13 +814,11 @@ window.addEventListener("DOMContentLoaded", () => {
               "</div>" +
               "</div>";
 
-            // titre
             const titleDiv =
               '<div class="directory_card_title"><div>' +
               name +
               "</div></div>";
 
-            // détails 1 (prestations / spécialités / mainjob)
             const prestationsArr = toArray(hit.prestations);
             const specialitiesArr = toArray(hit.specialities);
             let partnerDetails1 = "";
@@ -950,7 +855,6 @@ window.addEventListener("DOMContentLoaded", () => {
               partnerDetails1 +
               "</div></div>";
 
-            // détails 2 (jobs pour thérapeutes, short_desc pour les autres)
             let partnerDetails2Html = "";
             if (Therapeutes) {
               const jobsArr = toArray(hit.jobs);
@@ -975,7 +879,6 @@ window.addEventListener("DOMContentLoaded", () => {
                 "</div></div>";
             }
 
-            // localisation : masquée dans certains cas (sport + home, pas de ville…)
             let showLocation = true;
             if (isSport && showHome === true) showLocation = false;
             if (!showSearch) showLocation = false;
@@ -998,7 +901,6 @@ window.addEventListener("DOMContentLoaded", () => {
               "</div></div>" +
               "</div>";
 
-            // tags (on en affiche 2 max)
             let tagItems = [];
             if (Therapeutes) {
               tagItems = toArray(hit.prestations).slice(0, 2);
@@ -1020,7 +922,6 @@ window.addEventListener("DOMContentLoaded", () => {
               prestasHtml +
               "</div>";
 
-            // on renvoie la carte complète
             return (
               '<li class="directory_card_container">' +
               '<a href="' +
@@ -1050,17 +951,17 @@ window.addEventListener("DOMContentLoaded", () => {
         },
       }),
 
-      // widget custom
+      // widget de tags
       dynamicSuggestionsWidget,
     ]);
 
     // ------------------------------------------------------------------------
-    // 8. LANCEMENT DE LA RECHERCHE
+    // 8. DÉMARRAGE
     // ------------------------------------------------------------------------
     search.start();
 
     // ------------------------------------------------------------------------
-    // 9. RENDER GLOBAL : on log + on met l’URL à jour
+    // 9. À CHAQUE RENDER
     // ------------------------------------------------------------------------
     search.on("render", () => {
       renderClearButton();
@@ -1069,7 +970,6 @@ window.addEventListener("DOMContentLoaded", () => {
         updateUrlFromState(search.helper.state);
       }
 
-      // log pour debogage : on voit ce qu’Algolia pense de l’infiniteHits
       const inf =
         search.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
       console.log("[DIR] render → infiniteHits state =", inf);
@@ -1077,18 +977,15 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // ------------------------------------------------------------------------
     // 10. CLICK GLOBAL SUR LE BOUTON "AFFICHER PLUS"
-    //     → très important car on a changé la classe par défaut
     // ------------------------------------------------------------------------
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".directory_show_more_button");
       if (!btn) return;
 
-      // on récupère l’état courant à l’instant du clic
       const inf =
         searchInstance?.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
       console.log("[DIR] show-more CLICK", inf);
 
-      // si Algolia fournit bien showMore → on le déclenche
       if (inf && typeof inf.showMore === "function") {
         e.preventDefault();
         inf.showMore();
@@ -1098,7 +995,7 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     // ------------------------------------------------------------------------
-    // 11. SETUP DES LISTENERS UI (filtres, dropdowns, clear…)
+    // 11. SETUP DES AUTRES LISTENERS
     // ------------------------------------------------------------------------
     setupSearchDropdown();
     setupSuggestionClicks();
@@ -1108,21 +1005,17 @@ window.addEventListener("DOMContentLoaded", () => {
     setupBooleanBlockClicks();
     setupDiscountBlockClicks();
 
-    // ------------------------------------------------------------------------
-    // 12. BOUTON CLEAR GÉO
-    // ------------------------------------------------------------------------
+    // bouton clear de la localisation
     const mapsClearBtn = document.querySelector(".directory_search_clear");
     if (mapsClearBtn) {
       mapsClearBtn.addEventListener("click", () => {
         if (!searchInstance || !searchInstance.helper) return;
         const helper = searchInstance.helper;
 
-        // on supprime la localisation
         currentGeoFilter = null;
         helper.setQueryParameter("aroundLatLng", undefined);
         helper.setQueryParameter("aroundRadius", undefined);
 
-        // on nettoie le champ
         const mapsInput = document.getElementById("maps_input");
         const mapsBox = document.getElementById("maps_autocomplete");
         if (mapsInput) {
@@ -1138,9 +1031,7 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // ------------------------------------------------------------------------
-    // 13. BOUTON CLEAR MOBILE (reset total)
-    // ------------------------------------------------------------------------
+    // bouton clear mobile
     const clearBtnMobile = document.getElementById("clear_button_mobile");
     if (clearBtnMobile) {
       clearBtnMobile.addEventListener("click", () => {
@@ -1178,10 +1069,8 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // ------------------------------------------------------------------------
-    // 14. FONCTIONS DE SETUP (click sur les différents blocs)
+    // 12. FONCTIONS DE SETUP (comme plus haut, inchangées, juste rangées)
     // ------------------------------------------------------------------------
-
-    // 14.1 booléens (réseau, visio, domicile)
     function setupBooleanBlockClicks() {
       const labelFilterWrapper = document.getElementById("label-filter");
       const remoteFilterWrapper = document.getElementById(
@@ -1193,15 +1082,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
       function toggleAndSearch(flagName) {
         if (!searchInstance || !searchInstance.helper) return;
-        if (flagName === "network") {
-          isNetworkSelected = !isNetworkSelected;
-        }
-        if (flagName === "remote") {
-          isRemoteSelected = !isRemoteSelected;
-        }
-        if (flagName === "athome") {
-          isAtHomeSelected = !isAtHomeSelected;
-        }
+        if (flagName === "network") isNetworkSelected = !isNetworkSelected;
+        if (flagName === "remote") isRemoteSelected = !isRemoteSelected;
+        if (flagName === "athome") isAtHomeSelected = !isAtHomeSelected;
 
         const helper = searchInstance.helper;
         const filtersStr = buildFiltersStringFromJobsAndBooleans();
@@ -1235,7 +1118,6 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 14.2 clic sur les pourcentages de remboursement
     function setupDiscountBlockClicks() {
       const discountWrapper = document.getElementById("discount-tags");
       if (!discountWrapper) return;
@@ -1260,7 +1142,6 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 14.3 ouverture/fermeture du dropdown de recherche
     function setupSearchDropdown() {
       const input = document.querySelector(".directory_search_field_container");
       const dropdown =
@@ -1282,7 +1163,6 @@ window.addEventListener("DOMContentLoaded", () => {
       document.addEventListener("click", closeDropdown);
     }
 
-    // 14.4 bouton clear global (le gros bouton "effacer")
     function renderClearButton() {
       const clearBtn = document.getElementById("clear_button");
       if (!clearBtn) return;
@@ -1303,7 +1183,6 @@ window.addEventListener("DOMContentLoaded", () => {
           : "none";
     }
 
-    // 14.5 clic sur le bouton clear global
     const clearBtnInit = document.getElementById("clear_button");
     if (clearBtnInit) {
       clearBtnInit.addEventListener("click", () => {
@@ -1340,7 +1219,6 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 14.6 clic sur les tags du dropdown (types, spé, presta… dans la popover)
     function setupSuggestionClicks() {
       const dropdown =
         document.getElementById("tags_autocomplete") ||
@@ -1361,7 +1239,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
         if (helper) {
           if (facetName === "type") {
-            // type = facette disj
             if (isSelected) {
               tag.classList.remove("is-selected");
               selectedFacetTags.delete(key);
@@ -1376,7 +1253,6 @@ window.addEventListener("DOMContentLoaded", () => {
                 .search();
             }
           } else {
-            // les autres = facettes normales
             if (isSelected) {
               tag.classList.remove("is-selected");
               selectedFacetTags.delete(key);
@@ -1389,12 +1265,10 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // on laisse le dropdown ouvert
         dropdown.style.display = "flex";
       });
     }
 
-    // 14.7 clic sur le bloc de types (gros boutons horizontaux)
     function setupTypeBlockClicks() {
       const typesAltWrapper = document.getElementById("directory_types");
       if (!typesAltWrapper) return;
@@ -1408,7 +1282,6 @@ window.addEventListener("DOMContentLoaded", () => {
         facetValue = facetValue.trim();
         const helper = searchInstance.helper;
 
-        // bouton "toutes les catégories"
         if (facetValue === "__ALL_TYPES__") {
           helper.clearRefinements("type");
           Array.from(selectedFacetTags)
@@ -1423,19 +1296,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
         if (isSelected) {
           selectedFacetTags.delete(key);
-          helper
-            .removeDisjunctiveFacetRefinement(facetName, facetValue)
-            .search();
+          helper.removeDisjunctiveFacetRefinement(facetName, facetValue).search();
         } else {
           selectedFacetTags.add(key);
-          helper
-            .addDisjunctiveFacetRefinement(facetName, facetValue)
-            .search();
+          helper.addDisjunctiveFacetRefinement(facetName, facetValue).search();
         }
       });
     }
 
-    // 14.8 clic sur les blocs de spécialités et prestations (dans la page)
     function setupSpePrestaBlockClicks() {
       const speWrapper = document.getElementById("spe_filtre");
       const moreSpe = document.getElementById("more-spe");
@@ -1492,7 +1360,6 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 14.9 clic sur les métiers
     function setupJobBlockClicks() {
       const jobWrapper = document.getElementById("job_filtre");
       const moreJob = document.getElementById("more-job");
@@ -1506,7 +1373,6 @@ window.addEventListener("DOMContentLoaded", () => {
           const key = `jobs:::${value}`;
           const idx = selectedJobTags.indexOf(value);
 
-          // toggle dans notre array + dans le set
           if (idx > -1) {
             selectedJobTags.splice(idx, 1);
             selectedFacetTags.delete(key);
@@ -1515,7 +1381,6 @@ window.addEventListener("DOMContentLoaded", () => {
             selectedFacetTags.add(key);
           }
 
-          // on reconstruit les filtres custom
           const filtersStr = buildFiltersStringFromJobsAndBooleans();
           helper.setQueryParameter("filters", filtersStr);
           helper.search();
@@ -1531,7 +1396,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // ------------------------------------------------------------------------
-    // 15. GÉO : fonction appelée par l’autocomplete maps
+    // 13. LECTURE DES PARAMS URL AU DÉMARRAGE
     // ------------------------------------------------------------------------
     function applyGeoFilterFromMaps(lat, lng, label = "") {
       currentGeoFilter = { lat, lng, label };
@@ -1552,9 +1417,6 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // ------------------------------------------------------------------------
-    // 16. À L’ARRIVÉE SUR LA PAGE : on applique ce qu’il y a dans l’URL
-    // ------------------------------------------------------------------------
     function applyUrlParamsToSearch() {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
@@ -1579,19 +1441,14 @@ window.addEventListener("DOMContentLoaded", () => {
       if (!searchInstance || !searchInstance.helper) return;
       const helper = searchInstance.helper;
 
-      // query
-      if (query) {
-        helper.setQuery(query);
-      }
+      if (query) helper.setQuery(query);
 
-      // on nettoie tout avant de remettre ce qu’il y a dans l’URL
       helper.clearRefinements("type");
       helper.clearRefinements("specialities");
       helper.clearRefinements("prestations");
       helper.clearRefinements("jobs");
       helper.clearRefinements("reimbursment_percentage");
 
-      // on remet types/spe/presta/remb
       types.forEach((t) => helper.addDisjunctiveFacetRefinement("type", t));
       spes.forEach((s) => helper.addFacetRefinement("specialities", s));
       prestas.forEach((p) => helper.addFacetRefinement("prestations", p));
@@ -1599,7 +1456,6 @@ window.addEventListener("DOMContentLoaded", () => {
         helper.addDisjunctiveFacetRefinement("reimbursment_percentage", r)
       );
 
-      // on les remet aussi dans notre set de tags
       types.forEach((t) => selectedFacetTags.add(`type:::${t}`));
       spes.forEach((s) => selectedFacetTags.add(`specialities:::${s}`));
       prestas.forEach((p) => selectedFacetTags.add(`prestations:::${p}`));
@@ -1607,7 +1463,6 @@ window.addEventListener("DOMContentLoaded", () => {
         selectedFacetTags.add(`reimbursment_percentage:::${r}`)
       );
 
-      // métiers dans l’URL
       jobs.forEach((j) => {
         const cleanJob = j.trim();
         if (!cleanJob) return;
@@ -1616,16 +1471,13 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      // booléens dans l’URL
       isNetworkSelected = urlNetwork;
       isRemoteSelected = urlRemote;
       isAtHomeSelected = urlAtHome;
 
-      // on remet nos filtres custom
       const filtersStr = buildFiltersStringFromJobsAndBooleans();
       helper.setQueryParameter("filters", filtersStr);
 
-      // géo depuis l’URL
       if (geo) {
         const [latStr, lngStr] = geo.split(",");
         const lat = parseFloat(latStr);
@@ -1658,15 +1510,12 @@ window.addEventListener("DOMContentLoaded", () => {
       helper.search();
     }
 
-    // petit délai pour laisser les widgets se monter
     setTimeout(applyUrlParamsToSearch, 50);
-
-    // on expose la fonction de géo au global
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   }
 
   // --------------------------------------------------------------------------
-  // 17. LANCEMENT
+  // 14. LANCEMENT
   // --------------------------------------------------------------------------
   initAlgolia();
 });
