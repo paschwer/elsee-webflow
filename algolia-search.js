@@ -188,27 +188,40 @@ window.addEventListener("DOMContentLoaded", () => {
     // 5.2 filtre de visibilité : avant recherche → on cache ceux marqués "show_search"
     //     après recherche → on cache ceux marqués "show_home"
     function getVisibilityFilter() {
-  // groupes pour les sports
-  const sportsFilter =
+  // groupes sports / pas sports
+  const sportsGroup =
     '(source_collection:"sports_studio" OR source_collection:"studio_enfant")';
-  const nonSportsFilter =
-    'NOT source_collection:"sports_studio" AND NOT source_collection:"studio_enfant"';
+  const nonSportsGroup =
+    '(NOT source_collection:"sports_studio" AND NOT source_collection:"studio_enfant")';
 
-  // 1. S'il y a une localisation → les sports passent en "mode search"
-  //    - sports : on montre seulement ceux qui ont show_search:true
-  //    - autres : on garde le comportement normal = on cache show_home:true
+  // 1) GEO PRÉSENTE
+  // sports → on ne garde que ceux pensés pour la recherche (show_search:true)
+  // autres → comportement normal après recherche → on cache les home
   if (currentGeoFilter) {
-    return `(${sportsFilter} AND show_search:true) OR (${nonSportsFilter} AND NOT show_home:true)`;
+    return (
+      "(" +
+      sportsGroup +
+      " AND show_search:true) OR (" +
+      nonSportsGroup +
+      " AND NOT show_home:true)"
+    );
   }
 
-  // 2. S'il y a une recherche (query, facettes…) mais PAS de geo
-  //    - sports : on continue d’afficher leurs show_home:true
-  //    - autres : on cache les show_home:true comme avant
+  // 2) RECHERCHE SANS GEO
+  // sports → on laisse les show_home:true (page de découverte sport)
+  // autres → on cache les home comme d’hab
   if (hasUserLaunchedSearch) {
-    return `(${sportsFilter} AND show_home:true) OR (${nonSportsFilter} AND NOT show_home:true)`;
+    return (
+      "(" +
+      sportsGroup +
+      " AND show_home:true) OR (" +
+      nonSportsGroup +
+      " AND NOT show_home:true)"
+    );
   }
 
-  // 3. État initial (pas de recherche) → tout le monde comme avant
+  // 3) ÉTAT INITIAL
+  // tout le monde : on cache juste ceux marqués "search only"
   return "NOT show_search:true";
 }
 
