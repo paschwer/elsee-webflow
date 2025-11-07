@@ -1,7 +1,6 @@
 // ============================================================================
 // algolia-search.js
 // ============================================================================
-
 window.addEventListener("DOMContentLoaded", function () {
   // 1. CONSTANTES ------------------------------------------------------------
   var ALGOLIA_APP_ID = "DRTSPIHOUM";
@@ -26,12 +25,14 @@ window.addEventListener("DOMContentLoaded", function () {
   var currentGeoFilter = null; // {lat,lng,label}
   var searchInstance = null;
   var hasUserLaunchedSearch = false;
-  var discountRawValues = []; // dernières valeurs de reimbursment_percentage renvoyées par Algolia
-
+  var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
 
   // 3. INIT ------------------------------------------------------------------
   function initAlgolia() {
-    if (typeof algoliasearch === "undefined" || typeof instantsearch === "undefined") {
+    if (
+      typeof algoliasearch === "undefined" ||
+      typeof instantsearch === "undefined"
+    ) {
       setTimeout(initAlgolia, 200);
       return;
     }
@@ -44,7 +45,8 @@ window.addEventListener("DOMContentLoaded", function () {
       searchClient: searchClient,
       searchFunction: function (helper) {
         // on conserve la page courante (show-more)
-        var currentPage = typeof helper.state.page === "number" ? helper.state.page : 0;
+        var currentPage =
+          typeof helper.state.page === "number" ? helper.state.page : 0;
 
         var query = (helper.state.query || "").trim();
 
@@ -169,7 +171,8 @@ window.addEventListener("DOMContentLoaded", function () {
       var disjRef = state.disjunctiveFacetsRefinements || {};
 
       var typeRef =
-        (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) || [];
+        (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) ||
+        [];
       var speRef =
         (disjRef.specialities && disjRef.specialities.length
           ? disjRef.specialities
@@ -240,8 +243,12 @@ window.addEventListener("DOMContentLoaded", function () {
         var prestaFilterWrapper = document.getElementById("presta_filtre");
         var jobFilterWrapper = document.getElementById("job_filtre");
         var labelFilterWrapper = document.getElementById("label-filter");
-        var remoteFilterWrapper = document.getElementById("works-remotely-filter");
-        var atHomeFilterWrapper = document.getElementById("works-at-home-filter");
+        var remoteFilterWrapper = document.getElementById(
+          "works-remotely-filter"
+        );
+        var atHomeFilterWrapper = document.getElementById(
+          "works-at-home-filter"
+        );
         var discountFilterWrapper = document.getElementById("discount-tags");
 
         if (!typeWrapper || !speWrapper) return;
@@ -250,9 +257,10 @@ window.addEventListener("DOMContentLoaded", function () {
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
         // TYPES ----------------------------------------------------------------
-        var typeFacetValues = results.getFacetValues("type", {
-          sortBy: ["count:desc", "name:asc"]
-        }) || [];
+        var typeFacetValues =
+          results.getFacetValues("type", {
+            sortBy: ["count:desc", "name:asc"]
+          }) || [];
         if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
 
         var typeHtml = typeFacetValues
@@ -278,7 +286,9 @@ window.addEventListener("DOMContentLoaded", function () {
 
         var typesAltWrapper = document.getElementById("directory_types");
         if (typesAltWrapper) {
-          var hasTypeSelected = Array.from(selectedFacetTags).some(function (k) {
+          var hasTypeSelected = Array.from(selectedFacetTags).some(function (
+            k
+          ) {
             return k.indexOf("type:::") === 0;
           });
 
@@ -311,9 +321,10 @@ window.addEventListener("DOMContentLoaded", function () {
         }
 
         // SPÉCIALITÉS ---------------------------------------------------------
-        var speFacetValues = results.getFacetValues("specialities", {
-          sortBy: ["count:desc", "name:asc"]
-        }) || [];
+        var speFacetValues =
+          results.getFacetValues("specialities", {
+            sortBy: ["count:desc", "name:asc"]
+          }) || [];
         if (!Array.isArray(speFacetValues)) speFacetValues = [];
 
         var speFacetValuesAlpha = speFacetValues.slice().sort(function (a, b) {
@@ -405,9 +416,10 @@ window.addEventListener("DOMContentLoaded", function () {
 
         // PRESTATIONS ---------------------------------------------------------
         if (prestaFilterWrapper) {
-          var prestaFacetValues = results.getFacetValues("prestations", {
-            sortBy: ["name:asc"]
-          }) || [];
+          var prestaFacetValues =
+            results.getFacetValues("prestations", {
+              sortBy: ["name:asc"]
+            }) || [];
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
 
           var serviceContainer = document.getElementById("serviceContainer");
@@ -452,12 +464,14 @@ window.addEventListener("DOMContentLoaded", function () {
 
         // MÉTIERS --------------------------------------------------------------
         if (jobFilterWrapper) {
-          var mainFacetValues = results.getFacetValues("mainjob", {
-            sortBy: ["name:asc"]
-          }) || [];
-          var jobFacetValues = results.getFacetValues("jobs", {
-            sortBy: ["name:asc"]
-          }) || [];
+          var mainFacetValues =
+            results.getFacetValues("mainjob", {
+              sortBy: ["name:asc"]
+            }) || [];
+          var jobFacetValues =
+            results.getFacetValues("jobs", {
+              sortBy: ["name:asc"]
+            }) || [];
 
           if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
           if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
@@ -574,78 +588,78 @@ window.addEventListener("DOMContentLoaded", function () {
         }
 
         // REMBOURSEMENT --------------------------------------------------------
-        // 6. REMBOURSEMENT --------------------------------------------------------
-if (discountFilterWrapper) {
-  var reimburseFacetValues = results.getFacetValues(
-    "reimbursment_percentage",
-    { sortBy: ["name:asc"] }
-  ) || [];
-  if (!Array.isArray(reimburseFacetValues)) {
-    reimburseFacetValues = [];
-  }
+        if (discountFilterWrapper) {
+          var reimburseFacetValues =
+            results.getFacetValues("reimbursment_percentage", {
+              sortBy: ["name:asc"]
+            }) || [];
+          if (!Array.isArray(reimburseFacetValues)) {
+            reimburseFacetValues = [];
+          }
 
-  // on nettoie / trie
-  var filtered = reimburseFacetValues
-    .filter(function (fv) {
-      return fv && fv.name !== undefined && fv.name !== null;
-    })
-    .map(function (fv) {
-      return {
-        name: String(fv.name),
-        count: fv.count || 0
-      };
-    })
-    .filter(function (v) {
-      return v.name !== "";
-    })
-    .sort(function (a, b) {
-      return Number(a.name) - Number(b.name);
-    });
+          // on nettoie / trie
+          var filtered = reimburseFacetValues
+            .filter(function (fv) {
+              return fv && fv.name !== undefined && fv.name !== null;
+            })
+            .map(function (fv) {
+              return {
+                name: String(fv.name),
+                count: fv.count || 0
+              };
+            })
+            .filter(function (v) {
+              return v.name !== "";
+            })
+            .sort(function (a, b) {
+              return Number(a.name) - Number(b.name);
+            });
 
-  // on mémorise toutes les valeurs dispo pour le click handler
-  discountRawValues = filtered.map(function (item) {
-    return item.name;
-  });
+          // on mémorise toutes les valeurs pour le click handler
+          discountRawValues = filtered.map(function (item) {
+            return item.name;
+          });
 
-  // est-ce qu’on a au moins une valeur < 50 ?
-  var hasBelow50 = filtered.some(function (item) {
-    return Number(item.name) < 50;
-  });
+          // au moins une valeur < 50 ?
+          var hasBelow50 = filtered.some(function (item) {
+            return Number(item.name) < 50;
+          });
 
-  // on construit le HTML
-  var html = "";
+          var html = "";
 
-  // on ajoute d’abord notre tag virtuel si pertinent
-  if (hasBelow50) {
-    var virtualKey = "reimbursment_percentage:::lt50";
-    var isSelectedVirtual = selectedFacetTags.has(virtualKey);
-    html +=
-      '<div class="directory_category_tag_wrapper ' +
-      (isSelectedVirtual ? "is-selected" : "") +
-      '" data-facet-name="reimbursment_percentage" data-facet-value="lt50">' +
-      "<div>&lt;50%</div></div>";
-  }
+          // tag virtuel <50%
+          if (hasBelow50) {
+            var virtualKey = "reimbursment_percentage:::lt50";
+            var isSelectedVirtual = selectedFacetTags.has(virtualKey);
+            html +=
+              '<div class="directory_category_tag_wrapper ' +
+              (isSelectedVirtual ? "is-selected" : "") +
+              '" data-facet-name="reimbursment_percentage" data-facet-value="lt50">' +
+              "<div>&lt;50%</div></div>";
+          }
 
-  // puis les valeurs réelles comme avant
-  html += filtered
-    .map(function (item) {
-      var key = "reimbursment_percentage:::" + item.name;
-      var isSelected = selectedFacetTags.has(key);
-      return (
-        '<div class="directory_category_tag_wrapper ' +
-        (isSelected ? "is-selected" : "") +
-        '" data-facet-name="reimbursment_percentage" data-facet-value="' +
-        item.name +
-        '"><div>' +
-        item.name +
-        "%</div></div>"
-      );
-    })
-    .join("");
+          // valeurs réelles mais seulement >= 50
+          html += filtered
+            .filter(function (item) {
+              return Number(item.name) >= 50;
+            })
+            .map(function (item) {
+              var key = "reimbursment_percentage:::" + item.name;
+              var isSelected = selectedFacetTags.has(key);
+              return (
+                '<div class="directory_category_tag_wrapper ' +
+                (isSelected ? "is-selected" : "") +
+                '" data-facet-name="reimbursment_percentage" data-facet-value="' +
+                item.name +
+                '"><div>' +
+                item.name +
+                "%</div></div>"
+              );
+            })
+            .join("");
 
-  discountFilterWrapper.innerHTML = html;
-}
-
+          discountFilterWrapper.innerHTML = html;
+        }
       }
     };
 
@@ -711,7 +725,7 @@ if (discountFilterWrapper) {
         templates: {
           item: function (hit) {
             var photoUrl = hit.photo_url || "";
-            var isNetwork = true; // forcer affichage label
+            var isNetwork = true; // on force le badge
             var isRemote = !!hit.is_remote;
             var isAtHome = !!hit.is_at_home;
             var reimbursement =
@@ -1071,8 +1085,12 @@ if (discountFilterWrapper) {
     // 12. FONCTIONS DE SETUP --------------------------------------------------
     function setupBooleanBlockClicks() {
       var labelFilterWrapper = document.getElementById("label-filter");
-      var remoteFilterWrapper = document.getElementById("works-remotely-filter");
-      var atHomeFilterWrapper = document.getElementById("works-at-home-filter");
+      var remoteFilterWrapper = document.getElementById(
+        "works-remotely-filter"
+      );
+      var atHomeFilterWrapper = document.getElementById(
+        "works-at-home-filter"
+      );
 
       function toggleAndSearch(flagName) {
         if (!searchInstance || !searchInstance.helper) return;
@@ -1118,56 +1136,66 @@ if (discountFilterWrapper) {
       }
     }
 
-    discountWrapper.addEventListener("click", function (e) {
-  var tag = e.target.closest(".directory_category_tag_wrapper");
-  if (!tag || !searchInstance || !searchInstance.helper) return;
+    function setupDiscountBlockClicks() {
+      var discountWrapper = document.getElementById("discount-tags");
+      if (!discountWrapper) return;
 
-  var facetName = tag.getAttribute("data-facet-name");
-  var facetValue = tag.getAttribute("data-facet-value");
-  var helper = searchInstance.helper;
+      discountWrapper.addEventListener("click", function (e) {
+        var tag = e.target.closest(".directory_category_tag_wrapper");
+        if (!tag || !searchInstance || !searchInstance.helper) return;
 
-  // cas spécial: notre tag virtuel "<50%"
-  if (facetValue === "lt50") {
-    var virtualKey = "reimbursment_percentage:::lt50";
-    var isSelectedVirtual = selectedFacetTags.has(virtualKey);
+        var facetName = tag.getAttribute("data-facet-name");
+        var facetValue = tag.getAttribute("data-facet-value");
+        var helper = searchInstance.helper;
 
-    if (isSelectedVirtual) {
-      // on le désélectionne → on enlève toutes les valeurs <50
-      selectedFacetTags.delete(virtualKey);
-      discountRawValues.forEach(function (val) {
-        if (Number(val) < 50) {
-          helper.removeDisjunctiveFacetRefinement("reimbursment_percentage", val);
+        // cas spécial: notre tag virtuel "<50%"
+        if (facetValue === "lt50") {
+          var virtualKey = "reimbursment_percentage:::lt50";
+          var isSelectedVirtual = selectedFacetTags.has(virtualKey);
+
+          if (isSelectedVirtual) {
+            // on le désélectionne → on enlève toutes les valeurs <50
+            selectedFacetTags.delete(virtualKey);
+            discountRawValues.forEach(function (val) {
+              if (Number(val) < 50) {
+                helper.removeDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
+              }
+            });
+          } else {
+            // on le sélectionne → on ajoute toutes les valeurs <50
+            selectedFacetTags.add(virtualKey);
+            discountRawValues.forEach(function (val) {
+              if (Number(val) < 50) {
+                helper.addDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
+              }
+            });
+          }
+
+          helper.search();
+          return;
         }
-      });
-    } else {
-      // on le sélectionne → on ajoute toutes les valeurs <50
-      selectedFacetTags.add(virtualKey);
-      discountRawValues.forEach(function (val) {
-        if (Number(val) < 50) {
-          helper.addDisjunctiveFacetRefinement("reimbursment_percentage", val);
+
+        // cas normal (valeur réelle >= 50)
+        var key = facetName + ":::" + facetValue;
+        var isSelected = selectedFacetTags.has(key);
+
+        if (isSelected) {
+          selectedFacetTags.delete(key);
+          helper.removeDisjunctiveFacetRefinement(facetName, facetValue);
+        } else {
+          selectedFacetTags.add(key);
+          helper.addDisjunctiveFacetRefinement(facetName, facetValue);
         }
+
+        helper.search();
       });
     }
-
-    helper.search();
-    return;
-  }
-
-  // cas normal (valeur réelle)
-  var key = facetName + ":::" + facetValue;
-  var isSelected = selectedFacetTags.has(key);
-
-  if (isSelected) {
-    selectedFacetTags.delete(key);
-    helper.removeDisjunctiveFacetRefinement(facetName, facetValue);
-  } else {
-    selectedFacetTags.add(key);
-    helper.addDisjunctiveFacetRefinement(facetName, facetValue);
-  }
-
-  helper.search();
-});
-
 
     function setupSearchDropdown() {
       var input = document.querySelector(".directory_search_field_container");
@@ -1270,11 +1298,15 @@ if (discountFilterWrapper) {
             if (isSelected) {
               tag.classList.remove("is-selected");
               selectedFacetTags.delete(key);
-              helper.removeDisjunctiveFacetRefinement(facetName, facetValue).search();
+              helper
+                .removeDisjunctiveFacetRefinement(facetName, facetValue)
+                .search();
             } else {
               tag.classList.add("is-selected");
               selectedFacetTags.add(key);
-              helper.addDisjunctiveFacetRefinement(facetName, facetValue).search();
+              helper
+                .addDisjunctiveFacetRefinement(facetName, facetValue)
+                .search();
             }
           } else {
             if (isSelected) {
@@ -1323,7 +1355,9 @@ if (discountFilterWrapper) {
 
         if (isSelected) {
           selectedFacetTags.delete(key);
-          helper.removeDisjunctiveFacetRefinement(facetName, facetValue).search();
+          helper
+            .removeDisjunctiveFacetRefinement(facetName, facetValue)
+            .search();
         } else {
           selectedFacetTags.add(key);
           helper.addDisjunctiveFacetRefinement(facetName, facetValue).search();
