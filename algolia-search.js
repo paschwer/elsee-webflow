@@ -689,69 +689,31 @@ window.addEventListener("DOMContentLoaded", function () {
         }
       }),
       instantsearch.widgets.infiniteHits({
-  container: "#hits",
-  hitsPerPage: 48,
-  showMore: true,
-  cssClasses: {
-    loadMore: "directory_show_more_button"
-  },
-  // filtrage SPORTS uniquement en front
-  transformItems: function (items) {
-    var filtered = items.filter(function (hit) {
-      var source = hit.source_collection || "";
-      var isSport =
-        source === "sports_studio" || source === "studio_enfant";
+        container: "#hits",
+        hitsPerPage: 48,
+        showMore: true,
+        cssClasses: {
+          loadMore: "directory_show_more_button"
+        },
+        // filtrage SPORTS uniquement en front
+        transformItems: function (items) {
+          var filtered = items.filter(function (hit) {
+            var source = hit.source_collection || "";
+            var isSport =
+              source === "sports_studio" || source === "studio_enfant";
 
-      if (!isSport) return true;
+            if (!isSport) return true;
 
-      // sport + pas de géo -> garder show_home
-      if (!currentGeoFilter) {
-        return hit.show_home === true;
-      }
+            // sport + pas de géo -> garder show_home
+            if (!currentGeoFilter) {
+              return hit.show_home === true;
+            }
 
-      // sport + géo -> garder show_search
-      return hit.show_search === true;
-    });
+            // sport + géo -> garder show_search
+            return hit.show_search === true;
+          });
 
-    return filtered
-      .slice()
-      .sort(function (a, b) {
-        var aNet = a.is_elsee_network ? 1 : 0;
-        var bNet = b.is_elsee_network ? 1 : 0;
-        if (aNet !== bNet) return bNet - aNet;
-        return 0;
-      });
-  },
-  templates: { ... }
-})
-On va remplacer uniquement la partie return filtered.slice().sort(...) par notre tri à toi :
-
-d’abord par le champ ranking (plus grand → plus haut),
-
-puis par le name en ordre alphabétique.
-
-Voici le bloc remplacé :
-
-js
-Copy code
-transformItems: function (items) {
-  var filtered = items.filter(function (hit) {
-    var source = hit.source_collection || "";
-    var isSport =
-      source === "sports_studio" || source === "studio_enfant";
-
-    if (!isSport) return true;
-
-    // sport + pas de géo -> garder show_home
-    if (!currentGeoFilter) {
-      return hit.show_home === true;
-    }
-
-    // sport + géo -> garder show_search
-    return hit.show_search === true;
-  });
-
-  // TRI GLOBAL :
+         // TRI GLOBAL :
   // 1) ranking DESC
   // 2) name ASC
   return filtered.slice().sort(function (a, b) {
@@ -775,9 +737,8 @@ transformItems: function (items) {
     if (nameA < nameB) return -1;
     if (nameA > nameB) return 1;
     return 0;
-  });
-},
-
+            });
+        },
         templates: {
           item: function (hit) {
             var photoUrl = hit.photo_url || "";
