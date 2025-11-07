@@ -3,24 +3,20 @@
 // ============================================================================
 
 window.addEventListener("DOMContentLoaded", function () {
-  // --------------------------------------------------------------------------
-  // 1. CONSTANTES
-  // --------------------------------------------------------------------------
+  // 1. CONSTANTES ------------------------------------------------------------
   var ALGOLIA_APP_ID = "DRTSPIHOUM";
   var ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
   var ALGOLIA_INDEX_NAME = "elsee_index";
 
-  // placeholders si pas de photo
+  // placeholders
   var THERAPIST_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd36e1367cf7f0391812d_Fichier%20Convertio%20(3).webp";
   var DEFAULT_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd373de251816ebaa511c_Placeholder%20de%20marque.webp";
 
-  // --------------------------------------------------------------------------
-  // 2. ÉTAT FRONT GLOBAL
-  // --------------------------------------------------------------------------
-  var selectedFacetTags = new Set(); // ex: "specialities:::Yoga"
-  var selectedJobTags = []; // liste des métiers sélectionnés
+  // 2. ÉTAT GLOBAL -----------------------------------------------------------
+  var selectedFacetTags = new Set();
+  var selectedJobTags = [];
   var isNetworkSelected = false;
   var isRemoteSelected = false;
   var isAtHomeSelected = false;
@@ -31,9 +27,7 @@ window.addEventListener("DOMContentLoaded", function () {
   var searchInstance = null;
   var hasUserLaunchedSearch = false;
 
-  // --------------------------------------------------------------------------
-  // 3. INIT
-  // --------------------------------------------------------------------------
+  // 3. INIT ------------------------------------------------------------------
   function initAlgolia() {
     if (typeof algoliasearch === "undefined" || typeof instantsearch === "undefined") {
       setTimeout(initAlgolia, 200);
@@ -42,14 +36,12 @@ window.addEventListener("DOMContentLoaded", function () {
 
     var searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
 
-    // ------------------------------------------------------------------------
-    // 3.1 Instance InstantSearch
-    // ------------------------------------------------------------------------
+    // 3.1 instance instantsearch
     var search = instantsearch({
       indexName: ALGOLIA_INDEX_NAME,
       searchClient: searchClient,
       searchFunction: function (helper) {
-        // on garde la page courante (utile pour showMore)
+        // on conserve la page courante (show-more)
         var currentPage = typeof helper.state.page === "number" ? helper.state.page : 0;
 
         var query = (helper.state.query || "").trim();
@@ -72,14 +64,12 @@ window.addEventListener("DOMContentLoaded", function () {
         helper.setQueryParameter("filters", finalFilters);
         helper.setPage(currentPage);
         helper.search();
-      },
+      }
     });
 
     searchInstance = search;
 
-    // ------------------------------------------------------------------------
-    // 4. UTILITAIRES
-    // ------------------------------------------------------------------------
+    // 4. UTILS ----------------------------------------------------------------
     function truncate(str, max) {
       if (!str) return "";
       return str.length > max ? str.slice(0, max) + "..." : str;
@@ -120,9 +110,7 @@ window.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    // ------------------------------------------------------------------------
-    // 5. FILTRES ENVOYÉS À ALGOLIA
-    // ------------------------------------------------------------------------
+    // 5. FILTRES --------------------------------------------------------------
     function buildFiltersStringFromJobsAndBooleans() {
       var parts = [];
 
@@ -134,15 +122,21 @@ window.addEventListener("DOMContentLoaded", function () {
         parts.push(jobParts.join(" AND "));
       }
 
-      if (isNetworkSelected) parts.push("is_elsee_network:true");
-      if (isRemoteSelected) parts.push("is_remote:true");
-      if (isAtHomeSelected) parts.push("is_at_home:true");
+      if (isNetworkSelected) {
+        parts.push("is_elsee_network:true");
+      }
+      if (isRemoteSelected) {
+        parts.push("is_remote:true");
+      }
+      if (isAtHomeSelected) {
+        parts.push("is_at_home:true");
+      }
 
       var finalStr = parts.join(" AND ");
       return finalStr.length ? finalStr : undefined;
     }
 
-    // version simple qui ne plante pas Algolia
+    // filtre de visibilité commun
     function getVisibilityFilter() {
       if (!hasUserLaunchedSearch) {
         return "NOT show_search:true";
@@ -173,19 +167,15 @@ window.addEventListener("DOMContentLoaded", function () {
       var disjRef = state.disjunctiveFacetsRefinements || {};
 
       var typeRef =
-        (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) ||
-        [];
-
+        (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) || [];
       var speRef =
         (disjRef.specialities && disjRef.specialities.length
           ? disjRef.specialities
           : facetRef.specialities) || [];
-
       var prestaRef =
         (facetRef.prestations && facetRef.prestations.length
           ? facetRef.prestations
           : []) || [];
-
       var reimbRef =
         (disjRef.reimbursment_percentage &&
           disjRef.reimbursment_percentage.length
@@ -236,9 +226,7 @@ window.addEventListener("DOMContentLoaded", function () {
       window.history.replaceState({}, "", newUrl);
     }
 
-    // ------------------------------------------------------------------------
-    // 6. WIDGET CUSTOM DES TAGS
-    // ------------------------------------------------------------------------
+    // 6. WIDGET CUSTOM TAGS ---------------------------------------------------
     var dynamicSuggestionsWidget = {
       render: function (opts) {
         var results = opts.results;
@@ -259,9 +247,9 @@ window.addEventListener("DOMContentLoaded", function () {
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
-        // ---------- TYPES ----------
+        // TYPES ----------------------------------------------------------------
         var typeFacetValues = results.getFacetValues("type", {
-          sortBy: ["count:desc", "name:asc"],
+          sortBy: ["count:desc", "name:asc"]
         }) || [];
         if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
 
@@ -320,9 +308,9 @@ window.addEventListener("DOMContentLoaded", function () {
           typesAltWrapper.innerHTML = altHtml;
         }
 
-        // ---------- SPÉ ----------
+        // SPÉCIALITÉS ---------------------------------------------------------
         var speFacetValues = results.getFacetValues("specialities", {
-          sortBy: ["count:desc", "name:asc"],
+          sortBy: ["count:desc", "name:asc"]
         }) || [];
         if (!Array.isArray(speFacetValues)) speFacetValues = [];
 
@@ -402,6 +390,7 @@ window.addEventListener("DOMContentLoaded", function () {
               );
             })
             .join("");
+
           speFilterWrapper.innerHTML = speListHtml;
 
           var moreSpeBtn = document.getElementById("more-spe");
@@ -412,10 +401,10 @@ window.addEventListener("DOMContentLoaded", function () {
           }
         }
 
-        // ---------- PRESTATIONS ----------
+        // PRESTATIONS ---------------------------------------------------------
         if (prestaFilterWrapper) {
           var prestaFacetValues = results.getFacetValues("prestations", {
-            sortBy: ["name:asc"],
+            sortBy: ["name:asc"]
           }) || [];
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
 
@@ -427,9 +416,7 @@ window.addEventListener("DOMContentLoaded", function () {
             serviceContainer.style.display = hasPresta ? "flex" : "none";
           }
 
-          var maxToShowPresta = prestaExpanded
-            ? prestaFacetValues.length
-            : 6;
+          var maxToShowPresta = prestaExpanded ? prestaFacetValues.length : 6;
 
           var prestaListHtml = prestaFacetValues
             .filter(function (fv) {
@@ -450,6 +437,7 @@ window.addEventListener("DOMContentLoaded", function () {
               );
             })
             .join("");
+
           prestaFilterWrapper.innerHTML = prestaListHtml;
 
           var morePrestaBtn = document.getElementById("more-presta");
@@ -460,13 +448,13 @@ window.addEventListener("DOMContentLoaded", function () {
           }
         }
 
-        // ---------- MÉTIERS ----------
+        // MÉTIERS --------------------------------------------------------------
         if (jobFilterWrapper) {
           var mainFacetValues = results.getFacetValues("mainjob", {
-            sortBy: ["name:asc"],
+            sortBy: ["name:asc"]
           }) || [];
           var jobFacetValues = results.getFacetValues("jobs", {
-            sortBy: ["name:asc"],
+            sortBy: ["name:asc"]
           }) || [];
 
           if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
@@ -479,7 +467,7 @@ window.addEventListener("DOMContentLoaded", function () {
             merged.set(fv.name, {
               name: fv.name,
               mainCount: fv.count || 0,
-              jobCount: 0,
+              jobCount: 0
             });
           });
 
@@ -493,7 +481,7 @@ window.addEventListener("DOMContentLoaded", function () {
               merged.set(nameRaw, {
                 name: nameRaw,
                 mainCount: 0,
-                jobCount: fv.count || 0,
+                jobCount: fv.count || 0
               });
             }
           });
@@ -535,6 +523,7 @@ window.addEventListener("DOMContentLoaded", function () {
               );
             })
             .join("");
+
           jobFilterWrapper.innerHTML = jobListHtml;
 
           var moreJobBtn = document.getElementById("more-job");
@@ -545,7 +534,7 @@ window.addEventListener("DOMContentLoaded", function () {
           }
         }
 
-        // ---------- BOOLÉENS ----------
+        // BOOLÉENS -------------------------------------------------------------
         if (labelFilterWrapper) {
           labelFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
@@ -582,7 +571,7 @@ window.addEventListener("DOMContentLoaded", function () {
             "</div>";
         }
 
-        // ---------- REMBOURSEMENT ----------
+        // REMBOURSEMENT --------------------------------------------------------
         if (discountFilterWrapper) {
           var reimburseFacetValues = results.getFacetValues(
             "reimbursment_percentage",
@@ -599,7 +588,7 @@ window.addEventListener("DOMContentLoaded", function () {
             .map(function (fv) {
               return {
                 name: String(fv.name),
-                count: fv.count || 0,
+                count: fv.count || 0
               };
             })
             .filter(function (v) {
@@ -627,28 +616,24 @@ window.addEventListener("DOMContentLoaded", function () {
 
           discountFilterWrapper.innerHTML = html;
         }
-      },
+      }
     };
 
-    // ------------------------------------------------------------------------
-    // 7. WIDGETS
-    // ------------------------------------------------------------------------
+    // 7. WIDGETS ALGOLIA ------------------------------------------------------
     search.addWidgets([
       instantsearch.widgets.configure({
         facets: ["specialities", "prestations", "mainjob", "jobs"],
         disjunctiveFacets: ["type", "reimbursment_percentage"],
-        hitsPerPage: 48,
+        hitsPerPage: 48
       }),
-
       instantsearch.widgets.searchBox({
         container: "#searchbox",
         placeholder: "Écrivez ici tout ce qui concerne vos besoins...",
         cssClasses: {
           root: "directory_search_field_container",
-          input: "directory_search_text",
-        },
+          input: "directory_search_text"
+        }
       }),
-
       instantsearch.widgets.stats({
         container: "#search_count",
         templates: {
@@ -656,19 +641,17 @@ window.addEventListener("DOMContentLoaded", function () {
             if (data.nbHits === 0) return "0 résultat";
             if (data.nbHits === 1) return "1 résultat";
             return data.nbHits + " résultats";
-          },
-        },
+          }
+        }
       }),
-
-      // hits + show more
       instantsearch.widgets.infiniteHits({
         container: "#hits",
         hitsPerPage: 48,
         showMore: true,
         cssClasses: {
-          loadMore: "directory_show_more_button",
+          loadMore: "directory_show_more_button"
         },
-        // ICI on gère le cas sports en FRONT
+        // filtrage SPORTS uniquement en front
         transformItems: function (items) {
           var filtered = items.filter(function (hit) {
             var source = hit.source_collection || "";
@@ -677,10 +660,12 @@ window.addEventListener("DOMContentLoaded", function () {
 
             if (!isSport) return true;
 
+            // sport + pas de géo -> garder show_home
             if (!currentGeoFilter) {
               return hit.show_home === true;
             }
 
+            // sport + géo -> garder show_search
             return hit.show_search === true;
           });
 
@@ -696,10 +681,13 @@ window.addEventListener("DOMContentLoaded", function () {
         templates: {
           item: function (hit) {
             var photoUrl = hit.photo_url || "";
-            var isNetwork = true;
+            var isNetwork = true; // forcer affichage label
             var isRemote = !!hit.is_remote;
             var isAtHome = !!hit.is_at_home;
-            var reimbursement = hit.reimbursment_percentage != null ? hit.reimbursment_percentage : "";
+            var reimbursement =
+              hit.reimbursment_percentage != null
+                ? hit.reimbursment_percentage
+                : "";
             var name = hit.name || "";
             var city = hit.city || "";
             var depNum = hit.department_number || "";
@@ -707,15 +695,16 @@ window.addEventListener("DOMContentLoaded", function () {
             var showSearch = hit.show_search !== false;
             var showHome = !!hit.show_home;
             var source = hit.source_collection || "";
-            var isSport = source === "sports_studio" || source === "studio_enfant";
+            var isSport =
+              source === "sports_studio" || source === "studio_enfant";
             var Therapeutes = isTherapeutes(hit);
 
             var remoteSvg =
-              (document.querySelector(".directory_remote_icon") || {}).innerHTML ||
-              "";
+              (document.querySelector(".directory_remote_icon") || {})
+                .innerHTML || "";
             var atHomeSvg =
-              (document.querySelector(".directory_at_home_icon") || {}).innerHTML ||
-              "";
+              (document.querySelector(".directory_at_home_icon") || {})
+                .innerHTML || "";
             var discountSvg =
               (document.querySelector(".directory_discount_icon") || {})
                 .innerHTML || "";
@@ -728,7 +717,7 @@ window.addEventListener("DOMContentLoaded", function () {
             var coverStyle =
               "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
 
-            var finalStyle = "";
+            var finalStyle;
             if (photoUrl) {
               if (Therapeutes) {
                 finalStyle =
@@ -804,7 +793,8 @@ window.addEventListener("DOMContentLoaded", function () {
 
             var prestationsArr = toArray(hit.prestations);
             var specialitiesArr = toArray(hit.specialities);
-            var partnerDetails1 = "";
+            var partnerDetails1;
+
             if (Therapeutes) {
               partnerDetails1 = hit.mainjob || "";
             } else {
@@ -840,10 +830,10 @@ window.addEventListener("DOMContentLoaded", function () {
               partnerDetails1 +
               "</div></div>";
 
-            var partnerDetails2Html = "";
+            var partnerDetails2Html;
             if (Therapeutes) {
               var jobsArr = toArray(hit.jobs);
-              var jobsTxt = "";
+              var jobsTxt;
               if (jobsArr.length > 3) {
                 var firstThree = jobsArr.slice(0, 3).join(", ");
                 var extraCountJobs = jobsArr.length - 3;
@@ -851,7 +841,6 @@ window.addEventListener("DOMContentLoaded", function () {
               } else {
                 jobsTxt = jobsArr.join(", ");
               }
-
               partnerDetails2Html =
                 '<div class="directory_card_partner_details_2"><div>' +
                 jobsTxt +
@@ -886,7 +875,7 @@ window.addEventListener("DOMContentLoaded", function () {
               "</div></div>" +
               "</div>";
 
-            var tagItems = [];
+            var tagItems;
             if (Therapeutes) {
               tagItems = toArray(hit.prestations).slice(0, 2);
             } else {
@@ -933,21 +922,16 @@ window.addEventListener("DOMContentLoaded", function () {
             );
           },
           empty: "<div>Aucun résultat trouvé.</div>",
-          showMoreText: "Afficher plus de résultat",
-        },
+          showMoreText: "Afficher plus de résultat"
+        }
       }),
-
-      dynamicSuggestionsWidget,
+      dynamicSuggestionsWidget
     ]);
 
-    // ------------------------------------------------------------------------
-    // 8. START
-    // ------------------------------------------------------------------------
+    // 8. START ---------------------------------------------------------------
     search.start();
 
-    // ------------------------------------------------------------------------
-    // 9. RENDER GLOBAL
-    // ------------------------------------------------------------------------
+    // 9. RENDER GLOBAL --------------------------------------------------------
     search.on("render", function () {
       renderClearButton();
 
@@ -962,9 +946,7 @@ window.addEventListener("DOMContentLoaded", function () {
       console.log("[DIR] render → infiniteHits state =", inf);
     });
 
-    // ------------------------------------------------------------------------
-    // 10. CLICK GLOBAL SHOW MORE (élément régénéré à chaque render)
-    // ------------------------------------------------------------------------
+    // 10. CLIC GLOBAL SHOW MORE ----------------------------------------------
     document.addEventListener("click", function (e) {
       var btn = e.target.closest(".directory_show_more_button");
       if (!btn) return;
@@ -985,9 +967,7 @@ window.addEventListener("DOMContentLoaded", function () {
       }
     });
 
-    // ------------------------------------------------------------------------
-    // 11. AUTRES LISTENERS
-    // ------------------------------------------------------------------------
+    // 11. AUTRES LISTENERS ----------------------------------------------------
     setupSearchDropdown();
     setupSuggestionClicks();
     setupTypeBlockClicks();
@@ -1026,6 +1006,7 @@ window.addEventListener("DOMContentLoaded", function () {
       clearBtnMobile.addEventListener("click", function () {
         if (!searchInstance || !searchInstance.helper) return;
         var helper = searchInstance.helper;
+
         selectedFacetTags.clear();
         selectedJobTags.length = 0;
         isNetworkSelected = false;
@@ -1057,9 +1038,7 @@ window.addEventListener("DOMContentLoaded", function () {
       });
     }
 
-    // ------------------------------------------------------------------------
-    // 12. FONCTIONS DE SETUP
-    // ------------------------------------------------------------------------
+    // 12. FONCTIONS DE SETUP --------------------------------------------------
     function setupBooleanBlockClicks() {
       var labelFilterWrapper = document.getElementById("label-filter");
       var remoteFilterWrapper = document.getElementById("works-remotely-filter");
@@ -1067,9 +1046,15 @@ window.addEventListener("DOMContentLoaded", function () {
 
       function toggleAndSearch(flagName) {
         if (!searchInstance || !searchInstance.helper) return;
-        if (flagName === "network") isNetworkSelected = !isNetworkSelected;
-        if (flagName === "remote") isRemoteSelected = !isRemoteSelected;
-        if (flagName === "athome") isAtHomeSelected = !isAtHomeSelected;
+        if (flagName === "network") {
+          isNetworkSelected = !isNetworkSelected;
+        }
+        if (flagName === "remote") {
+          isRemoteSelected = !isRemoteSelected;
+        }
+        if (flagName === "athome") {
+          isAtHomeSelected = !isAtHomeSelected;
+        }
 
         var helper = searchInstance.helper;
         var filtersStr = buildFiltersStringFromJobsAndBooleans();
@@ -1173,6 +1158,7 @@ window.addEventListener("DOMContentLoaded", function () {
       clearBtnInit.addEventListener("click", function () {
         if (!searchInstance || !searchInstance.helper) return;
         var helper = searchInstance.helper;
+
         selectedFacetTags.clear();
         selectedJobTags.length = 0;
         isNetworkSelected = false;
@@ -1379,9 +1365,7 @@ window.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    // ------------------------------------------------------------------------
-    // 13. RÉCUP PARAMS URL
-    // ------------------------------------------------------------------------
+    // 13. PARAMS URL ----------------------------------------------------------
     function applyGeoFilterFromMaps(lat, lng, label) {
       if (label === undefined) label = "";
       currentGeoFilter = { lat: lat, lng: lng, label: label };
@@ -1422,7 +1406,9 @@ window.addEventListener("DOMContentLoaded", function () {
       if (!searchInstance || !searchInstance.helper) return;
       var helper = searchInstance.helper;
 
-      if (query) helper.setQuery(query);
+      if (query) {
+        helper.setQuery(query);
+      }
 
       helper.clearRefinements("type");
       helper.clearRefinements("specialities");
@@ -1479,10 +1465,11 @@ window.addEventListener("DOMContentLoaded", function () {
           currentGeoFilter = {
             lat: lat,
             lng: lng,
-            label: geolabel ? decodeURIComponent(geolabel) : "",
+            label: geolabel ? decodeURIComponent(geolabel) : ""
           };
           helper.setQueryParameter("aroundLatLng", lat + "," + lng);
           helper.setQueryParameter("aroundRadius", 100000);
+
           var mapsInput = document.getElementById("maps_input");
           var mapsClear = document.querySelector(".directory_search_clear");
           if (mapsInput) {
@@ -1507,6 +1494,5 @@ window.addEventListener("DOMContentLoaded", function () {
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   }
 
-  // lancer
   initAlgolia();
 });
