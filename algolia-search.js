@@ -26,6 +26,8 @@ window.addEventListener("DOMContentLoaded", function () {
   var currentGeoFilter = null; // {lat,lng,label}
   var searchInstance = null;
   var hasUserLaunchedSearch = false;
+  var discountRawValues = []; // dernières valeurs de reimbursment_percentage renvoyées par Algolia
+
 
   // 3. INIT ------------------------------------------------------------------
   function initAlgolia() {
@@ -572,50 +574,78 @@ window.addEventListener("DOMContentLoaded", function () {
         }
 
         // REMBOURSEMENT --------------------------------------------------------
-        if (discountFilterWrapper) {
-          var reimburseFacetValues = results.getFacetValues(
-            "reimbursment_percentage",
-            { sortBy: ["name:asc"] }
-          ) || [];
-          if (!Array.isArray(reimburseFacetValues)) {
-            reimburseFacetValues = [];
-          }
+        // 6. REMBOURSEMENT --------------------------------------------------------
+if (discountFilterWrapper) {
+  var reimburseFacetValues = results.getFacetValues(
+    "reimbursment_percentage",
+    { sortBy: ["name:asc"] }
+  ) || [];
+  if (!Array.isArray(reimburseFacetValues)) {
+    reimburseFacetValues = [];
+  }
 
-          var filtered = reimburseFacetValues
-            .filter(function (fv) {
-              return fv && fv.name !== undefined && fv.name !== null;
-            })
-            .map(function (fv) {
-              return {
-                name: String(fv.name),
-                count: fv.count || 0
-              };
-            })
-            .filter(function (v) {
-              return v.name !== "";
-            })
-            .sort(function (a, b) {
-              return Number(a.name) - Number(b.name);
-            });
+  // on nettoie / trie
+  var filtered = reimburseFacetValues
+    .filter(function (fv) {
+      return fv && fv.name !== undefined && fv.name !== null;
+    })
+    .map(function (fv) {
+      return {
+        name: String(fv.name),
+        count: fv.count || 0
+      };
+    })
+    .filter(function (v) {
+      return v.name !== "";
+    })
+    .sort(function (a, b) {
+      return Number(a.name) - Number(b.name);
+    });
 
-          var html = filtered
-            .map(function (item) {
-              var key = "reimbursment_percentage:::" + item.name;
-              var isSelected = selectedFacetTags.has(key);
-              return (
-                '<div class="directory_category_tag_wrapper ' +
-                (isSelected ? "is-selected" : "") +
-                '" data-facet-name="reimbursment_percentage" data-facet-value="' +
-                item.name +
-                '"><div>' +
-                item.name +
-                "%</div></div>"
-              );
-            })
-            .join("");
+  // on mémorise toutes les valeurs dispo pour le click handler
+  discountRawValues = filtered.map(function (item) {
+    return item.name;
+  });
 
-          discountFilterWrapper.innerHTML = html;
-        }
+  // est-ce qu’on a au moins une valeur < 50 ?
+  var hasBelow50 = filtered.some(function (item) {
+    return Number(item.name) < 50;
+  });
+
+  // on construit le HTML
+  var html = "";
+
+  // on ajoute d’abord notre tag virtuel si pertinent
+  if (hasBelow50) {
+    var virtualKey = "reimbursment_percentage:::lt50";
+    var isSelectedVirtual = selectedFacetTags.has(virtualKey);
+    html +=
+      '<div class="directory_category_tag_wrapper ' +
+      (isSelectedVirtual ? "is-selected" : "") +
+      '" data-facet-name="reimbursment_percentage" data-facet-value="lt50">' +
+      "<div>&lt;50%</div></div>";
+  }
+
+  // puis les valeurs réelles comme avant
+  html += filtered
+    .map(function (item) {
+      var key = "reimbursment_percentage:::" + item.name;
+      var isSelected = selectedFacetTags.has(key);
+      return (
+        '<div class="directory_category_tag_wrapper ' +
+        (isSelected ? "is-selected" : "") +
+        '" data-facet-name="reimbursment_percentage" data-facet-value="' +
+        item.name +
+        '"><div>' +
+        item.name +
+        "%</div></div>"
+      );
+    })
+    .join("");
+
+  discountFilterWrapper.innerHTML = html;
+}
+
       }
     };
 
@@ -1088,29 +1118,56 @@ window.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    function setupDiscountBlockClicks() {
-      var discountWrapper = document.getElementById("discount-tags");
-      if (!discountWrapper) return;
-      discountWrapper.addEventListener("click", function (e) {
-        var tag = e.target.closest(".directory_category_tag_wrapper");
-        if (!tag || !searchInstance || !searchInstance.helper) return;
-        var facetName = tag.getAttribute("data-facet-name");
-        var facetValue = tag.getAttribute("data-facet-value");
-        var key = facetName + ":::" + facetValue;
-        var helper = searchInstance.helper;
-        var isSelected = selectedFacetTags.has(key);
+    discountWrapper.addEventListener("click", function (e) {
+  var tag = e.target.closest(".directory_category_tag_wrapper");
+  if (!tag || !searchInstance || !searchInstance.helper) return;
 
-        if (isSelected) {
-          selectedFacetTags.delete(key);
-          helper.removeDisjunctiveFacetRefinement(facetName, facetValue);
-        } else {
-          selectedFacetTags.add(key);
-          helper.addDisjunctiveFacetRefinement(facetName, facetValue);
+  var facetName = tag.getAttribute("data-facet-name");
+  var facetValue = tag.getAttribute("data-facet-value");
+  var helper = searchInstance.helper;
+
+  // cas spécial: notre tag virtuel "<50%"
+  if (facetValue === "lt50") {
+    var virtualKey = "reimbursment_percentage:::lt50";
+    var isSelectedVirtual = selectedFacetTags.has(virtualKey);
+
+    if (isSelectedVirtual) {
+      // on le désélectionne → on enlève toutes les valeurs <50
+      selectedFacetTags.delete(virtualKey);
+      discountRawValues.forEach(function (val) {
+        if (Number(val) < 50) {
+          helper.removeDisjunctiveFacetRefinement("reimbursment_percentage", val);
         }
-
-        helper.search();
+      });
+    } else {
+      // on le sélectionne → on ajoute toutes les valeurs <50
+      selectedFacetTags.add(virtualKey);
+      discountRawValues.forEach(function (val) {
+        if (Number(val) < 50) {
+          helper.addDisjunctiveFacetRefinement("reimbursment_percentage", val);
+        }
       });
     }
+
+    helper.search();
+    return;
+  }
+
+  // cas normal (valeur réelle)
+  var key = facetName + ":::" + facetValue;
+  var isSelected = selectedFacetTags.has(key);
+
+  if (isSelected) {
+    selectedFacetTags.delete(key);
+    helper.removeDisjunctiveFacetRefinement(facetName, facetValue);
+  } else {
+    selectedFacetTags.add(key);
+    helper.addDisjunctiveFacetRefinement(facetName, facetValue);
+  }
+
+  helper.search();
+});
+
 
     function setupSearchDropdown() {
       var input = document.querySelector(".directory_search_field_container");
