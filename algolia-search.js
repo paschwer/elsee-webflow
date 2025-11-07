@@ -141,34 +141,32 @@ window.addEventListener("DOMContentLoaded", function () {
     }
 
     // filtre de visibilité commun
-   function getVisibilityFilter() {
-  // cas spécial : on veut voir tous les membres réseau
-  if (isNetworkSelected) {
-    return "";
-  }
+    function getVisibilityFilter() {
+      // cas spécial : on veut voir tous les membres réseau
+      if (isNetworkSelected) {
+        return "";
+      }
 
-  // seulement la recherche géolocalisée doit masquer les show_home
-  if (currentGeoFilter) {
-    return "NOT show_home:true";
-  }
+      // seulement la recherche géolocalisée doit masquer les show_home
+      if (currentGeoFilter) {
+        return "NOT show_home:true";
+      }
 
-  // toutes les autres recherches/états -> on masque ceux faits pour la recherche
-  return "NOT show_search:true";
-}
-
+      // toutes les autres recherches/états -> on masque ceux faits pour la recherche
+      return "NOT show_search:true";
+    }
 
     function composeFilters(userFilters) {
-  var visibility = getVisibilityFilter();
+      var visibility = getVisibilityFilter();
 
-  if (userFilters && userFilters.length && visibility) {
-    return userFilters + " AND " + visibility;
-  }
-  if (userFilters && userFilters.length) {
-    return userFilters;
-  }
-  return visibility;
-}
-
+      if (userFilters && userFilters.length && visibility) {
+        return userFilters + " AND " + visibility;
+      }
+      if (userFilters && userFilters.length) {
+        return userFilters;
+      }
+      return visibility;
+    }
 
     function updateUrlFromState(state) {
       if (typeof window === "undefined") return;
@@ -276,6 +274,12 @@ window.addEventListener("DOMContentLoaded", function () {
             sortBy: ["count:desc", "name:asc"]
           }) || [];
         if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
+
+        // on détecte si "Thérapeutes" est présent dans les facettes
+        var hasTherapeutes = typeFacetValues.some(function (fv) {
+          var name = (fv && fv.name ? fv.name : "").toLowerCase();
+          return name === "thérapeutes" || name === "therapeutes";
+        });
 
         var typeHtml = typeFacetValues
           .filter(function (fv) {
@@ -577,7 +581,9 @@ window.addEventListener("DOMContentLoaded", function () {
             "</div>";
         }
 
+        // ces deux-là ne s'affichent que si on a le type "Thérapeutes" dans les facettes
         if (remoteFilterWrapper) {
+          remoteFilterWrapper.style.display = hasTherapeutes ? "flex" : "none";
           remoteFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
             (isRemoteSelected ? "is-selected" : "") +
@@ -590,6 +596,7 @@ window.addEventListener("DOMContentLoaded", function () {
         }
 
         if (atHomeFilterWrapper) {
+          atHomeFilterWrapper.style.display = hasTherapeutes ? "flex" : "none";
           atHomeFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
             (isAtHomeSelected ? "is-selected" : "") +
@@ -710,48 +717,51 @@ window.addEventListener("DOMContentLoaded", function () {
           loadMore: "directory_show_more_button"
         },
         transformItems: function (items) {
-  // 1. on applique la règle d’affichage liée à la géoloc
-  var filtered = items.filter(function (hit) {
-    // pas de géo → on ne veut pas voir les résultats “faits pour la recherche”
-    if (!currentGeoFilter) {
-      if (hit.show_search === true) {
-        return false;
-      }
-      return true; // champ absent ou false → ok
-    }
+          // 1. on applique la règle d’affichage liée à la géoloc
+          var filtered = items.filter(function (hit) {
+            // pas de géo → on ne veut pas voir les résultats “faits pour la recherche”
+            if (!currentGeoFilter) {
+              if (hit.show_search === true) {
+                return false;
+              }
+              return true; // champ absent ou false → ok
+            }
 
-    // géo → on ne veut pas voir les résultats “faits pour la home”
-    if (currentGeoFilter) {
-      if (hit.show_home === true) {
-        return false;
-      }
-      return true;
-    }
+            // géo → on ne veut pas voir les résultats “faits pour la home”
+            if (currentGeoFilter) {
+              if (hit.show_home === true) {
+                return false;
+              }
+              return true;
+            }
 
-    return true;
-  });
+            return true;
+          });
 
-  // 2. tri global : ranking DESC puis name ASC
-  return filtered.slice().sort(function (a, b) {
-    var rankA =
-      typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
-    var rankB =
-      typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
+          // 2. tri global : ranking DESC puis name ASC
+          return filtered.slice().sort(function (a, b) {
+            var rankA =
+              typeof a.ranking === "number"
+                ? a.ranking
+                : parseFloat(a.ranking) || 0;
+            var rankB =
+              typeof b.ranking === "number"
+                ? b.ranking
+                : parseFloat(b.ranking) || 0;
 
-    // d’abord le ranking (plus haut en premier)
-    if (rankA !== rankB) {
-      return rankB - rankA;
-    }
+            // d’abord le ranking (plus haut en premier)
+            if (rankA !== rankB) {
+              return rankB - rankA;
+            }
 
-    // ensuite le nom
-    var nameA = (a.name || "").toLowerCase();
-    var nameB = (b.name || "").toLowerCase();
-    if (nameA < nameB) return -1;
-    if (nameA > nameB) return 1;
-    return 0;
-  });
-},
-
+            // ensuite le nom
+            var nameA = (a.name || "").toLowerCase();
+            var nameB = (b.name || "").toLowerCase();
+            if (nameA < nameB) return -1;
+            if (nameA > nameB) return 1;
+            return 0;
+          });
+        },
         templates: {
           item: function (hit) {
             var photoUrl = hit.photo_url || "";
