@@ -275,11 +275,23 @@ window.addEventListener("DOMContentLoaded", function () {
           }) || [];
         if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
 
-        // on détecte si "Thérapeutes" est présent dans les facettes
-        var hasTherapeutes = typeFacetValues.some(function (fv) {
-          var name = (fv && fv.name ? fv.name : "").toLowerCase();
-          return name === "thérapeutes" || name === "therapeutes";
+        // quels types sont VRAIMENT sélectionnés ?
+        var selectedTypes = Array.from(selectedFacetTags)
+          .filter(function (k) {
+            return k.indexOf("type:::") === 0;
+          })
+          .map(function (k) {
+            return k.split(":::")[1] || "";
+          });
+
+        var noTypeSelected = selectedTypes.length === 0;
+        var hasTheraSelected = selectedTypes.some(function (t) {
+          var norm = (t || "").toLowerCase();
+          return norm === "thérapeutes" || norm === "therapeutes";
         });
+
+        // c'est cette règle qui commande l'affichage visio/domicile
+        var shouldShowTheraOnlyFilters = noTypeSelected || hasTheraSelected;
 
         var typeHtml = typeFacetValues
           .filter(function (fv) {
@@ -304,11 +316,7 @@ window.addEventListener("DOMContentLoaded", function () {
 
         var typesAltWrapper = document.getElementById("directory_types");
         if (typesAltWrapper) {
-          var hasTypeSelected = Array.from(selectedFacetTags).some(function (
-            k
-          ) {
-            return k.indexOf("type:::") === 0;
-          });
+          var hasTypeSelected = selectedTypes.length > 0;
 
           var altHtml =
             '<div class="directory_category_tag_wrapper ' +
@@ -581,9 +589,11 @@ window.addEventListener("DOMContentLoaded", function () {
             "</div>";
         }
 
-        // ces deux-là ne s'affichent que si on a le type "Thérapeutes" dans les facettes
+        // filtres visio / domicile → seulement si aucun type OU thérapeutes
         if (remoteFilterWrapper) {
-          remoteFilterWrapper.style.display = hasTherapeutes ? "flex" : "none";
+          remoteFilterWrapper.style.display = shouldShowTheraOnlyFilters
+            ? "flex"
+            : "none";
           remoteFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
             (isRemoteSelected ? "is-selected" : "") +
@@ -596,7 +606,9 @@ window.addEventListener("DOMContentLoaded", function () {
         }
 
         if (atHomeFilterWrapper) {
-          atHomeFilterWrapper.style.display = hasTherapeutes ? "flex" : "none";
+          atHomeFilterWrapper.style.display = shouldShowTheraOnlyFilters
+            ? "flex"
+            : "none";
           atHomeFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
             (isAtHomeSelected ? "is-selected" : "") +
@@ -717,7 +729,7 @@ window.addEventListener("DOMContentLoaded", function () {
           loadMore: "directory_show_more_button"
         },
         transformItems: function (items) {
-          // 1. on applique la règle d’affichage liée à la géoloc
+          // 1. règle d’affichage liée à la géoloc
           var filtered = items.filter(function (hit) {
             // pas de géo → on ne veut pas voir les résultats “faits pour la recherche”
             if (!currentGeoFilter) {
@@ -749,12 +761,10 @@ window.addEventListener("DOMContentLoaded", function () {
                 ? b.ranking
                 : parseFloat(b.ranking) || 0;
 
-            // d’abord le ranking (plus haut en premier)
             if (rankA !== rankB) {
               return rankB - rankA;
             }
 
-            // ensuite le nom
             var nameA = (a.name || "").toLowerCase();
             var nameB = (b.name || "").toLowerCase();
             if (nameA < nameB) return -1;
@@ -778,9 +788,6 @@ window.addEventListener("DOMContentLoaded", function () {
             var url = hit.url || "#";
             var showSearch = hit.show_search !== false;
             var showHome = !!hit.show_home;
-            var source = hit.source_collection || "";
-            var isSport =
-              source === "sports_studio" || source === "studio_enfant";
             var Therapeutes = isTherapeutes(hit);
 
             var remoteSvg =
@@ -938,12 +945,11 @@ window.addEventListener("DOMContentLoaded", function () {
             }
 
             var showLocation = true;
-            if (isSport && showHome === true) showLocation = false;
             if (!showSearch) showLocation = false;
             if (!city && !depNum) showLocation = false;
 
             var locationText =
-              Therapeutes || isSport
+              Therapeutes
                 ? city + (depNum ? " (" + depNum + ")" : "")
                 : city;
 
@@ -1022,12 +1028,6 @@ window.addEventListener("DOMContentLoaded", function () {
       if (search.helper && search.helper.state) {
         updateUrlFromState(search.helper.state);
       }
-
-      var inf =
-        search.renderState &&
-        search.renderState[ALGOLIA_INDEX_NAME] &&
-        search.renderState[ALGOLIA_INDEX_NAME].infiniteHits;
-      console.log("[DIR] render → infiniteHits state =", inf);
     });
 
     // 10. CLIC GLOBAL SHOW MORE ----------------------------------------------
@@ -1041,13 +1041,9 @@ window.addEventListener("DOMContentLoaded", function () {
         searchInstance.renderState[ALGOLIA_INDEX_NAME] &&
         searchInstance.renderState[ALGOLIA_INDEX_NAME].infiniteHits;
 
-      console.log("[DIR] show-more CLICK", inf);
-
       if (inf && typeof inf.showMore === "function") {
         e.preventDefault();
         inf.showMore();
-      } else {
-        console.warn("[DIR] showMore non dispo au clic");
       }
     });
 
@@ -1188,13 +1184,12 @@ window.addEventListener("DOMContentLoaded", function () {
         var facetValue = tag.getAttribute("data-facet-value");
         var helper = searchInstance.helper;
 
-        // cas spécial: notre tag virtuel "<50%"
+        // cas spécial: tag virtuel "<50%"
         if (facetValue === "lt50") {
           var virtualKey = "reimbursment_percentage:::lt50";
           var isSelectedVirtual = selectedFacetTags.has(virtualKey);
 
           if (isSelectedVirtual) {
-            // on le désélectionne → on enlève toutes les valeurs <50
             selectedFacetTags.delete(virtualKey);
             discountRawValues.forEach(function (val) {
               if (Number(val) < 50) {
@@ -1205,7 +1200,6 @@ window.addEventListener("DOMContentLoaded", function () {
               }
             });
           } else {
-            // on le sélectionne → on ajoute toutes les valeurs <50
             selectedFacetTags.add(virtualKey);
             discountRawValues.forEach(function (val) {
               if (Number(val) < 50) {
