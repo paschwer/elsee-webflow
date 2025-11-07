@@ -1,58 +1,38 @@
-window.addEventListener("DOMContentLoaded", () => {
-  const ALGOLIA_APP_ID = "DRTSPIHOUM";
-  const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
-  const ALGOLIA_INDEX_NAME = "elsee_index";
+const search = instantsearch({
+  indexName: ALGOLIA_INDEX_NAME,
+  searchClient,
+  searchFunction(helper) {
+    // on garde la page demandée (utile pour showMore)
+    const currentPage = helper.state.page;
 
-  // placeholders
-  const THERAPIST_PLACEHOLDER_URL = "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd36e1367cf7f0391812d_Fichier%20Convertio%20(3).webp";
-  const DEFAULT_PLACEHOLDER_URL = "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd373de251816ebaa511c_Placeholder%20de%20marque.webp";
+    const query = (helper.state.query || "").trim();
 
-  // état front
-  const selectedFacetTags = new Set();
-  const selectedJobTags = [];
-  let isNetworkSelected = false;
-  let isRemoteSelected = false;
-  let isAtHomeSelected = false;
-  let speExpanded = false;
-  let prestaExpanded = false;
-  let jobExpanded = false;
-  let currentGeoFilter = null;
-  let searchInstance = null;
-  let hasUserLaunchedSearch = false;
+    const userHasFilters =
+      selectedFacetTags.size > 0 ||
+      selectedJobTags.length > 0 ||
+      isNetworkSelected ||
+      isRemoteSelected ||
+      isAtHomeSelected ||
+      currentGeoFilter;
 
-  function initAlgolia() {
-    if (typeof algoliasearch === "undefined" || typeof instantsearch === "undefined") {
-      setTimeout(initAlgolia, 200);
-      return;
+    if (query !== "" || userHasFilters) {
+      hasUserLaunchedSearch = true;
     }
 
-    const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
+    const userFilters = buildFiltersStringFromJobsAndBooleans();
+    const finalFilters = composeFilters(userFilters);
 
-    const search = instantsearch({
-      indexName: ALGOLIA_INDEX_NAME,
-      searchClient,
-      searchFunction(helper) {
-        const query = (helper.state.query || "").trim();
+    // on applique les filtres...
+    helper.setQueryParameter("filters", finalFilters);
 
-        const userHasFilters =
-          selectedFacetTags.size > 0 ||
-          selectedJobTags.length > 0 ||
-          isNetworkSelected ||
-          isRemoteSelected ||
-          isAtHomeSelected ||
-          currentGeoFilter;
+    // ...mais on remet la page que le widget voulait
+    helper.setPage(currentPage);
 
-        if (query !== "" || userHasFilters) {
-          hasUserLaunchedSearch = true;
-        }
+    // et on lance la recherche
+    helper.search();
+  },
+});
 
-        const userFilters = buildFiltersStringFromJobsAndBooleans();
-        const finalFilters = composeFilters(userFilters);
-
-        helper.setQueryParameter("filters", finalFilters);
-        helper.search();
-      },
-    });
 
     searchInstance = search;
 
