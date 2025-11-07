@@ -188,40 +188,33 @@ window.addEventListener("DOMContentLoaded", () => {
     // 5.2 filtre de visibilité : avant recherche → on cache ceux marqués "show_search"
     //     après recherche → on cache ceux marqués "show_home"
     function getVisibilityFilter() {
-  // groupes sports / pas sports
+  // groupe sports
   const sportsGroup =
     '(source_collection:"sports_studio" OR source_collection:"studio_enfant")';
-  const nonSportsGroup =
-    '(NOT source_collection:"sports_studio" AND NOT source_collection:"studio_enfant")';
 
-  // 1) GEO PRÉSENTE
-  // sports → on ne garde que ceux pensés pour la recherche (show_search:true)
-  // autres → comportement normal après recherche → on cache les home
+  // 1) il y a une localisation
+  //    → sports : on montre ceux pensés pour la recherche
+  //    → le reste : comportement normal après recherche (on cache les home)
   if (currentGeoFilter) {
     return (
       "(" +
       sportsGroup +
-      " AND show_search:true) OR (" +
-      nonSportsGroup +
-      " AND NOT show_home:true)"
+      " AND show_search:true) OR (NOT show_home:true)"
     );
   }
 
-  // 2) RECHERCHE SANS GEO
-  // sports → on laisse les show_home:true (page de découverte sport)
-  // autres → on cache les home comme d’hab
+  // 2) il n’y a PAS de localisation mais l’utilisateur a lancé une recherche
+  //    → on garde les cartes “home” des sports
+  //    → on cache les home des autres
   if (hasUserLaunchedSearch) {
     return (
       "(" +
       sportsGroup +
-      " AND show_home:true) OR (" +
-      nonSportsGroup +
-      " AND NOT show_home:true)"
+      " AND show_home:true) OR (NOT show_home:true)"
     );
   }
 
-  // 3) ÉTAT INITIAL
-  // tout le monde : on cache juste ceux marqués "search only"
+  // 3) état initial → comme avant
   return "NOT show_search:true";
 }
 
