@@ -188,34 +188,10 @@ window.addEventListener("DOMContentLoaded", () => {
     // 5.2 filtre de visibilité : avant recherche → on cache ceux marqués "show_search"
     //     après recherche → on cache ceux marqués "show_home"
     function getVisibilityFilter() {
-  // groupe sports
-  const sportsGroup =
-    '(source_collection:"sports_studio" OR source_collection:"studio_enfant")';
-
-  // 1) il y a une localisation
-  //    → sports : on montre ceux pensés pour la recherche
-  //    → le reste : comportement normal après recherche (on cache les home)
-  if (currentGeoFilter) {
-    return (
-      "(" +
-      sportsGroup +
-      " AND show_search:true) OR (NOT show_home:true)"
-    );
+  if (!hasUserLaunchedSearch) {
+    return "NOT show_search:true";
   }
-
-  // 2) il n’y a PAS de localisation mais l’utilisateur a lancé une recherche
-  //    → on garde les cartes “home” des sports
-  //    → on cache les home des autres
-  if (hasUserLaunchedSearch) {
-    return (
-      "(" +
-      sportsGroup +
-      " AND show_home:true) OR (NOT show_home:true)"
-    );
-  }
-
-  // 3) état initial → comme avant
-  return "NOT show_search:true";
+  return "NOT show_home:true";
 }
 
 
@@ -769,26 +745,49 @@ window.addEventListener("DOMContentLoaded", () => {
       }),
 
       // 7.4 hits avec pagination infinie
-      instantsearch.widgets.infiniteHits({
-        container: "#hits",
-        hitsPerPage: 48,
-        showMore: true,
-        // on remplace la classe du bouton par la nôtre
-        cssClasses: {
-          loadMore: "directory_show_more_button",
-        },
-        // on veut d’abord les partenaires du réseau
-        transformItems(items) {
-          return items
-            .slice()
-            .sort((a, b) => {
-              const aNet = a.is_elsee_network ? 1 : 0;
-              const bNet = b.is_elsee_network ? 1 : 0;
-              if (aNet !== bNet) return bNet - aNet;
-              return 0;
-            });
-        },
-        templates: {
+      instantsearch.widgets.instantsearch.widgets.infiniteHits({
+  container: "#hits",
+  hitsPerPage: 48,
+  showMore: true,
+  cssClasses: {
+    loadMore: "directory_show_more_button",
+  },
+  transformItems(items) {
+    // on filtre d’abord les sports selon la présence de la geo,
+    // puis on fait le tri réseau comme avant
+
+    const filtered = items.filter((hit) => {
+      const source = hit.source_collection || "";
+      const isSport =
+        source === "sports_studio" || source === "studio_enfant";
+
+      // si ce n’est pas un sport → on le garde tel quel
+      if (!isSport) return true;
+
+      // sport + PAS de geo → on ne garde que les show_home
+      if (!currentGeoFilter) {
+        return hit.show_home === true;
+      }
+
+      // sport + geo → on ne garde que les pensés pour la recherche
+      return hit.show_search === true;
+    });
+
+    // on garde ton tri réseau en premier
+    return filtered
+      .slice()
+      .sort((a, b) => {
+        const aNet = a.is_elsee_network ? 1 : 0;
+        const bNet = b.is_elsee_network ? 1 : 0;
+        if (aNet !== bNet) return bNet - aNet;
+        return 0;
+      });
+  },
+  templates: {
+    /* ... ton item(...) inchangé ... */
+  },
+})
+
           // --------------------------------------------------------------
           // 7.4.1 rendu d’un hit
           // --------------------------------------------------------------
