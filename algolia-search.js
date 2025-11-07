@@ -1,70 +1,60 @@
 // ============================================================================
-// FICHIER : algolia-search.js
-// RÔLE    : branche Algolia InstantSearch sur notre UI très custom
-// NOTE     : on reste 100% front pour la règle spéciale "sports + geo"
+// algolia-search.js
 // ============================================================================
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", function () {
   // --------------------------------------------------------------------------
-  // 1. CONSTANTES ALGOLIA + PLACEHOLDERS
+  // 1. CONSTANTES
   // --------------------------------------------------------------------------
-  const ALGOLIA_APP_ID = "DRTSPIHOUM";
-  const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
-  const ALGOLIA_INDEX_NAME = "elsee_index";
+  var ALGOLIA_APP_ID = "DRTSPIHOUM";
+  var ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
+  var ALGOLIA_INDEX_NAME = "elsee_index";
 
-  // placeholders si pas de photo_url
-  const THERAPIST_PLACEHOLDER_URL =
+  // placeholders si pas de photo
+  var THERAPIST_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd36e1367cf7f0391812d_Fichier%20Convertio%20(3).webp";
-  const DEFAULT_PLACEHOLDER_URL =
+  var DEFAULT_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd373de251816ebaa511c_Placeholder%20de%20marque.webp";
 
   // --------------------------------------------------------------------------
-  // 2. ÉTAT FRONT (tout ce qu’on garde en mémoire côté JS)
+  // 2. ÉTAT FRONT GLOBAL
   // --------------------------------------------------------------------------
-  const selectedFacetTags = new Set(); // ex: "specialities:::Yoga"
-  const selectedJobTags = []; // métiers sélectionnés
-  let isNetworkSelected = false;
-  let isRemoteSelected = false;
-  let isAtHomeSelected = false;
-  let speExpanded = false;
-  let prestaExpanded = false;
-  let jobExpanded = false;
-  let currentGeoFilter = null; // {lat, lng, label} si l’utilisateur cherche une localisation
-  let searchInstance = null;
-  let hasUserLaunchedSearch = false; // sert à basculer home → search
+  var selectedFacetTags = new Set(); // ex: "specialities:::Yoga"
+  var selectedJobTags = []; // liste des métiers sélectionnés
+  var isNetworkSelected = false;
+  var isRemoteSelected = false;
+  var isAtHomeSelected = false;
+  var speExpanded = false;
+  var prestaExpanded = false;
+  var jobExpanded = false;
+  var currentGeoFilter = null; // {lat,lng,label}
+  var searchInstance = null;
+  var hasUserLaunchedSearch = false;
 
   // --------------------------------------------------------------------------
-  // 3. INIT PRINCIPALE
+  // 3. INIT
   // --------------------------------------------------------------------------
   function initAlgolia() {
-    // on attend les libs si elles sont chargées en async
-    if (
-      typeof algoliasearch === "undefined" ||
-      typeof instantsearch === "undefined"
-    ) {
+    if (typeof algoliasearch === "undefined" || typeof instantsearch === "undefined") {
       setTimeout(initAlgolia, 200);
       return;
     }
 
-    const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
+    var searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
 
     // ------------------------------------------------------------------------
-    // 3.1 création InstantSearch
-    //     on garde la page demandée (important pour le bouton "Afficher plus")
-    //     puis on applique nos filtres custom
+    // 3.1 Instance InstantSearch
     // ------------------------------------------------------------------------
-    const search = instantsearch({
+    var search = instantsearch({
       indexName: ALGOLIA_INDEX_NAME,
-      searchClient,
-      searchFunction(helper) {
-        // page courante demandée par le widget (showMore)
-        const currentPage =
-          typeof helper.state.page === "number" ? helper.state.page : 0;
+      searchClient: searchClient,
+      searchFunction: function (helper) {
+        // on garde la page courante (utile pour showMore)
+        var currentPage = typeof helper.state.page === "number" ? helper.state.page : 0;
 
-        const query = (helper.state.query || "").trim();
+        var query = (helper.state.query || "").trim();
 
-        // est-ce qu’il y a déjà une action utilisateur ?
-        const userHasFilters =
+        var userHasFilters =
           selectedFacetTags.size > 0 ||
           selectedJobTags.length > 0 ||
           isNetworkSelected ||
@@ -76,22 +66,15 @@ window.addEventListener("DOMContentLoaded", () => {
           hasUserLaunchedSearch = true;
         }
 
-        // filtres custom métier
-        const userFilters = buildFiltersStringFromJobsAndBooleans();
-        const finalFilters = composeFilters(userFilters);
+        var userFilters = buildFiltersStringFromJobsAndBooleans();
+        var finalFilters = composeFilters(userFilters);
 
-        // on les met dans la requête
         helper.setQueryParameter("filters", finalFilters);
-
-        // on remet la page que le widget voulait
         helper.setPage(currentPage);
-
-        // recherche
         helper.search();
       },
     });
 
-    // on garde la réf globale
     searchInstance = search;
 
     // ------------------------------------------------------------------------
@@ -99,7 +82,7 @@ window.addEventListener("DOMContentLoaded", () => {
     // ------------------------------------------------------------------------
     function truncate(str, max) {
       if (!str) return "";
-      return str.length > max ? str.slice(0, max) + "...";
+      return str.length > max ? str.slice(0, max) + "..." : str;
     }
 
     function toArray(v) {
@@ -109,25 +92,24 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     function isTherapeutes(hit) {
-      const t = (hit.type || "").trim().toLowerCase();
+      var t = (hit.type || "").trim().toLowerCase();
       return t === "thérapeutes" || t === "therapeutes";
     }
 
-    // affiche/masque le petit bloc "onlythp" selon les types + présence de jobs
     function updateOnlyThpVisibility(helperState, hasJobsFacet) {
-      const el = document.getElementById("onlythp");
+      var el = document.getElementById("onlythp");
       if (!el) return;
 
-      const disj = helperState.disjunctiveFacetsRefinements || {};
-      const facets = helperState.facetsRefinements || {};
+      var disj = helperState.disjunctiveFacetsRefinements || {};
+      var facets = helperState.facetsRefinements || {};
 
-      const types =
+      var types =
         (disj.type && disj.type.length ? disj.type : facets.type) || [];
 
-      const noTypeSelected = types.length === 0;
+      var noTypeSelected = types.length === 0;
 
-      const hasThera = types.some((t) => {
-        const tt = t.toLowerCase().trim();
+      var hasThera = types.some(function (t) {
+        var tt = t.toLowerCase().trim();
         return tt === "thérapeutes" || tt === "therapeutes";
       });
 
@@ -139,74 +121,72 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. FILTRES CUSTOM ENVOYÉS À ALGOLIA (génériques)
+    // 5. FILTRES ENVOYÉS À ALGOLIA
     // ------------------------------------------------------------------------
-
-    // métiers + booléens → string de filtres Algolia
     function buildFiltersStringFromJobsAndBooleans() {
-      const parts = [];
+      var parts = [];
 
-      // métiers
       if (selectedJobTags.length > 0) {
-        const jobParts = selectedJobTags.map((job) => {
-          const safe = job.replace(/"/g, '\\"');
-          return `(mainjob:"${safe}" OR jobs:"${safe}")`;
+        var jobParts = selectedJobTags.map(function (job) {
+          var safe = job.replace(/"/g, '\\"');
+          return '(mainjob:"' + safe + '" OR jobs:"' + safe + '")';
         });
         parts.push(jobParts.join(" AND "));
       }
 
-      // booléens
       if (isNetworkSelected) parts.push("is_elsee_network:true");
       if (isRemoteSelected) parts.push("is_remote:true");
       if (isAtHomeSelected) parts.push("is_at_home:true");
 
-      const finalStr = parts.join(" AND ");
+      var finalStr = parts.join(" AND ");
       return finalStr.length ? finalStr : undefined;
     }
 
-    // filtre d’affichage de base (home vs search) — version qui marche
+    // version simple qui ne plante pas Algolia
     function getVisibilityFilter() {
       if (!hasUserLaunchedSearch) {
-        // état initial → on cache ceux réservés à la recherche
         return "NOT show_search:true";
       }
-      // après première action → on cache ceux réservés à la home
       return "NOT show_home:true";
     }
 
-    // on colle le filtre métier + le filtre d’affichage
     function composeFilters(userFilters) {
-      const visibility = getVisibilityFilter();
+      var visibility = getVisibilityFilter();
       if (userFilters && userFilters.length) {
         return userFilters + " AND " + visibility;
       }
       return visibility;
     }
 
-    // on garde l’état dans l’URL
     function updateUrlFromState(state) {
       if (typeof window === "undefined") return;
-      const params = new URLSearchParams(window.location.search);
+      var params = new URLSearchParams(window.location.search);
 
-      const query = state.query || "";
-      if (query.trim() !== "") params.set("q", query.trim());
-      else params.delete("q");
+      var query = state.query || "";
+      if (query.trim() !== "") {
+        params.set("q", query.trim());
+      } else {
+        params.delete("q");
+      }
 
-      const facetRef = state.facetsRefinements || {};
-      const disjRef = state.disjunctiveFacetsRefinements || {};
+      var facetRef = state.facetsRefinements || {};
+      var disjRef = state.disjunctiveFacetsRefinements || {};
 
-      const typeRef =
+      var typeRef =
         (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) ||
         [];
-      const speRef =
+
+      var speRef =
         (disjRef.specialities && disjRef.specialities.length
           ? disjRef.specialities
           : facetRef.specialities) || [];
-      const prestaRef =
+
+      var prestaRef =
         (facetRef.prestations && facetRef.prestations.length
           ? facetRef.prestations
           : []) || [];
-      const reimbRef =
+
+      var reimbRef =
         (disjRef.reimbursment_percentage &&
           disjRef.reimbursment_percentage.length
           ? disjRef.reimbursment_percentage
@@ -229,9 +209,8 @@ window.addEventListener("DOMContentLoaded", () => {
         params.set("jobs", selectedJobTags.join(","));
       else params.delete("jobs");
 
-      // géo
       if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
-        params.set("geo", `${currentGeoFilter.lat},${currentGeoFilter.lng}`);
+        params.set("geo", currentGeoFilter.lat + "," + currentGeoFilter.lng);
         if (currentGeoFilter.label) {
           params.set("geolabel", encodeURIComponent(currentGeoFilter.label));
         } else {
@@ -242,7 +221,6 @@ window.addEventListener("DOMContentLoaded", () => {
         params.delete("geolabel");
       }
 
-      // booléens
       if (isNetworkSelected) params.set("network", "true");
       else params.delete("network");
 
@@ -252,50 +230,48 @@ window.addEventListener("DOMContentLoaded", () => {
       if (isAtHomeSelected) params.set("athome", "true");
       else params.delete("athome");
 
-      const newUrl = `${window.location.pathname}${
-        params.toString() ? "?" + params.toString() : ""
-      }`;
+      var newUrl =
+        window.location.pathname +
+        (params.toString() ? "?" + params.toString() : "");
       window.history.replaceState({}, "", newUrl);
     }
 
     // ------------------------------------------------------------------------
-    // 6. WIDGET CUSTOM QUI REND LES TAGS (types, spé, presta, jobs, bools…)
+    // 6. WIDGET CUSTOM DES TAGS
     // ------------------------------------------------------------------------
-    const dynamicSuggestionsWidget = {
-      render({ results }) {
+    var dynamicSuggestionsWidget = {
+      render: function (opts) {
+        var results = opts.results;
         if (!results) return;
 
-        const typeWrapper = document.getElementById("tags_autocomplete_type");
-        const speWrapper = document.getElementById("tags_autocomplete_spe");
-        const speFilterWrapper = document.getElementById("spe_filtre");
-        const prestaFilterWrapper = document.getElementById("presta_filtre");
-        const jobFilterWrapper = document.getElementById("job_filtre");
-        const labelFilterWrapper = document.getElementById("label-filter");
-        const remoteFilterWrapper = document.getElementById(
-          "works-remotely-filter"
-        );
-        const atHomeFilterWrapper = document.getElementById(
-          "works-at-home-filter"
-        );
-        const discountFilterWrapper =
-          document.getElementById("discount-tags");
+        var typeWrapper = document.getElementById("tags_autocomplete_type");
+        var speWrapper = document.getElementById("tags_autocomplete_spe");
+        var speFilterWrapper = document.getElementById("spe_filtre");
+        var prestaFilterWrapper = document.getElementById("presta_filtre");
+        var jobFilterWrapper = document.getElementById("job_filtre");
+        var labelFilterWrapper = document.getElementById("label-filter");
+        var remoteFilterWrapper = document.getElementById("works-remotely-filter");
+        var atHomeFilterWrapper = document.getElementById("works-at-home-filter");
+        var discountFilterWrapper = document.getElementById("discount-tags");
 
         if (!typeWrapper || !speWrapper) return;
 
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
-        // ---------------- TYPES ----------------
-        let typeFacetValues = results.getFacetValues("type", {
+        // ---------- TYPES ----------
+        var typeFacetValues = results.getFacetValues("type", {
           sortBy: ["count:desc", "name:asc"],
-        });
+        }) || [];
         if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
 
-        typeWrapper.innerHTML = typeFacetValues
-          .filter((fv) => fv && fv.name)
-          .map((fv) => {
-            const key = `type:::${fv.name}`;
-            const isSelected = selectedFacetTags.has(key);
+        var typeHtml = typeFacetValues
+          .filter(function (fv) {
+            return fv && fv.name;
+          })
+          .map(function (fv) {
+            var key = "type:::" + fv.name;
+            var isSelected = selectedFacetTags.has(key);
             if (fv.count === 0 && !isSelected) return "";
             return (
               '<div class="directory_suggestions_tag is-type ' +
@@ -308,24 +284,27 @@ window.addEventListener("DOMContentLoaded", () => {
             );
           })
           .join("");
+        typeWrapper.innerHTML = typeHtml;
 
-        // bloc alternatif types
-        const typesAltWrapper = document.getElementById("directory_types");
+        var typesAltWrapper = document.getElementById("directory_types");
         if (typesAltWrapper) {
-          const hasTypeSelected = Array.from(selectedFacetTags).some((k) =>
-            k.startsWith("type:::")
-          );
-          let altHtml =
+          var hasTypeSelected = Array.from(selectedFacetTags).some(function (k) {
+            return k.indexOf("type:::") === 0;
+          });
+
+          var altHtml =
             '<div class="directory_category_tag_wrapper ' +
             (hasTypeSelected ? "" : "is-selected") +
             '" data-facet-name="type" data-facet-value="__ALL_TYPES__">Toutes les catégories</div>';
 
           altHtml += typeFacetValues
-            .filter((fv) => fv && fv.name)
-            .map((fv) => {
-              const key = `type:::${fv.name}`;
-              const isSelected = selectedFacetTags.has(key);
-              const label = `Les ${fv.name.toLowerCase()}`;
+            .filter(function (fv) {
+              return fv && fv.name;
+            })
+            .map(function (fv) {
+              var key = "type:::" + fv.name;
+              var isSelected = selectedFacetTags.has(key);
+              var label = "Les " + fv.name.toLowerCase();
               return (
                 '<div class="directory_category_tag_wrapper ' +
                 (isSelected ? "is-selected" : "") +
@@ -341,37 +320,42 @@ window.addEventListener("DOMContentLoaded", () => {
           typesAltWrapper.innerHTML = altHtml;
         }
 
-        // ---------------- SPÉ ----------------
-        let speFacetValues = results.getFacetValues("specialities", {
+        // ---------- SPÉ ----------
+        var speFacetValues = results.getFacetValues("specialities", {
           sortBy: ["count:desc", "name:asc"],
-        });
+        }) || [];
         if (!Array.isArray(speFacetValues)) speFacetValues = [];
 
-        const speFacetValuesAlpha = [...speFacetValues].sort((a, b) =>
-          (a.name || "").localeCompare(b.name || "")
-        );
+        var speFacetValuesAlpha = speFacetValues.slice().sort(function (a, b) {
+          return (a.name || "").localeCompare(b.name || "");
+        });
 
-        const speContainer = document.getElementById("speContainer");
+        var speContainer = document.getElementById("speContainer");
         if (speContainer) {
-          const hasSpe = speFacetValues.some((fv) => fv && fv.count > 0);
+          var hasSpe = speFacetValues.some(function (fv) {
+            return fv && fv.count > 0;
+          });
           speContainer.style.display = hasSpe ? "flex" : "none";
         }
 
-        const selectedSpe = Array.from(selectedFacetTags)
-          .filter((k) => k.startsWith("specialities:::"))
-          .map((k) => k.split(":::")[1]);
+        var selectedSpe = Array.from(selectedFacetTags)
+          .filter(function (k) {
+            return k.indexOf("specialities:::") === 0;
+          })
+          .map(function (k) {
+            return k.split(":::")[1];
+          });
 
-        const seen = new Set();
-        const speBlocks = [];
+        var seen = new Set();
+        var speBlocks = [];
 
-        // d’abord les sélectionnées
-        selectedSpe.forEach((value) => {
+        selectedSpe.forEach(function (value) {
           seen.add(value);
           speBlocks.push({ name: value, count: null });
         });
 
-        // puis on complète
-        for (const fv of speFacetValues) {
+        for (var i = 0; i < speFacetValues.length; i++) {
+          var fv = speFacetValues[i];
           if (!fv || !fv.name) continue;
           if (seen.has(fv.name)) continue;
           if (speBlocks.length >= 10) break;
@@ -380,10 +364,10 @@ window.addEventListener("DOMContentLoaded", () => {
           seen.add(fv.name);
         }
 
-        speWrapper.innerHTML = speBlocks
-          .map((item) => {
-            const key = `specialities:::${item.name}`;
-            const isSelected = selectedFacetTags.has(key);
+        var speHtml = speBlocks
+          .map(function (item) {
+            var key = "specialities:::" + item.name;
+            var isSelected = selectedFacetTags.has(key);
             return (
               '<div class="directory_suggestions_tag ' +
               (isSelected ? "is-selected" : "") +
@@ -395,15 +379,18 @@ window.addEventListener("DOMContentLoaded", () => {
             );
           })
           .join("");
+        speWrapper.innerHTML = speHtml;
 
         if (speFilterWrapper) {
-          const maxToShow = speExpanded ? speFacetValuesAlpha.length : 6;
-          const speListHtml = speFacetValuesAlpha
-            .filter((fv) => fv && fv.name)
+          var maxToShow = speExpanded ? speFacetValuesAlpha.length : 6;
+          var speListHtml = speFacetValuesAlpha
+            .filter(function (fv) {
+              return fv && fv.name;
+            })
             .slice(0, maxToShow)
-            .map((fv) => {
-              const key = `specialities:::${fv.name}`;
-              const isSelected = selectedFacetTags.has(key);
+            .map(function (fv) {
+              var key = "specialities:::" + fv.name;
+              var isSelected = selectedFacetTags.has(key);
               return (
                 '<div class="directory_category_tag_wrapper ' +
                 (isSelected ? "is-selected" : "") +
@@ -417,7 +404,7 @@ window.addEventListener("DOMContentLoaded", () => {
             .join("");
           speFilterWrapper.innerHTML = speListHtml;
 
-          const moreSpeBtn = document.getElementById("more-spe");
+          var moreSpeBtn = document.getElementById("more-spe");
           if (moreSpeBtn) {
             moreSpeBtn.textContent = speExpanded
               ? "En voir moins"
@@ -425,31 +412,33 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // ---------------- PRESTATIONS ----------------
+        // ---------- PRESTATIONS ----------
         if (prestaFilterWrapper) {
-          let prestaFacetValues = results.getFacetValues("prestations", {
+          var prestaFacetValues = results.getFacetValues("prestations", {
             sortBy: ["name:asc"],
-          });
+          }) || [];
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
 
-          const serviceContainer =
-            document.getElementById("serviceContainer");
+          var serviceContainer = document.getElementById("serviceContainer");
           if (serviceContainer) {
-            const hasPresta = prestaFacetValues.some(
-              (fv) => fv && fv.count > 0
-            );
+            var hasPresta = prestaFacetValues.some(function (fv) {
+              return fv && fv.count > 0;
+            });
             serviceContainer.style.display = hasPresta ? "flex" : "none";
           }
 
-          const maxToShowPresta = prestaExpanded
+          var maxToShowPresta = prestaExpanded
             ? prestaFacetValues.length
             : 6;
-          const prestaListHtml = prestaFacetValues
-            .filter((fv) => fv && fv.name)
+
+          var prestaListHtml = prestaFacetValues
+            .filter(function (fv) {
+              return fv && fv.name;
+            })
             .slice(0, maxToShowPresta)
-            .map((fv) => {
-              const key = `prestations:::${fv.name}`;
-              const isSelected = selectedFacetTags.has(key);
+            .map(function (fv) {
+              var key = "prestations:::" + fv.name;
+              var isSelected = selectedFacetTags.has(key);
               return (
                 '<div class="directory_category_tag_wrapper ' +
                 (isSelected ? "is-selected" : "") +
@@ -463,7 +452,7 @@ window.addEventListener("DOMContentLoaded", () => {
             .join("");
           prestaFilterWrapper.innerHTML = prestaListHtml;
 
-          const morePrestaBtn = document.getElementById("more-presta");
+          var morePrestaBtn = document.getElementById("more-presta");
           if (morePrestaBtn) {
             morePrestaBtn.textContent = prestaExpanded
               ? "En voir moins"
@@ -471,21 +460,21 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // ---------------- MÉTIERS ----------------
+        // ---------- MÉTIERS ----------
         if (jobFilterWrapper) {
-          let mainFacetValues = results.getFacetValues("mainjob", {
+          var mainFacetValues = results.getFacetValues("mainjob", {
             sortBy: ["name:asc"],
-          });
-          let jobFacetValues = results.getFacetValues("jobs", {
+          }) || [];
+          var jobFacetValues = results.getFacetValues("jobs", {
             sortBy: ["name:asc"],
-          });
+          }) || [];
 
           if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
           if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
 
-          const merged = new Map();
+          var merged = new Map();
 
-          mainFacetValues.forEach((fv) => {
+          mainFacetValues.forEach(function (fv) {
             if (!fv || !fv.name) return;
             merged.set(fv.name, {
               name: fv.name,
@@ -494,11 +483,11 @@ window.addEventListener("DOMContentLoaded", () => {
             });
           });
 
-          jobFacetValues.forEach((fv) => {
-            const nameRaw = fv && fv.name ? fv.name.trim() : "";
+          jobFacetValues.forEach(function (fv) {
+            var nameRaw = fv && fv.name ? fv.name.trim() : "";
             if (!nameRaw) return;
             if (merged.has(nameRaw)) {
-              const cur = merged.get(nameRaw);
+              var cur = merged.get(nameRaw);
               cur.jobCount = fv.count || 0;
             } else {
               merged.set(nameRaw, {
@@ -509,28 +498,32 @@ window.addEventListener("DOMContentLoaded", () => {
             }
           });
 
-          const mergedArr = Array.from(merged.values()).sort((a, b) =>
-            (a.name || "").localeCompare(b.name || "")
-          );
+          var mergedArr = Array.from(merged.values()).sort(function (a, b) {
+            return (a.name || "").localeCompare(b.name || "");
+          });
 
-          const hasJobsFacet =
-            mainFacetValues.some((fv) => fv && fv.count > 0) ||
-            jobFacetValues.some((fv) => fv && fv.count > 0);
+          var hasJobsFacet =
+            mainFacetValues.some(function (fv) {
+              return fv && fv.count > 0;
+            }) ||
+            jobFacetValues.some(function (fv) {
+              return fv && fv.count > 0;
+            });
 
           if (searchInstance && searchInstance.helper) {
             updateOnlyThpVisibility(searchInstance.helper.state, hasJobsFacet);
           }
 
-          const maxToShowJob = jobExpanded ? mergedArr.length : 6;
+          var maxToShowJob = jobExpanded ? mergedArr.length : 6;
 
-          jobFilterWrapper.innerHTML = mergedArr
+          var jobListHtml = mergedArr
             .slice(0, maxToShowJob)
-            .map((item) => {
-              const value = (item.name || "").trim();
-              const key = `jobs:::${value}`;
-              const isSelected =
+            .map(function (item) {
+              var value = (item.name || "").trim();
+              var key = "jobs:::" + value;
+              var isSelected =
                 selectedFacetTags.has(key) ||
-                selectedJobTags.includes(value);
+                selectedJobTags.indexOf(value) !== -1;
               return (
                 '<div class="directory_category_tag_wrapper ' +
                 (isSelected ? "is-selected" : "") +
@@ -542,8 +535,9 @@ window.addEventListener("DOMContentLoaded", () => {
               );
             })
             .join("");
+          jobFilterWrapper.innerHTML = jobListHtml;
 
-          const moreJobBtn = document.getElementById("more-job");
+          var moreJobBtn = document.getElementById("more-job");
           if (moreJobBtn) {
             moreJobBtn.textContent = jobExpanded
               ? "En voir moins"
@@ -551,14 +545,13 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // ---------------- BOOLÉENS ----------------
+        // ---------- BOOLÉENS ----------
         if (labelFilterWrapper) {
           labelFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
             (isNetworkSelected ? "is-selected" : "") +
             '" data-bool-filter="network">' +
             '<span class="directory_option_icon">' +
-            // icône
             '<svg width="auto" height="auto" viewBox="0 0 25 21" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M23.984 17.5351L23.8018 17.3529C23.644 17.1937 23.3902 17.178 23.2152 17.32C21.8196 18.4516 20.2132 19.0167 18.393 19.0167C16.8483 19.0167 15.5201 18.509 14.41 17.4921C13.3973 16.567 12.6558 15.3435 12.1825 13.8231C12.1065 13.5778 12.2556 13.3197 12.5052 13.2594C14.4272 12.8062 16.091 12.34 17.498 11.8624C19.0155 11.3475 20.249 10.7853 21.1971 10.1757C22.1466 9.56609 22.8451 8.89483 23.2912 8.16333C23.7387 7.4304 23.9624 6.63149 23.9624 5.76517C23.9624 4.30074 23.3385 3.12891 22.0921 2.24824C20.8457 1.36758 19.2063 0.927246 17.1739 0.927246C15.7094 0.927246 14.354 1.17825 13.1076 1.67882C11.8612 2.18083 10.7912 2.87791 9.89618 3.77292C9.00261 4.66792 8.29693 5.72358 7.78345 6.94274C7.26853 8.16333 7.01035 9.4915 7.01035 10.9272V10.933C7.01035 11.2055 7.26136 11.4092 7.53101 11.3618C8.78459 11.1395 10.0511 10.9287 11.2344 10.6533C11.4381 10.606 11.5786 10.4195 11.5729 10.2101C11.5672 10.0451 11.5643 9.87733 11.5643 9.70809C11.5643 8.5965 11.6919 7.59391 11.9501 6.6989C12.2069 5.80533 12.5654 5.03224 13.0273 4.3825C13.4877 3.73132 14.0356 3.23075 14.6739 2.87791C15.3093 2.5265 16.0078 2.35008 16.7665 2.35008C17.716 2.35008 18.4604 2.62116 19.0026 3.16333C19.5448 3.7055 19.8159 4.42266 19.8159 5.31767C19.8159 7.31709 18.601 8.98089 16.1742 10.3091C16.1612 10.3162 16.1498 10.3248 16.1383 10.3334C15.8055 10.5715 15.1242 10.8986 13.9237 11.3432C13.8334 11.3762 13.7387 11.4063 13.6469 11.4393L13.6426 11.4422C13.5824 11.4637 13.5207 11.4823 13.4604 11.5024C13.4203 11.5167 13.3801 11.5297 13.34 11.5426C12.9613 11.6673 12.5812 11.7835 12.2011 11.8882C12.0448 11.9341 11.8884 11.98 11.7264 12.0245L11.7249 12.0159C6.89131 13.2451 2.14661 12.9338 0.111328 12.7072C1.45671 13.1705 5.65063 13.661 7.08494 13.8217C9.05711 17.3773 11.963 19.7755 13.1693 20.2359C15.6549 20.9272 19.8288 20.6633 21.0766 20.1341C22.1853 19.6651 23.1549 19.0067 23.9854 18.1605Z" fill="currentColor"></path></svg>' +
             "</span>" +
             "<span>Membres réseaux</span>" +
@@ -589,32 +582,37 @@ window.addEventListener("DOMContentLoaded", () => {
             "</div>";
         }
 
-        // ---------------- REMBOURSEMENTS ----------------
+        // ---------- REMBOURSEMENT ----------
         if (discountFilterWrapper) {
-          let reimburseFacetValues = results.getFacetValues(
+          var reimburseFacetValues = results.getFacetValues(
             "reimbursment_percentage",
-            {
-              sortBy: ["name:asc"],
-            }
-          );
-
+            { sortBy: ["name:asc"] }
+          ) || [];
           if (!Array.isArray(reimburseFacetValues)) {
             reimburseFacetValues = [];
           }
 
-          const filtered = reimburseFacetValues
-            .filter((fv) => fv && fv.name !== undefined && fv.name !== null)
-            .map((fv) => ({
-              name: String(fv.name),
-              count: fv.count || 0,
-            }))
-            .filter((v) => v.name !== "")
-            .sort((a, b) => Number(a.name) - Number(b.name));
+          var filtered = reimburseFacetValues
+            .filter(function (fv) {
+              return fv && fv.name !== undefined && fv.name !== null;
+            })
+            .map(function (fv) {
+              return {
+                name: String(fv.name),
+                count: fv.count || 0,
+              };
+            })
+            .filter(function (v) {
+              return v.name !== "";
+            })
+            .sort(function (a, b) {
+              return Number(a.name) - Number(b.name);
+            });
 
-          const html = filtered
-            .map((item) => {
-              const key = `reimbursment_percentage:::${item.name}`;
-              const isSelected = selectedFacetTags.has(key);
+          var html = filtered
+            .map(function (item) {
+              var key = "reimbursment_percentage:::" + item.name;
+              var isSelected = selectedFacetTags.has(key);
               return (
                 '<div class="directory_category_tag_wrapper ' +
                 (isSelected ? "is-selected" : "") +
@@ -633,7 +631,7 @@ window.addEventListener("DOMContentLoaded", () => {
     };
 
     // ------------------------------------------------------------------------
-    // 7. WIDGETS ALGOLIA
+    // 7. WIDGETS
     // ------------------------------------------------------------------------
     search.addWidgets([
       instantsearch.widgets.configure({
@@ -654,7 +652,7 @@ window.addEventListener("DOMContentLoaded", () => {
       instantsearch.widgets.stats({
         container: "#search_count",
         templates: {
-          text(data) {
+          text: function (data) {
             if (data.nbHits === 0) return "0 résultat";
             if (data.nbHits === 1) return "1 résultat";
             return data.nbHits + " résultats";
@@ -662,10 +660,7 @@ window.addEventListener("DOMContentLoaded", () => {
         },
       }),
 
-      // --------------------------------------------------------------------
-      // 7.1 hits avec pagination infinie
-      //      ICI on met la logique "sports visibles en home tant que pas de geo"
-      // --------------------------------------------------------------------
+      // hits + show more
       instantsearch.widgets.infiniteHits({
         container: "#hits",
         hitsPerPage: 48,
@@ -673,79 +668,67 @@ window.addEventListener("DOMContentLoaded", () => {
         cssClasses: {
           loadMore: "directory_show_more_button",
         },
-
-        // filtrage/tri côté front
-        transformItems(items) {
-          // 1. on applique la règle spéciale sports ici
-          const filtered = items.filter((hit) => {
-            const source = hit.source_collection || "";
-            const isSport =
+        // ICI on gère le cas sports en FRONT
+        transformItems: function (items) {
+          var filtered = items.filter(function (hit) {
+            var source = hit.source_collection || "";
+            var isSport =
               source === "sports_studio" || source === "studio_enfant";
 
-            // pas un sport → on le garde
             if (!isSport) return true;
 
-            // sport + pas de géo → on garde seulement ceux prévus pour la home
             if (!currentGeoFilter) {
               return hit.show_home === true;
             }
 
-            // sport + géo → on garde seulement ceux prévus pour la recherche
             return hit.show_search === true;
           });
 
-          // 2. on trie pour mettre les membres réseau en premier (comme avant)
           return filtered
             .slice()
-            .sort((a, b) => {
-              const aNet = a.is_elsee_network ? 1 : 0;
-              const bNet = b.is_elsee_network ? 1 : 0;
+            .sort(function (a, b) {
+              var aNet = a.is_elsee_network ? 1 : 0;
+              var bNet = b.is_elsee_network ? 1 : 0;
               if (aNet !== bNet) return bNet - aNet;
               return 0;
             });
         },
-
-        // rendu d’un hit
         templates: {
-          item(hit) {
-            const photoUrl = hit.photo_url || "";
-            const isNetwork = true; // on force le label pour tous
-            const isRemote = !!hit.is_remote;
-            const isAtHome = !!hit.is_at_home;
-            const reimbursement = hit.reimbursment_percentage ?? "";
-            const name = hit.name || "";
-            const city = hit.city || "";
-            const depNum = hit.department_number || "";
-            const url = hit.url || "#";
-            const showSearch = hit.show_search !== false;
-            const showHome = !!hit.show_home;
-            const source = hit.source_collection || "";
-            const isSport =
-              source === "sports_studio" || source === "studio_enfant";
-            const Therapeutes = isTherapeutes(hit);
+          item: function (hit) {
+            var photoUrl = hit.photo_url || "";
+            var isNetwork = true;
+            var isRemote = !!hit.is_remote;
+            var isAtHome = !!hit.is_at_home;
+            var reimbursement = hit.reimbursment_percentage != null ? hit.reimbursment_percentage : "";
+            var name = hit.name || "";
+            var city = hit.city || "";
+            var depNum = hit.department_number || "";
+            var url = hit.url || "#";
+            var showSearch = hit.show_search !== false;
+            var showHome = !!hit.show_home;
+            var source = hit.source_collection || "";
+            var isSport = source === "sports_studio" || source === "studio_enfant";
+            var Therapeutes = isTherapeutes(hit);
 
-            // icônes prises dans le DOM
-            const remoteSvg =
-              document.querySelector(".directory_remote_icon")?.innerHTML ||
+            var remoteSvg =
+              (document.querySelector(".directory_remote_icon") || {}).innerHTML ||
               "";
-            const atHomeSvg =
-              document.querySelector(".directory_at_home_icon")?.innerHTML ||
+            var atHomeSvg =
+              (document.querySelector(".directory_at_home_icon") || {}).innerHTML ||
               "";
-            const discountSvg =
-              document.querySelector(".directory_discount_icon")?.innerHTML ||
-              "";
-            const locationSvg =
-              document.querySelector(".directory_card_location_icon")
-                ?.innerHTML || "";
+            var discountSvg =
+              (document.querySelector(".directory_discount_icon") || {})
+                .innerHTML || "";
+            var locationSvg =
+              (document.querySelector(".directory_card_location_icon") || {})
+                .innerHTML || "";
 
-            // styles inline
-            const containStyle =
+            var containStyle =
               "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
-            const coverStyle =
+            var coverStyle =
               "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
 
-            // choix de l’image
-            let finalStyle = "";
+            var finalStyle = "";
             if (photoUrl) {
               if (Therapeutes) {
                 finalStyle =
@@ -770,7 +753,7 @@ window.addEventListener("DOMContentLoaded", () => {
               }
             }
 
-            const photoDiv =
+            var photoDiv =
               '<div class="directory_card_photo_container">' +
               '<div class="directory_card_photo' +
               (isNetwork ? " is-label" : "") +
@@ -785,7 +768,7 @@ window.addEventListener("DOMContentLoaded", () => {
               "</div>" +
               "</div>";
 
-            const remoteIcon =
+            var remoteIcon =
               '<div class="directory_remote_icon" style="display:' +
               (isRemote ? "block" : "none") +
               ';">' +
@@ -793,7 +776,7 @@ window.addEventListener("DOMContentLoaded", () => {
               '<div class="tooltip">Consultation en visio</div>' +
               "</div>";
 
-            const atHomeIcon =
+            var atHomeIcon =
               '<div class="directory_at_home_icon" style="display:' +
               (isAtHome ? "block" : "none") +
               ';">' +
@@ -801,8 +784,8 @@ window.addEventListener("DOMContentLoaded", () => {
               '<div class="tooltip">Se déplace à votre domicile</div>' +
               "</div>";
 
-            const showDiscount = !Therapeutes;
-            const discountDiv =
+            var showDiscount = !Therapeutes;
+            var discountDiv =
               '<div class="directory_card_discount_tag" style="display:' +
               (showDiscount ? "flex" : "none") +
               ';">' +
@@ -814,14 +797,14 @@ window.addEventListener("DOMContentLoaded", () => {
               "</div>" +
               "</div>";
 
-            const titleDiv =
+            var titleDiv =
               '<div class="directory_card_title"><div>' +
               name +
               "</div></div>";
 
-            const prestationsArr = toArray(hit.prestations);
-            const specialitiesArr = toArray(hit.specialities);
-            let partnerDetails1 = "";
+            var prestationsArr = toArray(hit.prestations);
+            var specialitiesArr = toArray(hit.specialities);
+            var partnerDetails1 = "";
             if (Therapeutes) {
               partnerDetails1 = hit.mainjob || "";
             } else {
@@ -829,13 +812,15 @@ window.addEventListener("DOMContentLoaded", () => {
                 partnerDetails1 = prestationsArr.join(", ");
               } else {
                 if (specialitiesArr.length > 3) {
-                  const visibleSpecialities = specialitiesArr
+                  var visibleSpecialities = specialitiesArr
                     .slice(0, 3)
                     .join(", ");
-                  const extraSpecialities = specialitiesArr.slice(3);
-                  const extraCount = extraSpecialities.length;
-                  const tooltipContent = extraSpecialities
-                    .map((s) => "<div>" + s + "</div>")
+                  var extraSpecialities = specialitiesArr.slice(3);
+                  var extraCount = extraSpecialities.length;
+                  var tooltipContent = extraSpecialities
+                    .map(function (s) {
+                      return "<div>" + s + "</div>";
+                    })
                     .join("");
                   partnerDetails1 =
                     visibleSpecialities +
@@ -850,19 +835,19 @@ window.addEventListener("DOMContentLoaded", () => {
               }
             }
 
-            const partnerDetails1Div =
+            var partnerDetails1Div =
               '<div class="directory_card_partner_details_1"><div>' +
               partnerDetails1 +
               "</div></div>";
 
-            let partnerDetails2Html = "";
+            var partnerDetails2Html = "";
             if (Therapeutes) {
-              const jobsArr = toArray(hit.jobs);
-              let jobsTxt = "";
+              var jobsArr = toArray(hit.jobs);
+              var jobsTxt = "";
               if (jobsArr.length > 3) {
-                const firstThree = jobsArr.slice(0, 3).join(", ");
-                const extraCount = jobsArr.length - 3;
-                jobsTxt = `${firstThree} +${extraCount}`;
+                var firstThree = jobsArr.slice(0, 3).join(", ");
+                var extraCountJobs = jobsArr.length - 3;
+                jobsTxt = firstThree + " +" + extraCountJobs;
               } else {
                 jobsTxt = jobsArr.join(", ");
               }
@@ -872,24 +857,24 @@ window.addEventListener("DOMContentLoaded", () => {
                 jobsTxt +
                 "</div></div>";
             } else {
-              const shortTxt = truncate(hit.short_desc || "", 70);
+              var shortTxt = truncate(hit.short_desc || "", 70);
               partnerDetails2Html =
                 '<div class="directory_card_partner_details_2"><div class="directory_card_partner_short_desc">' +
                 shortTxt +
                 "</div></div>";
             }
 
-            let showLocation = true;
+            var showLocation = true;
             if (isSport && showHome === true) showLocation = false;
             if (!showSearch) showLocation = false;
             if (!city && !depNum) showLocation = false;
 
-            const locationText =
+            var locationText =
               Therapeutes || isSport
                 ? city + (depNum ? " (" + depNum + ")" : "")
                 : city;
 
-            const locationDiv =
+            var locationDiv =
               '<div class="directory_card_partner_location" style="display:' +
               (showLocation ? "flex" : "none") +
               ';">' +
@@ -901,23 +886,24 @@ window.addEventListener("DOMContentLoaded", () => {
               "</div></div>" +
               "</div>";
 
-            let tagItems = [];
+            var tagItems = [];
             if (Therapeutes) {
               tagItems = toArray(hit.prestations).slice(0, 2);
             } else {
               tagItems = toArray(hit.specialities).slice(0, 2);
             }
 
-            const prestasHtml = tagItems
-              .map(
-                (p) =>
+            var prestasHtml = tagItems
+              .map(function (p) {
+                return (
                   '<div class="directory_card_prestation_tag"><div>' +
                   p +
                   "</div></div>"
-              )
+                );
+              })
               .join("");
 
-            const prestationsDiv =
+            var prestationsDiv =
               '<div class="directory_card_prestations_container">' +
               prestasHtml +
               "</div>";
@@ -951,39 +937,44 @@ window.addEventListener("DOMContentLoaded", () => {
         },
       }),
 
-      // widget de tags
       dynamicSuggestionsWidget,
     ]);
 
     // ------------------------------------------------------------------------
-    // 8. DÉMARRAGE
+    // 8. START
     // ------------------------------------------------------------------------
     search.start();
 
     // ------------------------------------------------------------------------
-    // 9. À CHAQUE RENDER
+    // 9. RENDER GLOBAL
     // ------------------------------------------------------------------------
-    search.on("render", () => {
+    search.on("render", function () {
       renderClearButton();
 
       if (search.helper && search.helper.state) {
         updateUrlFromState(search.helper.state);
       }
 
-      const inf =
-        search.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
+      var inf =
+        search.renderState &&
+        search.renderState[ALGOLIA_INDEX_NAME] &&
+        search.renderState[ALGOLIA_INDEX_NAME].infiniteHits;
       console.log("[DIR] render → infiniteHits state =", inf);
     });
 
     // ------------------------------------------------------------------------
-    // 10. CLICK GLOBAL SUR LE BOUTON "AFFICHER PLUS"
+    // 10. CLICK GLOBAL SHOW MORE (élément régénéré à chaque render)
     // ------------------------------------------------------------------------
-    document.addEventListener("click", (e) => {
-      const btn = e.target.closest(".directory_show_more_button");
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest(".directory_show_more_button");
       if (!btn) return;
 
-      const inf =
-        searchInstance?.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
+      var inf =
+        searchInstance &&
+        searchInstance.renderState &&
+        searchInstance.renderState[ALGOLIA_INDEX_NAME] &&
+        searchInstance.renderState[ALGOLIA_INDEX_NAME].infiniteHits;
+
       console.log("[DIR] show-more CLICK", inf);
 
       if (inf && typeof inf.showMore === "function") {
@@ -995,7 +986,7 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     // ------------------------------------------------------------------------
-    // 11. SETUP DES AUTRES LISTENERS
+    // 11. AUTRES LISTENERS
     // ------------------------------------------------------------------------
     setupSearchDropdown();
     setupSuggestionClicks();
@@ -1005,19 +996,18 @@ window.addEventListener("DOMContentLoaded", () => {
     setupBooleanBlockClicks();
     setupDiscountBlockClicks();
 
-    // bouton clear de la localisation
-    const mapsClearBtn = document.querySelector(".directory_search_clear");
+    var mapsClearBtn = document.querySelector(".directory_search_clear");
     if (mapsClearBtn) {
-      mapsClearBtn.addEventListener("click", () => {
+      mapsClearBtn.addEventListener("click", function () {
         if (!searchInstance || !searchInstance.helper) return;
-        const helper = searchInstance.helper;
+        var helper = searchInstance.helper;
 
         currentGeoFilter = null;
         helper.setQueryParameter("aroundLatLng", undefined);
         helper.setQueryParameter("aroundRadius", undefined);
 
-        const mapsInput = document.getElementById("maps_input");
-        const mapsBox = document.getElementById("maps_autocomplete");
+        var mapsInput = document.getElementById("maps_input");
+        var mapsBox = document.getElementById("maps_autocomplete");
         if (mapsInput) {
           mapsInput.value = "";
           mapsInput.classList.remove("is-selected");
@@ -1031,12 +1021,11 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // bouton clear mobile
-    const clearBtnMobile = document.getElementById("clear_button_mobile");
+    var clearBtnMobile = document.getElementById("clear_button_mobile");
     if (clearBtnMobile) {
-      clearBtnMobile.addEventListener("click", () => {
+      clearBtnMobile.addEventListener("click", function () {
         if (!searchInstance || !searchInstance.helper) return;
-        const helper = searchInstance.helper;
+        var helper = searchInstance.helper;
         selectedFacetTags.clear();
         selectedJobTags.length = 0;
         isNetworkSelected = false;
@@ -1050,9 +1039,9 @@ window.addEventListener("DOMContentLoaded", () => {
         currentGeoFilter = null;
         hasUserLaunchedSearch = false;
 
-        const mapsInput = document.getElementById("maps_input");
-        const mapsBox = document.getElementById("maps_autocomplete");
-        const mapsClear = document.querySelector(".directory_search_clear");
+        var mapsInput = document.getElementById("maps_input");
+        var mapsBox = document.getElementById("maps_autocomplete");
+        var mapsClear = document.querySelector(".directory_search_clear");
         if (mapsInput) {
           mapsInput.value = "";
           mapsInput.classList.remove("is-selected");
@@ -1069,16 +1058,12 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // ------------------------------------------------------------------------
-    // 12. FONCTIONS DE SETUP (comme plus haut, inchangées, juste rangées)
+    // 12. FONCTIONS DE SETUP
     // ------------------------------------------------------------------------
     function setupBooleanBlockClicks() {
-      const labelFilterWrapper = document.getElementById("label-filter");
-      const remoteFilterWrapper = document.getElementById(
-        "works-remotely-filter"
-      );
-      const atHomeFilterWrapper = document.getElementById(
-        "works-at-home-filter"
-      );
+      var labelFilterWrapper = document.getElementById("label-filter");
+      var remoteFilterWrapper = document.getElementById("works-remotely-filter");
+      var atHomeFilterWrapper = document.getElementById("works-at-home-filter");
 
       function toggleAndSearch(flagName) {
         if (!searchInstance || !searchInstance.helper) return;
@@ -1086,49 +1071,49 @@ window.addEventListener("DOMContentLoaded", () => {
         if (flagName === "remote") isRemoteSelected = !isRemoteSelected;
         if (flagName === "athome") isAtHomeSelected = !isAtHomeSelected;
 
-        const helper = searchInstance.helper;
-        const filtersStr = buildFiltersStringFromJobsAndBooleans();
+        var helper = searchInstance.helper;
+        var filtersStr = buildFiltersStringFromJobsAndBooleans();
         helper.setQueryParameter("filters", filtersStr);
         helper.search();
       }
 
       if (labelFilterWrapper) {
-        labelFilterWrapper.addEventListener("click", (e) => {
-          const btn = e.target.closest("[data-bool-filter]");
+        labelFilterWrapper.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-bool-filter]");
           if (!btn) return;
-          const flagName = btn.getAttribute("data-bool-filter");
+          var flagName = btn.getAttribute("data-bool-filter");
           toggleAndSearch(flagName);
         });
       }
       if (remoteFilterWrapper) {
-        remoteFilterWrapper.addEventListener("click", (e) => {
-          const btn = e.target.closest("[data-bool-filter]");
+        remoteFilterWrapper.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-bool-filter]");
           if (!btn) return;
-          const flagName = btn.getAttribute("data-bool-filter");
+          var flagName = btn.getAttribute("data-bool-filter");
           toggleAndSearch(flagName);
         });
       }
       if (atHomeFilterWrapper) {
-        atHomeFilterWrapper.addEventListener("click", (e) => {
-          const btn = e.target.closest("[data-bool-filter]");
+        atHomeFilterWrapper.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-bool-filter]");
           if (!btn) return;
-          const flagName = btn.getAttribute("data-bool-filter");
+          var flagName = btn.getAttribute("data-bool-filter");
           toggleAndSearch(flagName);
         });
       }
     }
 
     function setupDiscountBlockClicks() {
-      const discountWrapper = document.getElementById("discount-tags");
+      var discountWrapper = document.getElementById("discount-tags");
       if (!discountWrapper) return;
-      discountWrapper.addEventListener("click", (e) => {
-        const tag = e.target.closest(".directory_category_tag_wrapper");
+      discountWrapper.addEventListener("click", function (e) {
+        var tag = e.target.closest(".directory_category_tag_wrapper");
         if (!tag || !searchInstance || !searchInstance.helper) return;
-        const facetName = tag.getAttribute("data-facet-name");
-        const facetValue = tag.getAttribute("data-facet-value");
-        const key = `${facetName}:::${facetValue}`;
-        const helper = searchInstance.helper;
-        const isSelected = selectedFacetTags.has(key);
+        var facetName = tag.getAttribute("data-facet-name");
+        var facetValue = tag.getAttribute("data-facet-value");
+        var key = facetName + ":::" + facetValue;
+        var helper = searchInstance.helper;
+        var isSelected = selectedFacetTags.has(key);
 
         if (isSelected) {
           selectedFacetTags.delete(key);
@@ -1143,8 +1128,8 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupSearchDropdown() {
-      const input = document.querySelector(".directory_search_field_container");
-      const dropdown =
+      var input = document.querySelector(".directory_search_field_container");
+      var dropdown =
         document.getElementById("tags_autocomplete") ||
         document.querySelector(".directory_search_dropdown_wrapper");
       if (!input || !dropdown) return;
@@ -1164,17 +1149,17 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     function renderClearButton() {
-      const clearBtn = document.getElementById("clear_button");
+      var clearBtn = document.getElementById("clear_button");
       if (!clearBtn) return;
 
-      const hasQuery =
+      var hasQuery =
         searchInstance &&
         searchInstance.helper &&
         (searchInstance.helper.state.query || "").trim() !== "";
-      const hasFacets = selectedFacetTags.size > 0;
-      const hasGeo = !!currentGeoFilter;
-      const hasJobs = selectedJobTags.length > 0;
-      const hasBools =
+      var hasFacets = selectedFacetTags.size > 0;
+      var hasGeo = !!currentGeoFilter;
+      var hasJobs = selectedJobTags.length > 0;
+      var hasBools =
         isNetworkSelected || isRemoteSelected || isAtHomeSelected;
 
       clearBtn.style.display =
@@ -1183,11 +1168,11 @@ window.addEventListener("DOMContentLoaded", () => {
           : "none";
     }
 
-    const clearBtnInit = document.getElementById("clear_button");
+    var clearBtnInit = document.getElementById("clear_button");
     if (clearBtnInit) {
-      clearBtnInit.addEventListener("click", () => {
+      clearBtnInit.addEventListener("click", function () {
         if (!searchInstance || !searchInstance.helper) return;
-        const helper = searchInstance.helper;
+        var helper = searchInstance.helper;
         selectedFacetTags.clear();
         selectedJobTags.length = 0;
         isNetworkSelected = false;
@@ -1201,9 +1186,9 @@ window.addEventListener("DOMContentLoaded", () => {
         currentGeoFilter = null;
         hasUserLaunchedSearch = false;
 
-        const mapsInput = document.getElementById("maps_input");
-        const mapsBox = document.getElementById("maps_autocomplete");
-        const mapsClear = document.querySelector(".directory_search_clear");
+        var mapsInput = document.getElementById("maps_input");
+        var mapsBox = document.getElementById("maps_autocomplete");
+        var mapsClear = document.querySelector(".directory_search_clear");
         if (mapsInput) {
           mapsInput.value = "";
           mapsInput.classList.remove("is-selected");
@@ -1220,37 +1205,33 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupSuggestionClicks() {
-      const dropdown =
+      var dropdown =
         document.getElementById("tags_autocomplete") ||
         document.querySelector(".directory_search_dropdown_wrapper");
       if (!dropdown) return;
 
-      dropdown.addEventListener("click", (e) => {
-        const tag = e.target.closest(".directory_suggestions_tag");
+      dropdown.addEventListener("click", function (e) {
+        var tag = e.target.closest(".directory_suggestions_tag");
         if (!tag || !searchInstance) return;
 
-        const facetName = tag.getAttribute("data-facet-name");
-        const facetValue = tag.getAttribute("data-facet-value");
+        var facetName = tag.getAttribute("data-facet-name");
+        var facetValue = tag.getAttribute("data-facet-value");
         if (!facetName || !facetValue) return;
 
-        const helper = searchInstance.helper;
-        const key = `${facetName}:::${facetValue}`;
-        const isSelected = tag.classList.contains("is-selected");
+        var helper = searchInstance.helper;
+        var key = facetName + ":::" + facetValue;
+        var isSelected = tag.classList.contains("is-selected");
 
         if (helper) {
           if (facetName === "type") {
             if (isSelected) {
               tag.classList.remove("is-selected");
               selectedFacetTags.delete(key);
-              helper
-                .removeDisjunctiveFacetRefinement(facetName, facetValue)
-                .search();
+              helper.removeDisjunctiveFacetRefinement(facetName, facetValue).search();
             } else {
               tag.classList.add("is-selected");
               selectedFacetTags.add(key);
-              helper
-                .addDisjunctiveFacetRefinement(facetName, facetValue)
-                .search();
+              helper.addDisjunctiveFacetRefinement(facetName, facetValue).search();
             }
           } else {
             if (isSelected) {
@@ -1270,29 +1251,32 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupTypeBlockClicks() {
-      const typesAltWrapper = document.getElementById("directory_types");
+      var typesAltWrapper = document.getElementById("directory_types");
       if (!typesAltWrapper) return;
 
-      typesAltWrapper.addEventListener("click", (e) => {
-        const tag = e.target.closest(".directory_category_tag_wrapper");
+      typesAltWrapper.addEventListener("click", function (e) {
+        var tag = e.target.closest(".directory_category_tag_wrapper");
         if (!tag || !searchInstance || !searchInstance.helper) return;
 
-        const facetName = tag.getAttribute("data-facet-name");
-        let facetValue = tag.getAttribute("data-facet-value") || "";
-        facetValue = facetValue.trim();
-        const helper = searchInstance.helper;
+        var facetName = tag.getAttribute("data-facet-name");
+        var facetValue = (tag.getAttribute("data-facet-value") || "").trim();
+        var helper = searchInstance.helper;
 
         if (facetValue === "__ALL_TYPES__") {
           helper.clearRefinements("type");
           Array.from(selectedFacetTags)
-            .filter((k) => k.startsWith("type:::"))
-            .forEach((k) => selectedFacetTags.delete(k));
+            .filter(function (k) {
+              return k.indexOf("type:::") === 0;
+            })
+            .forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
           helper.search();
           return;
         }
 
-        const key = `${facetName}:::${facetValue}`;
-        const isSelected = selectedFacetTags.has(key);
+        var key = facetName + ":::" + facetValue;
+        var isSelected = selectedFacetTags.has(key);
 
         if (isSelected) {
           selectedFacetTags.delete(key);
@@ -1305,17 +1289,17 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupSpePrestaBlockClicks() {
-      const speWrapper = document.getElementById("spe_filtre");
-      const moreSpe = document.getElementById("more-spe");
+      var speWrapper = document.getElementById("spe_filtre");
+      var moreSpe = document.getElementById("more-spe");
       if (speWrapper) {
-        speWrapper.addEventListener("click", (e) => {
-          const tag = e.target.closest(".directory_category_tag_wrapper");
+        speWrapper.addEventListener("click", function (e) {
+          var tag = e.target.closest(".directory_category_tag_wrapper");
           if (!tag || !searchInstance || !searchInstance.helper) return;
-          const facetName = tag.getAttribute("data-facet-name");
-          const facetValue = tag.getAttribute("data-facet-value");
-          const key = `${facetName}:::${facetValue}`;
-          const helper = searchInstance.helper;
-          const isSelected = selectedFacetTags.has(key);
+          var facetName = tag.getAttribute("data-facet-name");
+          var facetValue = tag.getAttribute("data-facet-value");
+          var key = facetName + ":::" + facetValue;
+          var helper = searchInstance.helper;
+          var isSelected = selectedFacetTags.has(key);
           if (isSelected) {
             selectedFacetTags.delete(key);
             helper.removeFacetRefinement(facetName, facetValue).search();
@@ -1326,23 +1310,23 @@ window.addEventListener("DOMContentLoaded", () => {
         });
       }
       if (moreSpe) {
-        moreSpe.addEventListener("click", () => {
+        moreSpe.addEventListener("click", function () {
           speExpanded = !speExpanded;
           if (searchInstance) searchInstance.refresh();
         });
       }
 
-      const prestaWrapper = document.getElementById("presta_filtre");
-      const morePresta = document.getElementById("more-presta");
+      var prestaWrapper = document.getElementById("presta_filtre");
+      var morePresta = document.getElementById("more-presta");
       if (prestaWrapper) {
-        prestaWrapper.addEventListener("click", (e) => {
-          const tag = e.target.closest(".directory_category_tag_wrapper");
+        prestaWrapper.addEventListener("click", function (e) {
+          var tag = e.target.closest(".directory_category_tag_wrapper");
           if (!tag || !searchInstance || !searchInstance.helper) return;
-          const facetName = tag.getAttribute("data-facet-name");
-          const facetValue = tag.getAttribute("data-facet-value");
-          const key = `${facetName}:::${facetValue}`;
-          const helper = searchInstance.helper;
-          const isSelected = selectedFacetTags.has(key);
+          var facetName = tag.getAttribute("data-facet-name");
+          var facetValue = tag.getAttribute("data-facet-value");
+          var key = facetName + ":::" + facetValue;
+          var helper = searchInstance.helper;
+          var isSelected = selectedFacetTags.has(key);
           if (isSelected) {
             selectedFacetTags.delete(key);
             helper.removeFacetRefinement(facetName, facetValue).search();
@@ -1353,7 +1337,7 @@ window.addEventListener("DOMContentLoaded", () => {
         });
       }
       if (morePresta) {
-        morePresta.addEventListener("click", () => {
+        morePresta.addEventListener("click", function () {
           prestaExpanded = !prestaExpanded;
           if (searchInstance) searchInstance.refresh();
         });
@@ -1361,17 +1345,17 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupJobBlockClicks() {
-      const jobWrapper = document.getElementById("job_filtre");
-      const moreJob = document.getElementById("more-job");
+      var jobWrapper = document.getElementById("job_filtre");
+      var moreJob = document.getElementById("more-job");
 
       if (jobWrapper) {
-        jobWrapper.addEventListener("click", (e) => {
-          const tag = e.target.closest(".directory_category_tag_wrapper");
+        jobWrapper.addEventListener("click", function (e) {
+          var tag = e.target.closest(".directory_category_tag_wrapper");
           if (!tag || !searchInstance || !searchInstance.helper) return;
-          const value = (tag.getAttribute("data-facet-value") || "").trim();
-          const helper = searchInstance.helper;
-          const key = `jobs:::${value}`;
-          const idx = selectedJobTags.indexOf(value);
+          var value = (tag.getAttribute("data-facet-value") || "").trim();
+          var helper = searchInstance.helper;
+          var key = "jobs:::" + value;
+          var idx = selectedJobTags.indexOf(value);
 
           if (idx > -1) {
             selectedJobTags.splice(idx, 1);
@@ -1381,14 +1365,14 @@ window.addEventListener("DOMContentLoaded", () => {
             selectedFacetTags.add(key);
           }
 
-          const filtersStr = buildFiltersStringFromJobsAndBooleans();
+          var filtersStr = buildFiltersStringFromJobsAndBooleans();
           helper.setQueryParameter("filters", filtersStr);
           helper.search();
         });
       }
 
       if (moreJob) {
-        moreJob.addEventListener("click", () => {
+        moreJob.addEventListener("click", function () {
           jobExpanded = !jobExpanded;
           if (searchInstance) searchInstance.refresh();
         });
@@ -1396,18 +1380,19 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // ------------------------------------------------------------------------
-    // 13. LECTURE DES PARAMS URL AU DÉMARRAGE
+    // 13. RÉCUP PARAMS URL
     // ------------------------------------------------------------------------
-    function applyGeoFilterFromMaps(lat, lng, label = "") {
-      currentGeoFilter = { lat, lng, label };
+    function applyGeoFilterFromMaps(lat, lng, label) {
+      if (label === undefined) label = "";
+      currentGeoFilter = { lat: lat, lng: lng, label: label };
       if (searchInstance && searchInstance.helper) {
-        const helper = searchInstance.helper;
-        helper.setQueryParameter("aroundLatLng", `${lat},${lng}`);
+        var helper = searchInstance.helper;
+        helper.setQueryParameter("aroundLatLng", lat + "," + lng);
         helper.setQueryParameter("aroundRadius", 100000);
         helper.search();
       }
-      const mapsInput = document.getElementById("maps_input");
-      const mapsClear = document.querySelector(".directory_search_clear");
+      var mapsInput = document.getElementById("maps_input");
+      var mapsClear = document.querySelector(".directory_search_clear");
       if (mapsInput) {
         mapsInput.value = label || "";
         mapsInput.classList.add("is-selected");
@@ -1419,27 +1404,23 @@ window.addEventListener("DOMContentLoaded", () => {
 
     function applyUrlParamsToSearch() {
       if (typeof window === "undefined") return;
-      const params = new URLSearchParams(window.location.search);
-      const query = params.get("q") || "";
-      const types = (params.get("type") || "").split(",").filter(Boolean);
-      const spes = (params.get("specialities") || "")
+      var params = new URLSearchParams(window.location.search);
+      var query = params.get("q") || "";
+      var types = (params.get("type") || "").split(",").filter(Boolean);
+      var spes = (params.get("specialities") || "").split(",").filter(Boolean);
+      var geo = params.get("geo") || "";
+      var prestas = (params.get("prestations") || "").split(",").filter(Boolean);
+      var jobs = (params.get("jobs") || "").split(",").filter(Boolean);
+      var reimb = (params.get("reimbursment_percentage") || "")
         .split(",")
         .filter(Boolean);
-      const geo = params.get("geo") || "";
-      const prestas = (params.get("prestations") || "")
-        .split(",")
-        .filter(Boolean);
-      const jobs = (params.get("jobs") || "").split(",").filter(Boolean);
-      const reimb = (params.get("reimbursment_percentage") || "")
-        .split(",")
-        .filter(Boolean);
-      const geolabel = params.get("geolabel") || "";
-      const urlNetwork = params.get("network") === "true";
-      const urlRemote = params.get("remote") === "true";
-      const urlAtHome = params.get("athome") === "true";
+      var geolabel = params.get("geolabel") || "";
+      var urlNetwork = params.get("network") === "true";
+      var urlRemote = params.get("remote") === "true";
+      var urlAtHome = params.get("athome") === "true";
 
       if (!searchInstance || !searchInstance.helper) return;
-      const helper = searchInstance.helper;
+      var helper = searchInstance.helper;
 
       if (query) helper.setQuery(query);
 
@@ -1449,24 +1430,36 @@ window.addEventListener("DOMContentLoaded", () => {
       helper.clearRefinements("jobs");
       helper.clearRefinements("reimbursment_percentage");
 
-      types.forEach((t) => helper.addDisjunctiveFacetRefinement("type", t));
-      spes.forEach((s) => helper.addFacetRefinement("specialities", s));
-      prestas.forEach((p) => helper.addFacetRefinement("prestations", p));
-      reimb.forEach((r) =>
-        helper.addDisjunctiveFacetRefinement("reimbursment_percentage", r)
-      );
+      types.forEach(function (t) {
+        helper.addDisjunctiveFacetRefinement("type", t);
+      });
+      spes.forEach(function (s) {
+        helper.addFacetRefinement("specialities", s);
+      });
+      prestas.forEach(function (p) {
+        helper.addFacetRefinement("prestations", p);
+      });
+      reimb.forEach(function (r) {
+        helper.addDisjunctiveFacetRefinement("reimbursment_percentage", r);
+      });
 
-      types.forEach((t) => selectedFacetTags.add(`type:::${t}`));
-      spes.forEach((s) => selectedFacetTags.add(`specialities:::${s}`));
-      prestas.forEach((p) => selectedFacetTags.add(`prestations:::${p}`));
-      reimb.forEach((r) =>
-        selectedFacetTags.add(`reimbursment_percentage:::${r}`)
-      );
+      types.forEach(function (t) {
+        selectedFacetTags.add("type:::" + t);
+      });
+      spes.forEach(function (s) {
+        selectedFacetTags.add("specialities:::" + s);
+      });
+      prestas.forEach(function (p) {
+        selectedFacetTags.add("prestations:::" + p);
+      });
+      reimb.forEach(function (r) {
+        selectedFacetTags.add("reimbursment_percentage:::" + r);
+      });
 
-      jobs.forEach((j) => {
-        const cleanJob = j.trim();
+      jobs.forEach(function (j) {
+        var cleanJob = j.trim();
         if (!cleanJob) return;
-        if (!selectedJobTags.includes(cleanJob)) {
+        if (selectedJobTags.indexOf(cleanJob) === -1) {
           selectedJobTags.push(cleanJob);
         }
       });
@@ -1475,23 +1468,23 @@ window.addEventListener("DOMContentLoaded", () => {
       isRemoteSelected = urlRemote;
       isAtHomeSelected = urlAtHome;
 
-      const filtersStr = buildFiltersStringFromJobsAndBooleans();
+      var filtersStr = buildFiltersStringFromJobsAndBooleans();
       helper.setQueryParameter("filters", filtersStr);
 
       if (geo) {
-        const [latStr, lngStr] = geo.split(",");
-        const lat = parseFloat(latStr);
-        const lng = parseFloat(lngStr);
+        var parts = geo.split(",");
+        var lat = parseFloat(parts[0]);
+        var lng = parseFloat(parts[1]);
         if (!isNaN(lat) && !isNaN(lng)) {
           currentGeoFilter = {
-            lat,
-            lng,
+            lat: lat,
+            lng: lng,
             label: geolabel ? decodeURIComponent(geolabel) : "",
           };
-          helper.setQueryParameter("aroundLatLng", `${lat},${lng}`);
+          helper.setQueryParameter("aroundLatLng", lat + "," + lng);
           helper.setQueryParameter("aroundRadius", 100000);
-          const mapsInput = document.getElementById("maps_input");
-          const mapsClear = document.querySelector(".directory_search_clear");
+          var mapsInput = document.getElementById("maps_input");
+          var mapsClear = document.querySelector(".directory_search_clear");
           if (mapsInput) {
             if (geolabel) {
               mapsInput.value = decodeURIComponent(geolabel);
@@ -1514,8 +1507,6 @@ window.addEventListener("DOMContentLoaded", () => {
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   }
 
-  // --------------------------------------------------------------------------
-  // 14. LANCEMENT
-  // --------------------------------------------------------------------------
+  // lancer
   initAlgolia();
 });
