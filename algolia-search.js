@@ -3,6 +3,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
   const ALGOLIA_INDEX_NAME = "elsee_index";
 
+  // placeholders
+  const THERAPIST_PLACEHOLDER_URL = "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd36e1367cf7f0391812d_Fichier%20Convertio%20(3).webp";
+  const DEFAULT_PLACEHOLDER_URL = "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd373de251816ebaa511c_Placeholder%20de%20marque.webp";
+
   // état front
   const selectedFacetTags = new Set();
   const selectedJobTags = [];
@@ -664,22 +668,36 @@ window.addEventListener("DOMContentLoaded", () => {
               document.querySelector(".directory_card_location_icon")
                 ?.innerHTML || "";
 
-            // styles selon type
-            const baseContainStyle =
-              "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
-            const baseCoverStyle =
-              "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
+            // styles
+            const containStyle = "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
+            const coverStyle = "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
 
-            // thérapeutes -> cover, sinon -> contain
-            const photoStyleBase = Therapeutes ? baseCoverStyle : baseContainStyle;
+            // on choisit l'URL d'image + le style
+            let finalBgUrl = "";
+            let finalStyle = "";
+
+            if (photoUrl) {
+              // on a une vraie photo
+              if (Therapeutes) {
+                finalStyle = coverStyle + "background-image:url('" + photoUrl + "');";
+              } else {
+                finalStyle = containStyle + "background-image:url('" + photoUrl + "');";
+              }
+            } else {
+              // pas de photo → placeholder en cover
+              if (Therapeutes) {
+                finalStyle = coverStyle + "background-image:url('" + THERAPIST_PLACEHOLDER_URL + "');";
+              } else {
+                finalStyle = coverStyle + "background-image:url('" + DEFAULT_PLACEHOLDER_URL + "');";
+              }
+            }
 
             const photoDiv =
               '<div class="directory_card_photo_container">' +
               '<div class="directory_card_photo' +
               (isNetwork ? " is-label" : "") +
               '" style="' +
-              photoStyleBase +
-              (photoUrl ? "background-image:url('" + photoUrl + "');" : "") +
+              finalStyle +
               '">' +
               '<div class="directory_card_label_tag" style="display:' +
               (isNetwork ? "flex" : "none") +
