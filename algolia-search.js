@@ -709,50 +709,49 @@ window.addEventListener("DOMContentLoaded", function () {
         cssClasses: {
           loadMore: "directory_show_more_button"
         },
-        // filtrage SPORTS uniquement en front
         transformItems: function (items) {
-          var filtered = items.filter(function (hit) {
-            var source = hit.source_collection || "";
-            var isSport =
-              source === "sports_studio" || source === "studio_enfant";
+  // 1. on applique la règle d’affichage liée à la géoloc
+  var filtered = items.filter(function (hit) {
+    // pas de géo → on ne veut pas voir les résultats “faits pour la recherche”
+    if (!currentGeoFilter) {
+      if (hit.show_search === true) {
+        return false;
+      }
+      return true; // champ absent ou false → ok
+    }
 
-            if (!isSport) return true;
+    // géo → on ne veut pas voir les résultats “faits pour la home”
+    if (currentGeoFilter) {
+      if (hit.show_home === true) {
+        return false;
+      }
+      return true;
+    }
 
-            // sport + pas de géo -> garder show_home
-            if (!currentGeoFilter) {
-              return hit.show_home === true;
-            }
+    return true;
+  });
 
-            // sport + géo -> garder show_search
-            return hit.show_search === true;
-          });
-
-         // TRI GLOBAL :
-  // 1) ranking DESC
-  // 2) name ASC
+  // 2. tri global : ranking DESC puis name ASC
   return filtered.slice().sort(function (a, b) {
     var rankA =
-      typeof a.ranking === "number"
-        ? a.ranking
-        : parseFloat(a.ranking) || 0;
+      typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB =
-      typeof b.ranking === "number"
-        ? b.ranking
-        : parseFloat(b.ranking) || 0;
+      typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
 
-    // d'abord le ranking (plus grand d'abord)
+    // d’abord le ranking (plus haut en premier)
     if (rankA !== rankB) {
       return rankB - rankA;
     }
 
-    // puis le name en alpha
+    // ensuite le nom
     var nameA = (a.name || "").toLowerCase();
     var nameB = (b.name || "").toLowerCase();
     if (nameA < nameB) return -1;
     if (nameA > nameB) return 1;
     return 0;
-            });
-        },
+  });
+},
+
         templates: {
           item: function (hit) {
             var photoUrl = hit.photo_url || "";
