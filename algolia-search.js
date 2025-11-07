@@ -14,7 +14,7 @@ window.addEventListener("DOMContentLoaded", () => {
   let jobExpanded = false;
   let currentGeoFilter = null;
   let searchInstance = null;
-  let hasUserLaunchedSearch = false; // <- AJOUT
+  let hasUserLaunchedSearch = false;
 
   function initAlgolia() {
     if (typeof algoliasearch === "undefined" || typeof instantsearch === "undefined") {
@@ -66,7 +66,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     function isTherapeutes(hit) {
       const t = (hit.type || "").trim().toLowerCase();
-      return t === "Thérapeutes" || t === "therapeutes";
+      return t === "thérapeutes" || t === "therapeutes";
     }
 
     function updateOnlyThpVisibility(helperState, hasJobsFacet) {
@@ -83,7 +83,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       const hasThera = types.some((t) => {
         const tt = t.toLowerCase().trim();
-        return tt === "Thérapeutes" || tt === "therapeutes";
+        return tt === "thérapeutes" || tt === "therapeutes";
       });
 
       if (hasJobsFacet && (noTypeSelected || hasThera)) {
@@ -250,6 +250,7 @@ window.addEventListener("DOMContentLoaded", () => {
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
+        // 1. TYPES
         let typeFacetValues = results.getFacetValues("type", {
           sortBy: ["count:desc", "name:asc"],
         });
@@ -305,6 +306,7 @@ window.addEventListener("DOMContentLoaded", () => {
           typesAltWrapper.innerHTML = altHtml;
         }
 
+        // 2. SPECIALITIES
         let speFacetValues = results.getFacetValues("specialities", {
           sortBy: ["count:desc", "name:asc"],
         });
@@ -384,6 +386,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
+        // 3. PRESTATIONS
         if (prestaFilterWrapper) {
           let prestaFacetValues = results.getFacetValues("prestations", {
             sortBy: ["name:asc"],
@@ -423,6 +426,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
+        // 4. MÉTIERS
         if (jobFilterWrapper) {
           let mainFacetValues = results.getFacetValues("mainjob", {
             sortBy: ["name:asc"],
@@ -433,9 +437,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
           if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
           if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
-
-          console.log("[ALGOLIA] mainjob facetValues =", mainFacetValues);
-          console.log("[ALGOLIA] jobs facetValues =", jobFacetValues);
 
           const merged = new Map();
 
@@ -471,18 +472,8 @@ window.addEventListener("DOMContentLoaded", () => {
             mainFacetValues.some((fv) => fv && fv.count > 0) ||
             jobFacetValues.some((fv) => fv && fv.count > 0);
 
-          console.log("[DIR] hasJobsFacet =", hasJobsFacet);
-
           if (searchInstance && searchInstance.helper) {
-            console.log(
-              "[DIR] helper state types =",
-              (searchInstance.helper.state.disjunctiveFacetsRefinements?.type ||
-                searchInstance.helper.state.facetsRefinements?.type ||
-                [])
-            );
             updateOnlyThpVisibility(searchInstance.helper.state, hasJobsFacet);
-          } else {
-            console.log("[DIR] pas de searchInstance/helper dispo");
           }
 
           const maxToShowJob = jobExpanded ? mergedArr.length : 6;
@@ -515,6 +506,7 @@ window.addEventListener("DOMContentLoaded", () => {
           }
         }
 
+        // 5. BOOLÉENS
         if (labelFilterWrapper) {
           labelFilterWrapper.innerHTML =
             '<div class="directory_category_tag_wrapper ' +
@@ -557,6 +549,7 @@ window.addEventListener("DOMContentLoaded", () => {
             "</div>";
         }
 
+        // 6. REMBOURSEMENT
         if (discountFilterWrapper) {
           let reimburseFacetValues = results.getFacetValues(
             "reimbursment_percentage",
@@ -646,7 +639,7 @@ window.addEventListener("DOMContentLoaded", () => {
         templates: {
           item(hit) {
             const photoUrl = hit.photo_url || "";
-            const isNetwork = true; // on force le label pour tous
+            const isNetwork = true; // on force le badge
             const isRemote = !!hit.is_remote;
             const isAtHome = !!hit.is_at_home;
             const reimbursement = hit.reimbursment_percentage ?? "";
@@ -671,21 +664,22 @@ window.addEventListener("DOMContentLoaded", () => {
               document.querySelector(".directory_card_location_icon")
                 ?.innerHTML || "";
 
-            // style de base demandé
-            const basePhotoStyle =
+            // styles selon type
+            const baseContainStyle =
               "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
+            const baseCoverStyle =
+              "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
+
+            // thérapeutes -> cover, sinon -> contain
+            const photoStyleBase = Therapeutes ? baseCoverStyle : baseContainStyle;
 
             const photoDiv =
               '<div class="directory_card_photo_container">' +
               '<div class="directory_card_photo' +
               (isNetwork ? " is-label" : "") +
               '" style="' +
-              basePhotoStyle +
-              (photoUrl
-                ? "background-image:url('" +
-                  photoUrl +
-                  "');"
-                : "") +
+              photoStyleBase +
+              (photoUrl ? "background-image:url('" + photoUrl + "');" : "") +
               '">' +
               '<div class="directory_card_label_tag" style="display:' +
               (isNetwork ? "flex" : "none") +
