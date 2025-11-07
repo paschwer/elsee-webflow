@@ -877,41 +877,43 @@ window.addEventListener("DOMContentLoaded", () => {
     search.start();
 
     search.on("render", () => {
-  // on garde ce que tu avais déjà
   renderClearButton();
 
   if (search.helper && search.helper.state) {
     updateUrlFromState(search.helper.state);
   }
 
-  // on récupère le bouton à CHAQUE render (il est recréé)
-  const loadMoreBtn = document.querySelector(
-    ".ais-InfiniteHits-loadMore, .directory_show_more_button"
-  );
+  // état d'infiniteHits fourni par Algolia
+  const inf = search.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
+  console.log("[DIR] render → infiniteHits state =", inf);
 
-  if (loadMoreBtn) {
+  // on récupère TON bouton custom
+  const btn = document.querySelector(".directory_show_more_button");
+  if (btn && inf && typeof inf.showMore === "function") {
     console.log("[DIR] render → bouton trouvé", {
-      disabled: loadMoreBtn.disabled,
-      classes: loadMoreBtn.className,
+      classes: btn.className,
+      isLastPage: inf.isLastPage,
     });
 
-    // on n'accroche le listener qu'une seule fois
-    if (!loadMoreBtn.dataset.dirClickHooked) {
-      loadMoreBtn.dataset.dirClickHooked = "1";
-      loadMoreBtn.addEventListener("click", (ev) => {
-        console.log("[DIR] load-more CLICK reçu", {
-          disabled: loadMoreBtn.disabled,
-          classes: loadMoreBtn.className,
-        });
+    // on évite de brancher 15 fois
+    if (!btn.dataset.dirClickHooked) {
+      btn.dataset.dirClickHooked = "1";
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        console.log("[DIR] click → showMore()");
+        inf.showMore(); // on déclenche la pagination Algolia
       });
     }
-  } else {
-    console.log("[DIR] render → pas de bouton loadMore sur ce render");
-  }
 
-  // on log aussi l’état d’infiniteHits pour voir si Algolia pense avoir d’autres pages
-  const rs = search.renderState?.[ALGOLIA_INDEX_NAME]?.infiniteHits;
-  console.log("[DIR] render → infiniteHits state =", rs);
+    // si dernière page → on cache ou on disable
+    if (inf.isLastPage) {
+      btn.style.display = "none";
+    } else {
+      btn.style.display = "block";
+    }
+  } else {
+    console.log("[DIR] render → pas de bouton OU pas de showMore disponible");
+  }
 });
 
 
