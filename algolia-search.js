@@ -1038,12 +1038,31 @@ window.addEventListener("DOMContentLoaded", function () {
 
     // 9. RENDER GLOBAL --------------------------------------------------------
     search.on("render", function () {
-      renderClearButton();
+  // ce que vous aviez déjà
+  renderClearButton();
 
-      if (search.helper && search.helper.state) {
-        updateUrlFromState(search.helper.state);
-      }
-    });
+  if (search.helper && search.helper.state) {
+    updateUrlFromState(search.helper.state);
+  }
+
+  // on ajoute ceci
+  var hitsList = document.querySelectorAll("#hits .directory_card_container");
+  var showMoreBtn = document.querySelector(".directory_show_more_button");
+  if (showMoreBtn) {
+    var perPage = 48; // même valeur que dans infiniteHits
+    var currentPage =
+      typeof search.helper.state.page === "number"
+        ? search.helper.state.page
+        : 0;
+
+    if (currentPage === 0 && hitsList.length < perPage) {
+      showMoreBtn.style.display = "none";
+    } else {
+      showMoreBtn.style.display = "inline-flex";
+    }
+  }
+});
+
 
     // 10. CLIC GLOBAL SHOW MORE ----------------------------------------------
     document.addEventListener("click", function (e) {
