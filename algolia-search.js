@@ -1038,30 +1038,36 @@ window.addEventListener("DOMContentLoaded", function () {
 
     // 9. RENDER GLOBAL --------------------------------------------------------
     search.on("render", function () {
-  // ce que vous aviez déjà
   renderClearButton();
 
   if (search.helper && search.helper.state) {
     updateUrlFromState(search.helper.state);
   }
 
-  // on ajoute ceci
-  var hitsList = document.querySelectorAll("#hits .directory_card_container");
+  // contrôle du bouton "show more"
   var showMoreBtn = document.querySelector(".directory_show_more_button");
   if (showMoreBtn) {
-    var perPage = 48; // même valeur que dans infiniteHits
-    var currentPage =
-      typeof search.helper.state.page === "number"
-        ? search.helper.state.page
-        : 0;
+    var perPage = 48;
 
-    if (currentPage === 0 && hitsList.length < perPage) {
+    // on compte seulement les cartes visibles
+    var cards = Array.prototype.slice
+      .call(document.querySelectorAll("#hits .directory_card_container"))
+      .filter(function (el) {
+        return el.offsetParent !== null; // visible
+      });
+
+    // si on n'affiche pas une page complète → on cache
+    if (cards.length < perPage) {
       showMoreBtn.style.display = "none";
     } else {
       showMoreBtn.style.display = "inline-flex";
     }
+
+    // debug si besoin
+    // console.log("cartes visibles:", cards.length);
   }
 });
+
 
 
     // 10. CLIC GLOBAL SHOW MORE ----------------------------------------------
