@@ -294,7 +294,7 @@ var wellnessCtaEl = document.getElementById("adWellness-cta");
 if (wellnessCtaEl) {
   // liste de valeurs possibles pour le type "Les salons esthétiques / centres bien-être"
   var WELLNESS_TYPE_NAMES = [
-    "Les salons esthétiques / centres bien-être"
+    "salons esthétiques / centres bien-être"
   ];
 
   var hasWellnessSelected = selectedTypes.some(function (t) {
