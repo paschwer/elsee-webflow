@@ -734,17 +734,8 @@ window.addEventListener("DOMContentLoaded", function () {
     query = (searchInstance.helper.state.query || "").trim().toLowerCase();
   }
 
-  var filtered = items.filter(function (hit) {
-    if (!currentGeoFilter) {
-      if (hit.show_search === true) return false;
-      return true;
-    } else {
-      if (hit.show_home === true) return false;
-      return true;
-    }
-  });
-
-  filtered.forEach(function (hit) {
+  // on part de ce que renvoie Algolia, sans refiltrer show_home / show_search
+  items.forEach(function (hit) {
     var name = (hit.name || "").toLowerCase();
     var score = 0;
 
@@ -758,27 +749,22 @@ window.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    // bonus réseau léger
     var networkBonus = hit.is_elsee_network ? 1 : 0;
 
     hit.__localScore = score;
     hit.__networkBonus = networkBonus;
   });
 
-  return filtered.slice().sort(function (a, b) {
-    // 1. score texte
+  return items.slice().sort(function (a, b) {
     if ((b.__localScore || 0) !== (a.__localScore || 0)) {
       return (b.__localScore || 0) - (a.__localScore || 0);
     }
-    // 2. réseau
     if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
       return (b.__networkBonus || 0) - (a.__networkBonus || 0);
     }
-    // 3. ranking métier
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    // 4. alpha
     var nameA = (a.name || "").toLowerCase();
     var nameB = (b.name || "").toLowerCase();
     if (nameA < nameB) return -1;
