@@ -885,42 +885,42 @@ window.addEventListener("DOMContentLoaded", function () {
 
             var prestationsArr = toArray(hit.prestations);
             var specialitiesArr = toArray(hit.specialities);
-            var partnerDetails1;
+            // bloc partenaire details 1
+var partnerDetails1Html;
 
-            if (Therapeutes) {
-              partnerDetails1 = hit.mainjob || "";
-            } else {
-              if (prestationsArr.length > 0) {
-                partnerDetails1 = prestationsArr.join(", ");
-              } else {
-                if (specialitiesArr.length > 3) {
-                  var visibleSpecialities = specialitiesArr
-                    .slice(0, 3)
-                    .join(", ");
-                  var extraSpecialities = specialitiesArr.slice(3);
-                  var extraCount = extraSpecialities.length;
-                  var tooltipContent = extraSpecialities
-                    .map(function (s) {
-                      return "<div>" + s + "</div>";
-                    })
-                    .join("");
-                  partnerDetails1 =
-                    visibleSpecialities +
-                    ', <span class="directory_card_more_specialities"><span class="directory_remote_icon">+' +
-                    extraCount +
-                    '<div class="tooltip">' +
-                    tooltipContent +
-                    "</div></span></span>";
-                } else {
-                  partnerDetails1 = specialitiesArr.join(", ");
-                }
-              }
-            }
+if (Therapeutes) {
+  // cas thérapeutes : on garde le mainjob tel quel
+  var mainJob = hit.mainjob || "";
+  partnerDetails1Html =
+    '<div class="directory_card_partner_details_1"><div>' +
+    mainJob +
+    "</div></div>";
+} else {
+  // on prend d'abord les prestations, sinon les spécialités
+  var rawTop = toArray(hit.prestations);
+  if (!rawTop.length) {
+    rawTop = toArray(hit.specialities);
+  }
 
-            var partnerDetails1Div =
-              '<div class="directory_card_partner_details_1"><div>' +
-              partnerDetails1 +
-              "</div></div>";
+  var maxTop = 3; // nombre qu’on affiche
+  var visibleTop = rawTop.slice(0, maxTop);
+  var extraTop = rawTop.length > maxTop ? rawTop.length - maxTop : 0;
+
+  var topHtml = visibleTop.join(", ");
+
+  if (extraTop > 0) {
+    topHtml +=
+      ', <span class="directory_card_more_specialities"><span class="directory_remote_icon">+' +
+      extraTop +
+      "</span></span>";
+  }
+
+  partnerDetails1Html =
+    '<div class="directory_card_partner_details_1"><div>' +
+    topHtml +
+    "</div></div>";
+}
+
 
             var partnerDetails2Html;
             if (Therapeutes) {
@@ -1016,8 +1016,9 @@ if (extraCount > 0) {
               "</div>" +
               "</div>" +
               titleDiv +
-              partnerDetails1Div +
-              partnerDetails2Html +
+partnerDetails1Html +
+partnerDetails2Html +
+
               "</div>" +
               locationDiv +
               prestationsDiv +
