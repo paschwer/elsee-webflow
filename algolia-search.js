@@ -728,10 +728,14 @@ window.addEventListener("DOMContentLoaded", function () {
         cssClasses: {
           loadMore: "directory_show_more_button"
         },
-        transformItems: function (items, { results }) {
-  var query = (results && results.query ? results.query : "").trim().toLowerCase();
+        transformItems: function (items) {
+  // on récupère la query actuelle depuis l’helper
+  var query = "";
+  if (searchInstance && searchInstance.helper && searchInstance.helper.state) {
+    query = (searchInstance.helper.state.query || "").trim().toLowerCase();
+  }
 
-  // 1. même filtre géoloc qu’avant
+  // 1. filtre géoloc comme avant
   var filtered = items.filter(function (hit) {
     if (!currentGeoFilter) {
       if (hit.show_search === true) {
@@ -746,25 +750,25 @@ window.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // 2. score local de correspondance sur le nom
+  // 2. score local de match sur le name
   filtered.forEach(function (hit) {
     var name = (hit.name || "").toLowerCase();
     var score = 0;
 
     if (query) {
       if (name === query) {
-        score = 3; // match exact
-      } else if (name.startsWith(query)) {
-        score = 2; // commence par
+        score = 3;              // match exact
+      } else if (name.indexOf(query) === 0) {
+        score = 2;              // commence par
       } else if (name.indexOf(query) !== -1) {
-        score = 1; // contient
+        score = 1;              // contient
       }
     }
 
     hit.__localScore = score;
   });
 
-  // 3. tri final : score local → ranking → alpha
+  // 3. tri : score desc → ranking desc → alpha
   return filtered.slice().sort(function (a, b) {
     var scoreA = a.__localScore || 0;
     var scoreB = b.__localScore || 0;
