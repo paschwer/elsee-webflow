@@ -1044,29 +1044,32 @@ window.addEventListener("DOMContentLoaded", function () {
     updateUrlFromState(search.helper.state);
   }
 
-  // contrôle du bouton "show more"
+  // DEBUG show more
   var showMoreBtn = document.querySelector(".directory_show_more_button");
+  var cards = Array.prototype.slice
+    .call(document.querySelectorAll("#hits .directory_card_container"))
+    .filter(function (el) {
+      return el.offsetParent !== null;
+    });
+
+  console.log("[DEBUG hits] cartes visibles =", cards.length);
+  console.log("[DEBUG hits] bouton trouvé =", !!showMoreBtn);
+
+  var perPage = 48;
+
   if (showMoreBtn) {
-    var perPage = 48;
-
-    // on compte seulement les cartes visibles
-    var cards = Array.prototype.slice
-      .call(document.querySelectorAll("#hits .directory_card_container"))
-      .filter(function (el) {
-        return el.offsetParent !== null; // visible
-      });
-
-    // si on n'affiche pas une page complète → on cache
     if (cards.length < perPage) {
+      // si ton CSS force l’affichage, on enlève le bouton
+      console.log("[DEBUG hits] moins de", perPage, "résultats → on masque");
       showMoreBtn.style.display = "none";
+      // fallback brutal si le style ne marche pas
+      showMoreBtn.parentNode && showMoreBtn.parentNode.removeChild(showMoreBtn);
     } else {
       showMoreBtn.style.display = "inline-flex";
     }
-
-    // debug si besoin
-    // console.log("cartes visibles:", cards.length);
   }
 });
+
 
 
 
