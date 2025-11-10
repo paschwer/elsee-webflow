@@ -292,12 +292,9 @@ window.addEventListener("DOMContentLoaded", function () {
 // affichage du CTA bien-être
 var wellnessCtaEl = document.getElementById("adWellness-cta");
 if (wellnessCtaEl) {
-  // liste de valeurs possibles pour le type "centre bien-être"
+  // liste de valeurs possibles pour le type "Les salons esthétiques / centres bien-être"
   var WELLNESS_TYPE_NAMES = [
-    "Centre bien-être",
-    "Centres bien-être",
-    "Centre de bien-être",
-    "Centres de bien-être"
+    "Les salons esthétiques / centres bien-être"
   ];
 
   var hasWellnessSelected = selectedTypes.some(function (t) {
