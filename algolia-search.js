@@ -834,6 +834,31 @@ window.addEventListener("DOMContentLoaded", function () {
               }
             }
 
+            var photoClasses = "directory_card_photo";
+if (isNetwork) {
+  photoClasses += " is-label";
+}
+if (Therapeutes) {
+  photoClasses += " is-cover";
+} else {
+  photoClasses += " is-contain";
+}
+
+var photoDiv =
+  '<div class="directory_card_photo_container">' +
+  '<div class="' +
+  photoClasses +
+  '" style="' +
+  finalStyle +
+  '">' +
+  '<div class="directory_card_label_tag" style="display:' +
+  (isNetwork ? "flex" : "none") +
+  ';">' +
+  '<img src="https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/65a65b49a0e66151845cad61_mob_menu_logo_dark_green.svg" loading="lazy" alt="" class="directory_card_label_tag_logo">' +
+  "</div>" +
+  "</div>" +
+  "</div>";
+
             var photoDiv =
               '<div class="directory_card_photo_container">' +
               '<div class="directory_card_photo' +
