@@ -729,65 +729,56 @@ window.addEventListener("DOMContentLoaded", function () {
           loadMore: "directory_show_more_button"
         },
         transformItems: function (items) {
-  // on récupère la query actuelle depuis l’helper
   var query = "";
   if (searchInstance && searchInstance.helper && searchInstance.helper.state) {
     query = (searchInstance.helper.state.query || "").trim().toLowerCase();
   }
 
-  // 1. filtre géoloc comme avant
   var filtered = items.filter(function (hit) {
     if (!currentGeoFilter) {
-      if (hit.show_search === true) {
-        return false;
-      }
+      if (hit.show_search === true) return false;
       return true;
     } else {
-      if (hit.show_home === true) {
-        return false;
-      }
+      if (hit.show_home === true) return false;
       return true;
     }
   });
 
-  // 2. score local de match sur le name
   filtered.forEach(function (hit) {
     var name = (hit.name || "").toLowerCase();
     var score = 0;
 
     if (query) {
       if (name === query) {
-        score = 3;              // match exact
+        score = 3;
       } else if (name.indexOf(query) === 0) {
-        score = 2;              // commence par
+        score = 2;
       } else if (name.indexOf(query) !== -1) {
-        score = 1;              // contient
+        score = 1;
       }
     }
 
+    // bonus réseau léger
+    var networkBonus = hit.is_elsee_network ? 1 : 0;
+
     hit.__localScore = score;
+    hit.__networkBonus = networkBonus;
   });
 
-  // 3. tri : score desc → ranking desc → alpha
   return filtered.slice().sort(function (a, b) {
-    var scoreA = a.__localScore || 0;
-    var scoreB = b.__localScore || 0;
-    if (scoreA !== scoreB) {
-      return scoreB - scoreA;
+    // 1. score texte
+    if ((b.__localScore || 0) !== (a.__localScore || 0)) {
+      return (b.__localScore || 0) - (a.__localScore || 0);
     }
-
-    var rankA =
-      typeof a.ranking === "number"
-        ? a.ranking
-        : parseFloat(a.ranking) || 0;
-    var rankB =
-      typeof b.ranking === "number"
-        ? b.ranking
-        : parseFloat(b.ranking) || 0;
-    if (rankA !== rankB) {
-      return rankB - rankA;
+    // 2. réseau
+    if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
+      return (b.__networkBonus || 0) - (a.__networkBonus || 0);
     }
-
+    // 3. ranking métier
+    var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
+    var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
+    if (rankA !== rankB) return rankB - rankA;
+    // 4. alpha
     var nameA = (a.name || "").toLowerCase();
     var nameB = (b.name || "").toLowerCase();
     if (nameA < nameB) return -1;
