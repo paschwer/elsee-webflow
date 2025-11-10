@@ -289,23 +289,36 @@ window.addEventListener("DOMContentLoaded", function () {
           var norm = (t || "").toLowerCase();
           return norm === "thérapeutes" || norm === "therapeutes";
         });
-// affichage du CTA bien-être
+// affichage du CTA bien-être + debug
 var wellnessCtaEl = document.getElementById("adWellness-cta");
+
+// DEBUG : voir ce qu'on a vraiment comme types sélectionnés
+console.log("[CTA DEBUG] selectedTypes =", selectedTypes);
+
+// DEBUG : voir aussi les valeurs de facet "type" renvoyées par Algolia
+try {
+  var debugTypeFacets =
+    (results.getFacetValues && results.getFacetValues("type")) || [];
+  console.log("[CTA DEBUG] facet type values =", debugTypeFacets);
+} catch (e) {
+  console.log("[CTA DEBUG] error reading facet types", e);
+}
+
 if (wellnessCtaEl) {
-  // liste de valeurs possibles pour le type "Les salons esthétiques / centres bien-être"
+  // mets ici le libellé EXACT que tu vois dans la console
   var WELLNESS_TYPE_NAMES = [
     "salons esthétiques / centres bien-être"
-  ];
+  ].map(function (x) { return x.toLowerCase(); });
 
   var hasWellnessSelected = selectedTypes.some(function (t) {
     var norm = (t || "").trim().toLowerCase();
-    return WELLNESS_TYPE_NAMES.some(function (w) {
-      return norm === w.toLowerCase();
-    });
+    return WELLNESS_TYPE_NAMES.indexOf(norm) !== -1;
   });
 
   wellnessCtaEl.style.display = hasWellnessSelected ? "flex" : "none";
+  console.log("[CTA DEBUG] hasWellnessSelected =", hasWellnessSelected);
 }
+
 
         // c'est cette règle qui commande l'affichage visio/domicile
         var shouldShowTheraOnlyFilters = noTypeSelected || hasTheraSelected;
