@@ -295,28 +295,25 @@ var wellnessCtaEl = document.getElementById("adWellness-cta");
 // DEBUG : voir ce qu'on a vraiment comme types sélectionnés
 console.log("[CTA DEBUG] selectedTypes =", selectedTypes);
 
-// DEBUG : voir aussi les valeurs de facet "type" renvoyées par Algolia
-try {
-  var debugTypeFacets =
-    (results.getFacetValues && results.getFacetValues("type")) || [];
-  console.log("[CTA DEBUG] facet type values =", debugTypeFacets);
-} catch (e) {
-  console.log("[CTA DEBUG] error reading facet types", e);
-}
-
 if (wellnessCtaEl) {
-  // mets ici le libellé EXACT que tu vois dans la console
-  var WELLNESS_TYPE_NAMES = [
-    "salons esthétiques / centres bien-être"
-  ].map(function (x) { return x.toLowerCase(); });
+  // libellé exact renvoyé par Algolia
+  var WELLNESS_TYPE_NAME = "Salons esthétiques / Centres bien-être".toLowerCase();
 
-  var hasWellnessSelected = selectedTypes.some(function (t) {
-    var norm = (t || "").trim().toLowerCase();
-    return WELLNESS_TYPE_NAMES.indexOf(norm) !== -1;
+  // est-ce que le type bien-être est dans la sélection ?
+  var containsWellness = selectedTypes.some(function (t) {
+    return (t || "").trim().toLowerCase() === WELLNESS_TYPE_NAME;
   });
 
-  wellnessCtaEl.style.display = hasWellnessSelected ? "flex" : "none";
-  console.log("[CTA DEBUG] hasWellnessSelected =", hasWellnessSelected);
+  // on ne montre que si c'est le SEUL type sélectionné
+  var showCta =
+    containsWellness &&
+    selectedTypes.length === 1;
+
+  wellnessCtaEl.style.display = showCta ? "flex" : "none";
+
+  console.log("[CTA DEBUG] containsWellness =", containsWellness);
+  console.log("[CTA DEBUG] selectedTypes.length =", selectedTypes.length);
+  console.log("[CTA DEBUG] showCta =", showCta);
 }
 
 
