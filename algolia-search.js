@@ -1044,34 +1044,49 @@ window.addEventListener("DOMContentLoaded", function () {
     updateUrlFromState(search.helper.state);
   }
 
-  // DEBUG show more
-  var showMoreBtn = document.querySelector(".directory_show_more_button");
+  var perPage = 48;
+
+  // cartes visibles
   var cards = Array.prototype.slice
     .call(document.querySelectorAll("#hits .directory_card_container"))
     .filter(function (el) {
       return el.offsetParent !== null;
     });
 
+  // bouton lui-même
+  var showMoreBtn = document.querySelector(".directory_show_more_button");
+
+  // wrapper algolia autour du bouton (nom courant)
+  var showMoreWrapper = document.querySelector(
+    "#hits .ais-InfiniteHits-loadMore"
+  );
+
   console.log("[DEBUG hits] cartes visibles =", cards.length);
   console.log("[DEBUG hits] bouton trouvé =", !!showMoreBtn);
+  console.log("[DEBUG hits] wrapper trouvé =", !!showMoreWrapper);
 
-  var perPage = 48;
+  var mustHide = cards.length < perPage;
 
-  if (showMoreBtn) {
-    if (cards.length < perPage) {
-      // si ton CSS force l’affichage, on enlève le bouton
-      console.log("[DEBUG hits] moins de", perPage, "résultats → on masque");
+  if (mustHide) {
+    // on cache le bouton
+    if (showMoreBtn) {
       showMoreBtn.style.display = "none";
-      // fallback brutal si le style ne marche pas
-      showMoreBtn.parentNode && showMoreBtn.parentNode.removeChild(showMoreBtn);
-    } else {
+    }
+    // on cache aussi le wrapper (souvent le vrai conteneur)
+    if (showMoreWrapper) {
+      showMoreWrapper.style.display = "none";
+      // si vraiment le style ne gagne pas :
+      // showMoreWrapper.innerHTML = "";
+    }
+  } else {
+    if (showMoreWrapper) {
+      showMoreWrapper.style.display = "";
+    }
+    if (showMoreBtn) {
       showMoreBtn.style.display = "inline-flex";
     }
   }
 });
-
-
-
 
     // 10. CLIC GLOBAL SHOW MORE ----------------------------------------------
     document.addEventListener("click", function (e) {
