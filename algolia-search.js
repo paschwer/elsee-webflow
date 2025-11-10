@@ -966,22 +966,35 @@ window.addEventListener("DOMContentLoaded", function () {
               "</div></div>" +
               "</div>";
 
-            var tagItems;
-            if (Therapeutes) {
-              tagItems = toArray(hit.prestations).slice(0, 2);
-            } else {
-              tagItems = toArray(hit.specialities).slice(0, 2);
-            }
+            var rawTags;
+if (Therapeutes) {
+  rawTags = toArray(hit.prestations);
+} else {
+  rawTags = toArray(hit.specialities);
+}
 
-            var prestasHtml = tagItems
-              .map(function (p) {
-                return (
-                  '<div class="directory_card_prestation_tag"><div>' +
-                  p +
-                  "</div></div>"
-                );
-              })
-              .join("");
+var maxTags = 2;
+var visibleTags = rawTags.slice(0, maxTags);
+var extraCount = rawTags.length > maxTags ? rawTags.length - maxTags : 0;
+
+var prestasHtml = visibleTags
+  .map(function (p) {
+    return (
+      '<div class="directory_card_prestation_tag"><div>' +
+      p +
+      "</div></div>"
+    );
+  })
+  .join("");
+
+// si plus que la limite, on ajoute un tag "+X"
+if (extraCount > 0) {
+  prestasHtml +=
+    '<div class="directory_card_prestation_tag"><div>+' +
+    extraCount +
+    "</div></div>";
+}
+
 
             var prestationsDiv =
               '<div class="directory_card_prestations_container">' +
