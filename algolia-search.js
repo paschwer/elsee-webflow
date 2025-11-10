@@ -728,54 +728,74 @@ window.addEventListener("DOMContentLoaded", function () {
         cssClasses: {
           loadMore: "directory_show_more_button"
         },
-        transformItems: function (items) {
-          // 1. règle d’affichage liée à la géoloc
-          var filtered = items.filter(function (hit) {
-            // pas de géo → on ne veut pas voir les résultats “faits pour la recherche”
-            if (!currentGeoFilter) {
-              if (hit.show_search === true) {
-                return false;
-              }
-              return true; // champ absent ou false → ok
-            }
+        transformItems: function (items, { results }) {
+  var query = (results && results.query ? results.query : "").trim().toLowerCase();
 
-            // géo → on ne veut pas voir les résultats “faits pour la home”
-            if (currentGeoFilter) {
-              if (hit.show_home === true) {
-                return false;
-              }
-              return true;
-            }
+  // 1. même filtre géoloc qu’avant
+  var filtered = items.filter(function (hit) {
+    if (!currentGeoFilter) {
+      if (hit.show_search === true) {
+        return false;
+      }
+      return true;
+    } else {
+      if (hit.show_home === true) {
+        return false;
+      }
+      return true;
+    }
+  });
 
-            return true;
-          });
+  // 2. score local de correspondance sur le nom
+  filtered.forEach(function (hit) {
+    var name = (hit.name || "").toLowerCase();
+    var score = 0;
 
-          // 2. tri global : ranking DESC puis name ASC
-          return filtered.slice().sort(function (a, b) {
-            var rankA =
-              typeof a.ranking === "number"
-                ? a.ranking
-                : parseFloat(a.ranking) || 0;
-            var rankB =
-              typeof b.ranking === "number"
-                ? b.ranking
-                : parseFloat(b.ranking) || 0;
+    if (query) {
+      if (name === query) {
+        score = 3; // match exact
+      } else if (name.startsWith(query)) {
+        score = 2; // commence par
+      } else if (name.indexOf(query) !== -1) {
+        score = 1; // contient
+      }
+    }
 
-            if (rankA !== rankB) {
-              return rankB - rankA;
-            }
+    hit.__localScore = score;
+  });
 
-            var nameA = (a.name || "").toLowerCase();
-            var nameB = (b.name || "").toLowerCase();
-            if (nameA < nameB) return -1;
-            if (nameA > nameB) return 1;
-            return 0;
-          });
-        },
+  // 3. tri final : score local → ranking → alpha
+  return filtered.slice().sort(function (a, b) {
+    var scoreA = a.__localScore || 0;
+    var scoreB = b.__localScore || 0;
+    if (scoreA !== scoreB) {
+      return scoreB - scoreA;
+    }
+
+    var rankA =
+      typeof a.ranking === "number"
+        ? a.ranking
+        : parseFloat(a.ranking) || 0;
+    var rankB =
+      typeof b.ranking === "number"
+        ? b.ranking
+        : parseFloat(b.ranking) || 0;
+    if (rankA !== rankB) {
+      return rankB - rankA;
+    }
+
+    var nameA = (a.name || "").toLowerCase();
+    var nameB = (b.name || "").toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+},
+
         templates: {
           item: function (hit) {
             var photoUrl = hit.photo_url || "";
-            var isNetwork = true; // on force le badge
+            var isNetwork = !!hit.is_elsee_network; // vrai seulement si le record l’est
             var isRemote = !!hit.is_remote;
             var isAtHome = !!hit.is_at_home;
             var reimbursement =
