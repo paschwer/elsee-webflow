@@ -289,6 +289,26 @@ window.addEventListener("DOMContentLoaded", function () {
           var norm = (t || "").toLowerCase();
           return norm === "thérapeutes" || norm === "therapeutes";
         });
+// affichage du CTA bien-être
+var wellnessCtaEl = document.getElementById("adWellness-cta");
+if (wellnessCtaEl) {
+  // liste de valeurs possibles pour le type "centre bien-être"
+  var WELLNESS_TYPE_NAMES = [
+    "Centre bien-être",
+    "Centres bien-être",
+    "Centre de bien-être",
+    "Centres de bien-être"
+  ];
+
+  var hasWellnessSelected = selectedTypes.some(function (t) {
+    var norm = (t || "").trim().toLowerCase();
+    return WELLNESS_TYPE_NAMES.some(function (w) {
+      return norm === w.toLowerCase();
+    });
+  });
+
+  wellnessCtaEl.style.display = hasWellnessSelected ? "flex" : "none";
+}
 
         // c'est cette règle qui commande l'affichage visio/domicile
         var shouldShowTheraOnlyFilters = noTypeSelected || hasTheraSelected;
