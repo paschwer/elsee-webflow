@@ -291,23 +291,20 @@ window.addEventListener("DOMContentLoaded", function () {
         });
 // affichage du CTA bien-être + debug
 var wellnessCtaEl = document.getElementById("adWellness-cta");
+console.log("[CTA DEBUG] élément #adWellness-cta trouvé =", !!wellnessCtaEl);
 
-// DEBUG : voir ce qu'on a vraiment comme types sélectionnés
 console.log("[CTA DEBUG] selectedTypes =", selectedTypes);
 
 if (wellnessCtaEl) {
-  // libellé exact renvoyé par Algolia
-  var WELLNESS_TYPE_NAME = "Salons esthétiques / Centres bien-être".toLowerCase();
+  var WELLNESS_TYPE_NAME =
+    "Salons esthétiques / Centres bien-être".toLowerCase();
 
-  // est-ce que le type bien-être est dans la sélection ?
   var containsWellness = selectedTypes.some(function (t) {
     return (t || "").trim().toLowerCase() === WELLNESS_TYPE_NAME;
   });
 
-  // on ne montre que si c'est le SEUL type sélectionné
-  var showCta =
-    containsWellness &&
-    selectedTypes.length === 1;
+  // afficher seulement si c'est le seul type
+  var showCta = containsWellness && selectedTypes.length === 1;
 
   wellnessCtaEl.style.display = showCta ? "flex" : "none";
 
@@ -315,6 +312,7 @@ if (wellnessCtaEl) {
   console.log("[CTA DEBUG] selectedTypes.length =", selectedTypes.length);
   console.log("[CTA DEBUG] showCta =", showCta);
 }
+
 
 
         // c'est cette règle qui commande l'affichage visio/domicile
