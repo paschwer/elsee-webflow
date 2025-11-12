@@ -123,11 +123,11 @@ window.addEventListener("DOMContentLoaded", function () {
     var css = `
       .directory_sidebar_ctas_container .directory_sidebar_cta_wrapper { display: none !important; }
 
-      body[data-cta="wellness"]   #adWellness-cta  { display: flex !important; }
-      body[data-cta="therapeutes"]#adTherapist-cta { display: flex !important; }
-      body[data-cta="marques"]    #adBrand-cta     { display: flex !important; }
-      body[data-cta="programmes"] #adProgram-cta   { display: flex !important; }
-      body[data-cta="sports"]     #adSport-cta     { display: flex !important; }
+      body[data-cta="wellness"]    #adWellness-cta  { display: flex !important; }
+      body[data-cta="therapeutes"] #adTherapist-cta { display: flex !important; }
+      body[data-cta="marques"]     #adBrand-cta     { display: flex !important; }
+      body[data-cta="programmes"]  #adProgram-cta   { display: flex !important; }
+      body[data-cta="sports"]      #adSport-cta     { display: flex !important; }
     `;
     var style = document.createElement("style");
     style.id = "cta-style-global";
