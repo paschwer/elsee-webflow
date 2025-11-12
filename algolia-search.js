@@ -290,28 +290,42 @@ window.addEventListener("DOMContentLoaded", function () {
           return norm === "thérapeutes" || norm === "therapeutes";
         });
 // affichage du CTA bien-être + debug
+// --- affichage du CTA bien-être (exclusif) ---
 var wellnessCtaEl = document.getElementById("adWellness-cta");
-console.log("[CTA DEBUG] élément #adWellness-cta trouvé =", !!wellnessCtaEl);
-
-console.log("[CTA DEBUG] selectedTypes =", selectedTypes);
-
 if (wellnessCtaEl) {
-  var WELLNESS_TYPE_NAME =
-    "Salons esthétiques / Centres bien-être".toLowerCase();
+  // noms acceptés pour le type "salons esthétiques / centres bien-être"
+  var WELLNESS_TYPE_NAMES = [
+    "salons esthétiques / centres bien-être"
+    // ajoute d'éventuels alias ici si nécessaire
+  ];
 
-  var containsWellness = selectedTypes.some(function (t) {
-    return (t || "").trim().toLowerCase() === WELLNESS_TYPE_NAME;
+  var selectedLower = selectedTypes.map(function (t) {
+    return (t || "").trim().toLowerCase();
   });
 
-  // afficher seulement si c'est le seul type
-  var showCta = containsWellness && selectedTypes.length === 1;
+  var isWellnessSelected = selectedLower.some(function (t) {
+    return WELLNESS_TYPE_NAMES.indexOf(t) !== -1;
+  });
 
+  // au moins un autre type sélectionné que le "wellness" ?
+  var hasOtherTypes = selectedLower.filter(Boolean).some(function (t) {
+    return WELLNESS_TYPE_NAMES.indexOf(t) === -1;
+  });
+
+  // on n'affiche que si "wellness" est le seul type sélectionné
+  var showCta = isWellnessSelected && !hasOtherTypes;
   wellnessCtaEl.style.display = showCta ? "flex" : "none";
 
-  console.log("[CTA DEBUG] containsWellness =", containsWellness);
-  console.log("[CTA DEBUG] selectedTypes.length =", selectedTypes.length);
-  console.log("[CTA DEBUG] showCta =", showCta);
+  // logs de debug
+  console.group("[Wellness CTA]");
+  console.log("element found:", !!wellnessCtaEl, wellnessCtaEl);
+  console.log("selectedTypes:", selectedTypes);
+  console.log("isWellnessSelected:", isWellnessSelected);
+  console.log("hasOtherTypes:", hasOtherTypes);
+  console.log("showCta:", showCta);
+  console.groupEnd();
 }
+
 
 
 
