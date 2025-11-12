@@ -1177,11 +1177,11 @@ function buildCardHTML(hit) {
 
   var photoDiv =
     '<div class="directory_card_photo_container">' +
-    '<div class="' + photoClasses + '" style="' + finalStyle + '">' +
-      '<div class="directory_card_label_tag" style="display:' + (isNetwork ? "flex" : "none") + ';">' +
-        '<img src="https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/65a65b49a0e66151845cad61_mob_menu_logo_dark_green.svg" loading="lazy" alt="" class="directory_card_label_tag_logo">' +
+      '<div class="' + photoClasses + '" style="' + finalStyle + '">' +
+        '<div class="directory_card_label_tag" style="display:' + (isNetwork ? "flex" : "none") + ';">' +
+          '<img src="https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/65a65b49a0e66151845cad61_mob_menu_logo_dark_green.svg" loading="lazy" alt="" class="directory_card_label_tag_logo">' +
+        "</div>" +
       "</div>" +
-    "</div>" +
     "</div>";
 
   var remoteIcon =
@@ -1203,7 +1203,7 @@ function buildCardHTML(hit) {
 
   var titleDiv = '<div class="directory_card_title"><div>' + name + "</div></div>";
 
-  // details 1 & 2
+  // détails 1 & 2
   var partnerDetails1Html, partnerDetails2Html;
 
   if (Therapeutes) {
@@ -1213,7 +1213,7 @@ function buildCardHTML(hit) {
     var jobsArr = toArray(hit.jobs);
     var jobsTxt;
     if (jobsArr.length > 3) {
-      jobsTxt = jobsArr.slice(0,3).join(", ") + " +" + (jobsArr.length - 3);
+      jobsTxt = jobsArr.slice(0, 3).join(", ") + " +" + (jobsArr.length - 3);
     } else {
       jobsTxt = jobsArr.join(", ");
     }
@@ -1250,7 +1250,6 @@ function buildCardHTML(hit) {
   }
   var prestationsDiv = '<div class="directory_card_prestations_container">' + prestasHtml + "</div>";
 
-  // 👉 On ne met PAS de <li> ici, seulement le corps
   return (
     '<a href="' + url + '" class="directory_card_body">' +
       '<div class="directory_card_upper_container">' +
@@ -1264,6 +1263,7 @@ function buildCardHTML(hit) {
     '</a>'
   );
 }
+
 
 
 // === Tri identique à transformItems principal ===
@@ -1350,7 +1350,6 @@ function renderInto(containerId, hits) {
   var container = document.getElementById(containerId);
   if (!container) return;
 
-  // Récupère la requête actuelle
   var query =
     (searchInstance &&
       searchInstance.helper &&
@@ -1358,17 +1357,21 @@ function renderInto(containerId, hits) {
       searchInstance.helper.state.query) ||
     "";
 
-  // Trie les résultats comme le bloc principal
   var sorted = sortHitsLikeMain(hits, query);
 
-  // Structure identique à InstantSearch : <ol> + <li>
   container.innerHTML =
     '<ol class="ais-InfiniteHits-list">' +
     sorted.map(function (hit) {
-      return buildCardHTML(hit); // le <li> est déjà dans buildCardHTML()
-    }).join("") +
-    "</ol>";
+      // même structure que le hit principal
+      return '<li class="ais-InfiniteHits-item">' +
+               '<li class="directory_card_container">' +
+                 buildCardHTML(hit) +
+               '</li>' +
+             '</li>';
+    }).join('') +
+    '</ol>';
 }
+
 
 
 
