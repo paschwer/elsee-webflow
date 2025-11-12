@@ -415,6 +415,7 @@ if (typeof window.__toggleTypeCTAs === "function") {
     window.__ensureCTAObserver();
   }
 }
+}
 
 
 
