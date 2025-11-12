@@ -289,42 +289,6 @@ window.addEventListener("DOMContentLoaded", function () {
           var norm = (t || "").toLowerCase();
           return norm === "thérapeutes" || norm === "therapeutes";
         });
-// affichage du CTA bien-être + debug
-// --- affichage du CTA bien-être (exclusif) ---
-var wellnessCtaEl = document.getElementById("adWellness-cta");
-if (wellnessCtaEl) {
-  // noms acceptés pour le type "salons esthétiques / centres bien-être"
-  var WELLNESS_TYPE_NAMES = [
-    "salons esthétiques / centres bien-être"
-    // ajoute d'éventuels alias ici si nécessaire
-  ];
-
-  var selectedLower = selectedTypes.map(function (t) {
-    return (t || "").trim().toLowerCase();
-  });
-
-  var isWellnessSelected = selectedLower.some(function (t) {
-    return WELLNESS_TYPE_NAMES.indexOf(t) !== -1;
-  });
-
-  // au moins un autre type sélectionné que le "wellness" ?
-  var hasOtherTypes = selectedLower.filter(Boolean).some(function (t) {
-    return WELLNESS_TYPE_NAMES.indexOf(t) === -1;
-  });
-
-  // on n'affiche que si "wellness" est le seul type sélectionné
-  var showCta = isWellnessSelected && !hasOtherTypes;
-  wellnessCtaEl.style.display = showCta ? "flex" : "none";
-
-  // logs de debug
-  console.group("[Wellness CTA]");
-  console.log("element found:", !!wellnessCtaEl, wellnessCtaEl);
-  console.log("selectedTypes:", selectedTypes);
-  console.log("isWellnessSelected:", isWellnessSelected);
-  console.log("hasOtherTypes:", hasOtherTypes);
-  console.log("showCta:", showCta);
-  console.groupEnd();
-}
 
 
 
@@ -352,38 +316,64 @@ if (wellnessCtaEl) {
           })
           .join("");
         typeWrapper.innerHTML = typeHtml;
+var typesAltWrapper = document.getElementById("directory_types");
+if (typesAltWrapper) {
+  var hasTypeSelected = selectedTypes.length > 0;
 
-        var typesAltWrapper = document.getElementById("directory_types");
-        if (typesAltWrapper) {
-          var hasTypeSelected = selectedTypes.length > 0;
+  var altHtml =
+    '<div class="directory_category_tag_wrapper ' +
+    (hasTypeSelected ? "" : "is-selected") +
+    '" data-facet-name="type" data-facet-value="__ALL_TYPES__">Toutes les catégories</div>';
 
-          var altHtml =
-            '<div class="directory_category_tag_wrapper ' +
-            (hasTypeSelected ? "" : "is-selected") +
-            '" data-facet-name="type" data-facet-value="__ALL_TYPES__">Toutes les catégories</div>';
+  altHtml += typeFacetValues
+    .filter(function (fv) {
+      return fv && fv.name;
+    })
+    .map(function (fv) {
+      var key = "type:::" + fv.name;
+      var isSelected = selectedFacetTags.has(key);
+      var label = "Les " + fv.name.toLowerCase();
+      return (
+        '<div class="directory_category_tag_wrapper ' +
+        (isSelected ? "is-selected" : "") +
+        '" data-facet-name="type" data-facet-value="' +
+        fv.name +
+        '">' +
+        label +
+        "</div>"
+      );
+    })
+    .join("");
 
-          altHtml += typeFacetValues
-            .filter(function (fv) {
-              return fv && fv.name;
-            })
-            .map(function (fv) {
-              var key = "type:::" + fv.name;
-              var isSelected = selectedFacetTags.has(key);
-              var label = "Les " + fv.name.toLowerCase();
-              return (
-                '<div class="directory_category_tag_wrapper ' +
-                (isSelected ? "is-selected" : "") +
-                '" data-facet-name="type" data-facet-value="' +
-                fv.name +
-                '">' +
-                label +
-                "</div>"
-              );
-            })
-            .join("");
+  typesAltWrapper.innerHTML = altHtml;
+}
 
-          typesAltWrapper.innerHTML = altHtml;
-        }
+// --- [WELLNESS CTA - exclusif] ---------------------------------------------
+(function () {
+  var wellnessCtaEl = document.getElementById("adWellness-cta");
+  if (!wellnessCtaEl) {
+    console.log("[Wellness CTA] element not found");
+    return;
+  }
+
+  // Recalcule les types réellement sélectionnés à partir de la source de vérité (Set global)
+  var selectedTypesNow = Array.from(selectedFacetTags)
+    .filter(function (k) { return k.indexOf("type:::") === 0; })
+    .map(function (k) { return (k.split(":::")[1] || "").trim().toLowerCase(); });
+
+  var WELLNESS_SLUG = "salons esthétiques / centres bien-être";
+
+  var isWellnessSelected = selectedTypesNow.indexOf(WELLNESS_SLUG) !== -1;
+  var hasOtherTypes = selectedTypesNow.length > 1;
+  var showCta = isWellnessSelected && !hasOtherTypes;
+
+  console.log("[Wellness CTA] selectedTypes:", selectedTypesNow);
+  console.log("[Wellness CTA] showCta:", showCta);
+
+  // Force l’affichage (bat les règles CSS agressives)
+  wellnessCtaEl.style.setProperty("display", showCta ? "flex" : "none", "important");
+})();
+
 
         // SPÉCIALITÉS ---------------------------------------------------------
         var speFacetValues =
