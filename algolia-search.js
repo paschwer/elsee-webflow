@@ -1354,23 +1354,32 @@ function renderInto(containerId, hits) {
     (searchInstance &&
       searchInstance.helper &&
       searchInstance.helper.state &&
-      searchInstance.helper.state.query) ||
-    "";
+      searchInstance.helper.state.query) || "";
 
   var sorted = sortHitsLikeMain(hits, query);
 
-  container.innerHTML =
+  // Structure voulue : un <ol> ... et pour chaque hit :
+  // <li class="ais-InfiniteHits-item">
+  //   <div class="directory_card_container"> ... </div>
+  // </li>
+  var html =
     '<ol class="ais-InfiniteHits-list">' +
-    sorted.map(function (hit) {
-      // même structure que le hit principal
-      return '<li class="ais-InfiniteHits-item">' +
-               '<li class="directory_card_container">' +
-                 buildCardHTML(hit) +
-               '</li>' +
-             '</li>';
-    }).join('') +
+    sorted
+      .map(function (hit) {
+        return (
+          '<li class="ais-InfiniteHits-item">' +
+            '<div class="directory_card_container">' +
+              buildCardHTML(hit) +            // buildCardHTML retourne SEULEMENT le <a class="directory_card_body">…</a>
+            '</div>' +
+          '</li>'
+        );
+      })
+      .join('') +
     '</ol>';
+
+  container.innerHTML = html;
 }
+
 
 
 
