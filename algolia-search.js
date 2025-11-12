@@ -115,8 +115,19 @@ window.addEventListener("DOMContentLoaded", function () {
     }
 
     
-    // === Helpers CTA par type (générique) ===
+    // === Helpers CTA par type (générique) =======================================
 (function () {
+  // normalise: trim + lower + suppression des accents
+  function norm(s) {
+    return (s || "")
+      .toString()
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
+  }
+
+  // Libellés EXACTS tels qu'Algolia les renvoie (tu ajustes si besoin)
   var TYPE_TO_CTA = {
     "salons esthétiques / centres bien-être": "adWellness-cta",
     "thérapeutes": "adTherapist-cta",
@@ -125,57 +136,70 @@ window.addEventListener("DOMContentLoaded", function () {
     "sports": "adSport-cta"
   };
 
-  function norm(s){ return (s||"").trim().toLowerCase(); }
+  // Map normalisée → id CTA (robuste aux accents/casse)
+  var NORM_TO_ID = {};
+  Object.keys(TYPE_TO_CTA).forEach(function (label) {
+    NORM_TO_ID[norm(label)] = TYPE_TO_CTA[label];
+  });
+
+  function getEl(id) {
+    var el = document.getElementById(id);
+    if (!el) console.warn("[CTA] introuvable:", id);
+    return el;
+  }
+
+  function hideAll() {
+    Object.values(TYPE_TO_CTA).forEach(function (id) {
+      var el = getEl(id);
+      if (el) el.style.setProperty("display", "none", "important");
+    });
+  }
 
   function toggleTypeCTAs(selectedTypes) {
-    var ids = Object.values(TYPE_TO_CTA);
-    // cache tout par défaut
-    ids.forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) el.style.setProperty("display","none","important");
-    });
+    hideAll();
 
-    if (!Array.isArray(selectedTypes)) selectedTypes = [];
-    if (selectedTypes.length !== 1) return; // visible uniquement si un seul type est sélectionné
-
-    var sel = norm(selectedTypes[0]);
-    var targetId = null;
-
-    Object.keys(TYPE_TO_CTA).some(function(label){
-      if (norm(label) === sel) {
-        targetId = TYPE_TO_CTA[label];
-        return true;
-      }
-      return false;
-    });
-
-    if (targetId) {
-      var target = document.getElementById(targetId);
-      if (target) target.style.setProperty("display","flex","important");
+    var list = Array.isArray(selectedTypes) ? selectedTypes : [];
+    if (list.length !== 1) {
+      console.log("[CTA] 0 ou >1 type sélectionné → tout caché", list);
+      return;
     }
+
+    var key = norm(list[0]);
+    var ctaId = NORM_TO_ID[key];
+    console.log("[CTA] type sélectionné =", list[0], "→ id ciblé =", ctaId);
+
+    if (!ctaId) return;
+    var el = getEl(ctaId);
+    if (el) el.style.setProperty("display", "flex", "important");
   }
 
   function ensureCTAObserver() {
     if (window.__ctaObserverAttached) return;
     window.__ctaObserverAttached = true;
 
-    var container = document.querySelector(".directory_sidebar_ctas_container") || document.body;
-    if (!container) return;
+    var container =
+      document.querySelector(".directory_sidebar_ctas_container") ||
+      document.body;
 
-    var obs = new MutationObserver(function(){
-      // réapplique la règle si Webflow/Algolia réinjecte du DOM
-      if (window.__lastSelectedTypes) toggleTypeCTAs(window.__lastSelectedTypes);
+    var obs = new MutationObserver(function () {
+      if (window.__lastSelectedTypes) {
+        toggleTypeCTAs(window.__lastSelectedTypes);
+      }
     });
     obs.observe(container, { childList: true, subtree: true });
     window.__ctaObserver = obs;
   }
 
-  window.__toggleTypeCTAs = function(selectedTypes){
+  window.__toggleTypeCTAs = function (selectedTypes) {
     window.__lastSelectedTypes = selectedTypes ? selectedTypes.slice() : [];
     toggleTypeCTAs(window.__lastSelectedTypes);
   };
   window.__ensureCTAObserver = ensureCTAObserver;
+
+  // État initial: tout caché au chargement
+  hideAll();
 })();
+
 
 
 
