@@ -117,30 +117,24 @@ window.addEventListener("DOMContentLoaded", function () {
     
     // === Helpers CTA par type (générique) =======================================
 (function () {
-  // normalise: trim + lower + suppression des accents
+  // normalisation sûre (sans \p{Diacritic} pour compat max)
   function norm(s) {
     return (s || "")
       .toString()
       .trim()
       .toLowerCase()
       .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "");
+      .replace(/[\u0300-\u036f]/g, ""); // retire accents
   }
 
-  // Libellés EXACTS tels qu'Algolia les renvoie (tu ajustes si besoin)
-  var TYPE_TO_CTA = {
-    "salons esthétiques / centres bien-être": "adWellness-cta",
-    "thérapeutes": "adTherapist-cta",
-    "marques": "adBrand-cta",
-    "applications et programmes": "adProgram-cta",
-    "sports": "adSport-cta"
-  };
-
-  // Map normalisée → id CTA (robuste aux accents/casse)
-  var NORM_TO_ID = {};
-  Object.keys(TYPE_TO_CTA).forEach(function (label) {
-    NORM_TO_ID[norm(label)] = TYPE_TO_CTA[label];
-  });
+  // Mots-clés → id CTA (match par "contient" après normalisation)
+  var MATCHERS = [
+    { kw: "salons esthetiques / centres bien-etre", id: "adWellness-cta" },
+    { kw: "therapeutes", id: "adTherapist-cta" },
+    { kw: "marques", id: "adBrand-cta" },
+    { kw: "applications et programmes", id: "adProgram-cta" },
+    { kw: "sports", id: "adSport-cta" }
+  ];
 
   function getEl(id) {
     var el = document.getElementById(id);
@@ -149,30 +143,42 @@ window.addEventListener("DOMContentLoaded", function () {
   }
 
   function hideAll() {
-    Object.values(TYPE_TO_CTA).forEach(function (id) {
-      var el = getEl(id);
+    MATCHERS.forEach(function (m) {
+      var el = getEl(m.id);
       if (el) el.style.setProperty("display", "none", "important");
     });
   }
 
+  function idFromTypeLabel(label) {
+    var n = norm(label);
+    for (var i = 0; i < MATCHERS.length; i++) {
+      if (n.indexOf(MATCHERS[i].kw) !== -1) return MATCHERS[i].id;
+    }
+    return null;
+  }
+
   function toggleTypeCTAs(selectedTypes) {
+    var list = Array.isArray(selectedTypes) ? selectedTypes : [];
+    console.log("[CTA] selectedTypes =", list);
+
+    // Cache tout d’abord
     hideAll();
 
-    var list = Array.isArray(selectedTypes) ? selectedTypes : [];
+    // Affiche seulement si un unique type est choisi
     if (list.length !== 1) {
-      console.log("[CTA] 0 ou >1 type sélectionné → tout caché", list);
+      console.log("[CTA] 0 ou >1 type → tout caché");
       return;
     }
 
-    var key = norm(list[0]);
-    var ctaId = NORM_TO_ID[key];
-    console.log("[CTA] type sélectionné =", list[0], "→ id ciblé =", ctaId);
+    var targetId = idFromTypeLabel(list[0]);
+    console.log("[CTA] type choisi:", list[0], "→ id ciblé:", targetId);
 
-    if (!ctaId) return;
-    var el = getEl(ctaId);
+    if (!targetId) return;
+    var el = getEl(targetId);
     if (el) el.style.setProperty("display", "flex", "important");
   }
 
+  // Observer pour réappliquer après réinjections DOM
   function ensureCTAObserver() {
     if (window.__ctaObserverAttached) return;
     window.__ctaObserverAttached = true;
@@ -188,17 +194,31 @@ window.addEventListener("DOMContentLoaded", function () {
     });
     obs.observe(container, { childList: true, subtree: true });
     window.__ctaObserver = obs;
+    console.log("[CTA] observer attaché sur", container);
   }
 
+  // Expose
   window.__toggleTypeCTAs = function (selectedTypes) {
     window.__lastSelectedTypes = selectedTypes ? selectedTypes.slice() : [];
-    toggleTypeCTAs(window.__lastSelectedTypes);
+    // s’assure que les CTAs existent au moment d’appliquer
+    requestAnimationFrame(function () {
+      toggleTypeCTAs(window.__lastSelectedTypes);
+    });
   };
   window.__ensureCTAObserver = ensureCTAObserver;
 
-  // État initial: tout caché au chargement
-  hideAll();
+  // État initial (au cas où les éléments sont déjà là)
+  // + retard minimal pour laisser Webflow injecter
+  setTimeout(hideAll, 0);
+
+  // Petit util debug manuel dans la console:
+  // window.__testCTA("Thérapeutes")
+  window.__testCTA = function (label) {
+    console.log("[CTA][TEST] forçant avec label =", label);
+    window.__toggleTypeCTAs([label]);
+  };
 })();
+
 
 
 
