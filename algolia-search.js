@@ -343,32 +343,43 @@ if (typesAltWrapper) {
 
   typesAltWrapper.innerHTML = altHtml;
 
-  // === CTA bien-être : visible seulement si ce type est l’UNIQUE sélectionné ===
-  var wellnessCtaEl = document.getElementById("adWellness-cta");
-  if (wellnessCtaEl) {
-    var WELLNESS_NAME = "Salons esthétiques / Centres bien-être";
+  // === CTA bien-être : visible uniquement si ce type est l’unique sélectionné ===
+var WELLNESS_NAME = "Salons esthétiques / Centres bien-être";
 
-    // log debug
-    console.log("[Wellness CTA]");
-    console.log("element found:", true);
-    console.log("selectedTypes:", selectedTypes);
+// Debug
+console.log("[Wellness CTA] selectedTypes =", selectedTypes);
 
-    var isWellnessSelected = selectedTypes.some(function (t) {
-      return (t || "").trim().toLowerCase() === WELLNESS_NAME.toLowerCase();
-    });
-    var hasOtherTypes = selectedTypes.some(function (t) {
-      return (t || "").trim().toLowerCase() !== WELLNESS_NAME.toLowerCase();
-    });
+var isWellnessSelected = selectedTypes.some(function (t) {
+  return (t || "").trim().toLowerCase() === WELLNESS_NAME.toLowerCase();
+});
+var hasOtherTypes = selectedTypes.some(function (t) {
+  return (t || "").trim().toLowerCase() !== WELLNESS_NAME.toLowerCase();
+});
+var showCta = isWellnessSelected && !hasOtherTypes;
 
-    var showCta = isWellnessSelected && !hasOtherTypes;
-    console.log("isWellnessSelected:", isWellnessSelected);
-    console.log("hasOtherTypes:", hasOtherTypes);
-    console.log("showCta:", showCta);
+var wellnessEls = document.querySelectorAll('#adWellness-cta'); // toutes les instances
+if (wellnessEls.length === 0) {
+  console.warn("[Wellness CTA] Aucun élément #adWellness-cta trouvé");
+} else {
+  wellnessEls.forEach(function (el, idx) {
+    try {
+      // priorité maximum face aux classes !important éventuelles
+      el.style.setProperty("display", showCta ? "flex" : "none", "important");
 
-    // forcer la priorité même face à du CSS avec !important
-    wellnessCtaEl.style.setProperty("display", showCta ? "flex" : "none", "important");
-  }
+      // logs utiles
+      var comp = window.getComputedStyle(el).display;
+      console.log(
+        "[Wellness CTA] idx=", idx,
+        "set to:", showCta ? "flex" : "none",
+        "computed:", comp,
+        "node:", el
+      );
+    } catch (e) {
+      console.error("[Wellness CTA] setProperty error", e);
+    }
+  });
 }
+
 
 
 
