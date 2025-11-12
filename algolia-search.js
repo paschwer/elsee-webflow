@@ -27,6 +27,8 @@ window.addEventListener("DOMContentLoaded", function () {
   var hasUserLaunchedSearch = false;
   var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
   var DIRECTORY_BASE_URL = "https://elsee-v-0.webflow.io/lannuaire-des-partenaires-elsee";
+  var mainHitHrefSet = new Set();
+
 
 
   // 3. INIT ------------------------------------------------------------------
@@ -1362,7 +1364,13 @@ function renderInto(containerId, hits, opts) {
       searchInstance.helper.state &&
       searchInstance.helper.state.query) || "";
 
-  var sorted = sortHitsLikeMain(hits, query);
+// on retire ce qui est déjà dans le bloc principal (basé sur l’URL)
+var pruned = (hits || []).filter(function (hit) {
+  var u = (hit && hit.url ? String(hit.url).trim() : "");
+  return u && !mainHitHrefSet.has(u);
+});
+
+var sorted = sortHitsLikeMain(pruned, query);
 
   // on limite à 5
   var visible = sorted.slice(0, 5);
@@ -1387,7 +1395,7 @@ function renderInto(containerId, hits, opts) {
       // tu pourras remplacer "more-card" par ta classe exacte
       '<div class="directory_card_container more-card">' +
         '<a href="' + moreUrl + '" class="directory_card_body">' +
-          '<div class="directory_card_title"><div>voir plus de ' + (label || "résultats") + '</div></div>' +
+          '<div class="directory_card_title"><div>Voir plus de ' + (label || "résultats") + '</div></div>' +
         '</a>' +
       '</div>' +
     '</li>';
@@ -1409,7 +1417,7 @@ function renderInto(containerId, hits, opts) {
 function toggleWrapper(wrapperId, count) {
   var wrap = document.getElementById(wrapperId);
   if (!wrap) return;
-  wrap.style.display = count > 0 ? "block" : "none";
+  wrap.style.display = count > 0 ? "flex" : "none";
 }
 
 async function fetchAndRenderMoreBlocks() {
@@ -1482,8 +1490,13 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
     more.style.display = "block";
   }
 }
-    function buildMoreUrlForType(typeValue) {
-  if (!searchInstance || !searchInstance.helper) return DIRECTORY_BASE_URL;
+   function buildMoreUrlForType(typeValue) {
+  // Si pas d’instance de recherche, on renvoie au moins la page avec le type
+  if (!searchInstance || !searchInstance.helper) {
+    var base = DIRECTORY_BASE_URL || "";
+    if (!typeValue) return base; // aucun type fourni, on renvoie la base telle quelle
+    return base + "?type=" + encodeURIComponent(typeValue);
+  }
 
   var st = searchInstance.helper.state;
   var params = new URLSearchParams();
@@ -1504,23 +1517,28 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
   if (prestas.length) params.set("prestations", prestas.join(","));
   if (reimb.length)   params.set("reimbursment_percentage", reimb.join(","));
 
-  // jobs sélectionnés (on garde ta source de vérité)
+  // jobs sélectionnés
   if (selectedJobTags.length) params.set("jobs", selectedJobTags.join(","));
 
-  // booléens (on garde)
+  // booléens
   if (isNetworkSelected) params.set("network", "true");
   if (isRemoteSelected)  params.set("remote", "true");
   if (isAtHomeSelected)  params.set("athome", "true");
 
-  // type -> forcé
+  // type -> forcé (toujours présent au minimum)
   if (typeValue) params.set("type", typeValue);
 
   // géoloc -> supprimée
   params.delete("geo");
   params.delete("geolabel");
 
-  return DIRECTORY_BASE_URL + "?" + params.toString();
+  var qs = params.toString();
+  // si, pour une raison quelconque, on n’a rien, on impose au moins le type
+  if (!qs && typeValue) qs = "type=" + encodeURIComponent(typeValue);
+
+  return DIRECTORY_BASE_URL + (qs ? "?" + qs : "");
 }
+
 
 
     // 9. RENDER GLOBAL --------------------------------------------------------
@@ -1572,7 +1590,14 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
     }
   }
 
-  // === >>> AJOUT ICI <<< ===
+  // Capture des URLs déjà affichées dans le bloc principal (#hits)
+mainHitHrefSet.clear();
+Array.prototype.slice.call(
+  document.querySelectorAll('#hits li.directory_card_container > a.directory_card_body')
+).forEach(function(a){
+  if (a && a.href) mainHitHrefSet.add(a.href);
+});
+
   // Rafraîchit les blocs "plus de résultats"
   fetchAndRenderMoreBlocks();
 });
