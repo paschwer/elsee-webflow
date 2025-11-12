@@ -1452,10 +1452,12 @@ toggleWrapper("hits_therapeutes_wrapper", thpHits.length);
     filters: mqFilters
   }).catch(function(){ return { hits: [] };});
   var mqHits = (mqRes && mqRes.hits) || [];
-  rrenderInto("hits_marques", mqHits, {
+  // --- Marques ---
+renderInto("hits_marques", mqHits, {
   typeFacetValue: "Marques",
   label: "marques"
 });
+
 toggleWrapper("hits_marques_wrapper", mqHits.length);
   // --- Requête 3 : Applications et programmes (sans géoloc) ---
   var apFacetFilters = buildFacetFiltersFor("Applications et programmes");
