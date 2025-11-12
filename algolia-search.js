@@ -1554,57 +1554,7 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
     more.style.display = "block";
   }
 }
-   function buildMoreUrlForType(typeValue) {
-  // Si pas d’instance de recherche, on renvoie au moins la page avec le type
-  if (!searchInstance || !searchInstance.helper) {
-    var base = DIRECTORY_BASE_URL || "";
-    if (!typeValue) return base; // aucun type fourni, on renvoie la base telle quelle
-    return base + "?type=" + encodeURIComponent(typeValue);
-  }
-
-  var st = searchInstance.helper.state;
-  var params = new URLSearchParams();
-
-  // q
-  var q = (st.query || "").trim();
-  if (q) params.set("q", q);
-
-  // facets normales
-  var fr = st.facetsRefinements || {};
-  var disj = st.disjunctiveFacetsRefinements || {};
-
-  var spes = (fr.specialities || []).slice();
-  var prestas = (fr.prestations || []).slice();
-  var reimb = (disj.reimbursment_percentage || []).slice();
-
-  if (spes.length)    params.set("specialities", spes.join(","));
-  if (prestas.length) params.set("prestations", prestas.join(","));
-  if (reimb.length)   params.set("reimbursment_percentage", reimb.join(","));
-
-  // jobs sélectionnés
-  if (selectedJobTags.length) params.set("jobs", selectedJobTags.join(","));
-
-  // booléens
-  if (isNetworkSelected) params.set("network", "true");
-  if (isRemoteSelected)  params.set("remote", "true");
-  if (isAtHomeSelected)  params.set("athome", "true");
-
-  // type -> forcé (toujours présent au minimum)
-  if (typeValue) params.set("type", typeValue);
-
-  // géoloc -> supprimée
-  params.delete("geo");
-  params.delete("geolabel");
-
-  var qs = params.toString();
-  // si, pour une raison quelconque, on n’a rien, on impose au moins le type
-  if (!qs && typeValue) qs = "type=" + encodeURIComponent(typeValue);
-
-  return DIRECTORY_BASE_URL + (qs ? "?" + qs : "");
-}
-
-
-
+   
     // 9. RENDER GLOBAL --------------------------------------------------------
     search.on("render", function () {
   renderClearButton();
