@@ -115,66 +115,69 @@ window.addEventListener("DOMContentLoaded", function () {
     }
 
     
-    // === HELPER GLOBAL : toggle CTA bien-être + Observer ===
+    // === Helpers CTA par type (générique) ===
 (function () {
-  var WELLNESS_NAME = "Salons esthétiques / Centres bien-être";
-  var observerStarted = false;
+  var TYPE_TO_CTA = {
+    "salons esthétiques / centres bien-être": "adWellness-cta",
+    "thérapeutes": "adTherapist-cta",
+    "marques": "adBrand-cta",
+    "applications et programmes": "adProgram-cta",
+    "sports": "adSport-cta"
+  };
 
-  function applyToggle(selectedTypes) {
-    var nodes = document.querySelectorAll("#adWellness-cta");
-    if (!nodes.length) return;
+  function norm(s){ return (s||"").trim().toLowerCase(); }
 
-    var isWellnessSelected = selectedTypes.some(function (t) {
-      return (t || "").trim().toLowerCase() === WELLNESS_NAME.toLowerCase();
+  function toggleTypeCTAs(selectedTypes) {
+    var ids = Object.values(TYPE_TO_CTA);
+    // cache tout par défaut
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.setProperty("display","none","important");
     });
-    var hasOtherTypes = selectedTypes.some(function (t) {
-      return (t || "").trim().toLowerCase() !== WELLNESS_NAME.toLowerCase();
-    });
-    var show = isWellnessSelected && !hasOtherTypes;
 
-    nodes.forEach(function (el, idx) {
-      try {
-        el.style.setProperty("display", show ? "flex" : "none", "important");
-        // debug utile
-        var comp = window.getComputedStyle(el).display;
-        console.log("[Wellness CTA] idx=", idx, "show=", show, "computed=", comp, el);
-      } catch (e) {
-        console.error("[Wellness CTA] setProperty error", e);
+    if (!Array.isArray(selectedTypes)) selectedTypes = [];
+    if (selectedTypes.length !== 1) return; // visible uniquement si un seul type est sélectionné
+
+    var sel = norm(selectedTypes[0]);
+    var targetId = null;
+
+    Object.keys(TYPE_TO_CTA).some(function(label){
+      if (norm(label) === sel) {
+        targetId = TYPE_TO_CTA[label];
+        return true;
       }
+      return false;
     });
+
+    if (targetId) {
+      var target = document.getElementById(targetId);
+      if (target) target.style.setProperty("display","flex","important");
+    }
   }
 
-  // exposé global pour l’appeler depuis le widget
-  window.__toggleWellnessCTA = applyToggle;
+  function ensureCTAObserver() {
+    if (window.__ctaObserverAttached) return;
+    window.__ctaObserverAttached = true;
 
-  // démarre un observer qui réapplique après re-render Webflow/Algolia
-  window.__ensureWellnessObserver = function (selectedTypes) {
-    if (observerStarted) return;
-    var root =
-      document.querySelector(".directory_sidebar_ctas_container") || document.body;
+    var container = document.querySelector(".directory_sidebar_ctas_container") || document.body;
+    if (!container) return;
 
-    // garde-fou : si rien, retente plus tard
-    if (!root) {
-      requestAnimationFrame(function () {
-        window.__ensureWellnessObserver(selectedTypes);
-      });
-      return;
-    }
-
-    observerStarted = true;
-    var mo = new MutationObserver(function () {
-      // laisse le temps au DOM de finir, puis ré-applique
-      requestAnimationFrame(function () {
-        applyToggle(selectedTypes);
-      });
+    var obs = new MutationObserver(function(){
+      // réapplique la règle si Webflow/Algolia réinjecte du DOM
+      if (window.__lastSelectedTypes) toggleTypeCTAs(window.__lastSelectedTypes);
     });
+    obs.observe(container, { childList: true, subtree: true });
+    window.__ctaObserver = obs;
+  }
 
-    mo.observe(root, {
-      childList: true,
-      subtree: true,
-    });
+  window.__toggleTypeCTAs = function(selectedTypes){
+    window.__lastSelectedTypes = selectedTypes ? selectedTypes.slice() : [];
+    toggleTypeCTAs(window.__lastSelectedTypes);
   };
+  window.__ensureCTAObserver = ensureCTAObserver;
 })();
+
+
 
     // 5. FILTRES --------------------------------------------------------------
     function buildFiltersStringFromJobsAndBooleans() {
@@ -405,16 +408,14 @@ if (typesAltWrapper) {
 
   typesAltWrapper.innerHTML = altHtml;
 
-  // === CTA bien-être : visible uniquement si CE type est seul sélectionné ===
-  console.log("[Wellness CTA] selectedTypes =", selectedTypes);
-  if (typeof window.__toggleWellnessCTA === "function") {
-    window.__toggleWellnessCTA(selectedTypes);
-    // armement de l’observer pour les re-renders Webflow/Algolia
-    if (typeof window.__ensureWellnessObserver === "function") {
-      window.__ensureWellnessObserver(selectedTypes);
-    }
+// === CTAs par type : visible uniquement si UN seul type est sélectionné ===
+if (typeof window.__toggleTypeCTAs === "function") {
+  window.__toggleTypeCTAs(selectedTypes);
+  if (typeof window.__ensureCTAObserver === "function") {
+    window.__ensureCTAObserver();
   }
 }
+
 
 
         // SPÉCIALITÉS ---------------------------------------------------------
