@@ -28,6 +28,7 @@ window.addEventListener("DOMContentLoaded", function () {
   var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
   var DIRECTORY_BASE_URL = "https://elsee-v-0.webflow.io/lannuaire-des-partenaires-elsee";
   var mainHitHrefSet = new Set();
+  var mainHitPathSet = new Set();
 
 
 
@@ -97,6 +98,18 @@ function normalizeUrl(u){
     return (String(u)||"").trim().toLowerCase();
   }
 }
+
+// Compare hors domaine (staging vs prod) → on garde seulement le pathname
+function normalizePathKey(u){
+  try {
+    var url = new URL(String(u), window.location.origin);
+    var p = url.pathname.replace(/\/+$/,'').toLowerCase();
+    return p || "/";
+  } catch(e){
+    return "/";
+  }
+}
+
 
     function isTherapeutes(hit) {
       var t = (hit.type || "").trim().toLowerCase();
@@ -1373,13 +1386,17 @@ function renderInto(containerId, hits, opts) {
       searchInstance.helper.state &&
       searchInstance.helper.state.query) || "";
 
-// retire ce qui est déjà dans le bloc principal (comparaison sur URL normalisée)
+// Retire les hits déjà présents dans le bloc principal (on compare href ET pathname)
 var pruned = (hits || []).filter(function (hit) {
-  var u = hit && hit.url ? normalizeUrl(hit.url) : "";
-  return u && !mainHitHrefSet.has(u);
+  var hrefKey = hit && hit.url ? normalizeUrl(hit.url) : "";
+  var pathKey = hit && hit.url ? normalizePathKey(hit.url) : "";
+  var dupHref = hrefKey && mainHitHrefSet.has(hrefKey);
+  var dupPath = pathKey && mainHitPathSet.has(pathKey);
+  return !(dupHref || dupPath);
 });
 
 var sorted = sortHitsLikeMain(pruned, query);
+
 
 
   // on limite à 5
@@ -1399,30 +1416,67 @@ var sorted = sortHitsLikeMain(pruned, query);
     .join("");
 
   // 6e : carte “voir plus”
-  var moreUrl = buildMoreUrlForType(typeFacetValue);
-  var moreItemHtml =
-    '<li class="ais-InfiniteHits-item">' +
-      // tu pourras remplacer "more-card" par ta classe exacte
-      '<div class="more-card">' +
-        '<a href="' + moreUrl + '" class="directory_card_body">' +
-          '<div class="directory_card_title"><div>Voir plus de ' + (label || "résultats") + '</div></div>' +
-        '</a>' +
-      '</div>' +
-    '</li>';
+  function buildMoreUrlForType(typeValue) {
+  // Normalisation simple pour test "thérapeutes"
+  function _norm(s){
+    return (s||"").toString().trim().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+  var isThera = _norm(typeValue).includes("therapeute");
 
-  var html =
-    '<ol class="ais-InfiniteHits-list">' +
-      itemsHtml +
-      moreItemHtml +
-    '</ol>';
+  // Si pas d'instance, on renvoie au moins ?type=... (+ remote=true si théra)
+  if (!searchInstance || !searchInstance.helper) {
+    var base = DIRECTORY_BASE_URL || "";
+    var params = new URLSearchParams();
+    if (typeValue) params.set("type", typeValue);
+    if (isThera)  params.set("remote","true");
+    var qs = params.toString();
+    return base + (qs ? "?" + qs : "");
+  }
 
-  container.innerHTML = html;
+  var st = searchInstance.helper.state;
+  var params = new URLSearchParams();
+
+  // q
+  var q = (st.query || "").trim();
+  if (q) params.set("q", q);
+
+  // facets normales
+  var fr = st.facetsRefinements || {};
+  var disj = st.disjunctiveFacetsRefinements || {};
+
+  var spes    = (fr.specialities || []).slice();
+  var prestas = (fr.prestations  || []).slice();
+  var reimb   = (disj.reimbursment_percentage || []).slice();
+
+  if (spes.length)    params.set("specialities", spes.join(","));
+  if (prestas.length) params.set("prestations", prestas.join(","));
+  if (reimb.length)   params.set("reimbursment_percentage", reimb.join(","));
+
+  // jobs sélectionnés
+  if (selectedJobTags.length) params.set("jobs", selectedJobTags.join(","));
+
+  // booléens actuels
+  if (isNetworkSelected) params.set("network", "true");
+  if (isRemoteSelected)  params.set("remote", "true");
+  if (isAtHomeSelected)  params.set("athome", "true");
+
+  // type forcé pour le bloc
+  if (typeValue) params.set("type", typeValue);
+
+  // géoloc supprimée
+  params.delete("geo");
+  params.delete("geolabel");
+
+  // Ajout/force remote=true si "Thérapeutes"
+  if (isThera) params.set("remote","true");
+
+  // Si rien d'autre que le type n'existe, on renvoie quand même ?type=...
+  var qs = params.toString();
+  if (!qs && typeValue) qs = "type=" + encodeURIComponent(typeValue) + (isThera ? "&remote=true" : "");
+
+  return DIRECTORY_BASE_URL + (qs ? "?" + qs : "");
 }
-
-
-
-
-
 
 function toggleWrapper(wrapperId, count) {
   var wrap = document.getElementById(wrapperId);
@@ -1601,18 +1655,24 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
   }
 
   // URLs du bloc principal via le renderState (fiable et sans timing DOM)
+// Récupère les hits réellement rendus par infiniteHits (fiable)
 mainHitHrefSet.clear();
+mainHitPathSet.clear();
 try {
   var rs = searchInstance && searchInstance.renderState && searchInstance.renderState[ALGOLIA_INDEX_NAME];
   var items = (rs && rs.infiniteHits && rs.infiniteHits.items) || [];
   items.forEach(function(hit){
-    var u = hit && hit.url ? normalizeUrl(hit.url) : "";
-    if (u) mainHitHrefSet.add(u);
+    if (!hit || !hit.url) return;
+    var hrefKey = normalizeUrl(hit.url);
+    var pathKey = normalizePathKey(hit.url);
+    if (hrefKey) mainHitHrefSet.add(hrefKey);
+    if (pathKey) mainHitPathSet.add(pathKey);
   });
 } catch(e){ /* no-op */ }
 
-// Laisse un frame pour que le DOM finisse de se peindre, puis lance les secondaires
-requestAnimationFrame(fetchAndRenderMoreBlocks);
+// Laisse finir le cycle de rendu puis lance les secondaires
+setTimeout(fetchAndRenderMoreBlocks, 0);
+
 
 
   // Rafraîchit les blocs "plus de résultats"
