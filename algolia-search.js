@@ -115,110 +115,91 @@ window.addEventListener("DOMContentLoaded", function () {
     }
 
     
-    // === Helpers CTA par type (générique) =======================================
+    // === Helpers CTA par type (via data-attr + CSS global) ======================
 (function () {
-  // normalisation sûre (sans \p{Diacritic} pour compat max)
+  // 1) CSS global une fois pour toutes (priorité !important)
+  function ensureCTACSS() {
+    if (document.getElementById("cta-style-global")) return;
+    var css = `
+      .directory_sidebar_ctas_container .directory_sidebar_cta_wrapper { display: none !important; }
+
+      body[data-cta="wellness"]   #adWellness-cta  { display: flex !important; }
+      body[data-cta="therapeutes"]#adTherapist-cta { display: flex !important; }
+      body[data-cta="marques"]    #adBrand-cta     { display: flex !important; }
+      body[data-cta="programmes"] #adProgram-cta   { display: flex !important; }
+      body[data-cta="sports"]     #adSport-cta     { display: flex !important; }
+    `;
+    var style = document.createElement("style");
+    style.id = "cta-style-global";
+    style.type = "text/css";
+    style.appendChild(document.createTextNode(css));
+    document.head.appendChild(style);
+    console.log("[CTA] CSS global injecté");
+  }
+
+  // 2) Normalisation (sans accents) + mapping label → clé data-cta
   function norm(s) {
     return (s || "")
       .toString()
       .trim()
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, ""); // retire accents
+      .replace(/[\u0300-\u036f]/g, "");
   }
 
-  // Mots-clés → id CTA (match par "contient" après normalisation)
-  var MATCHERS = [
-    { kw: "salons esthetiques / centres bien-etre", id: "adWellness-cta" },
-    { kw: "therapeutes", id: "adTherapist-cta" },
-    { kw: "marques", id: "adBrand-cta" },
-    { kw: "applications et programmes", id: "adProgram-cta" },
-    { kw: "sports", id: "adSport-cta" }
-  ];
-
-  function getEl(id) {
-    var el = document.getElementById(id);
-    if (!el) console.warn("[CTA] introuvable:", id);
-    return el;
-  }
-
-  function hideAll() {
-    MATCHERS.forEach(function (m) {
-      var el = getEl(m.id);
-      if (el) el.style.setProperty("display", "none", "important");
-    });
-  }
-
-  function idFromTypeLabel(label) {
+  function mapLabelToKey(label) {
     var n = norm(label);
-    for (var i = 0; i < MATCHERS.length; i++) {
-      if (n.indexOf(MATCHERS[i].kw) !== -1) return MATCHERS[i].id;
-    }
-    return null;
+    if (n.includes("salons esthetiques") || n.includes("centres bien-etre")) return "wellness";
+    if (n.includes("therapeutes")) return "therapeutes";
+    if (n.includes("marques")) return "marques";
+    if (n.includes("applications") || n.includes("programmes")) return "programmes";
+    if (n.includes("sports")) return "sports";
+    return ""; // rien
   }
 
-  function toggleTypeCTAs(selectedTypes) {
+  // 3) Applique en posant/unset l’attribut sur <body>
+  function applyCTAFromSelectedTypes(selectedTypes) {
     var list = Array.isArray(selectedTypes) ? selectedTypes : [];
     console.log("[CTA] selectedTypes =", list);
 
-    // Cache tout d’abord
-    hideAll();
-
-    // Affiche seulement si un unique type est choisi
-    if (list.length !== 1) {
-      console.log("[CTA] 0 ou >1 type → tout caché");
-      return;
+    // un seul type → on mappe; sinon on enlève l’attribut
+    var key = (list.length === 1) ? mapLabelToKey(list[0]) : "";
+    if (key) {
+      document.body.setAttribute("data-cta", key);
+      console.log("[CTA] body[data-cta=\"%s\"] appliqué", key);
+    } else {
+      document.body.removeAttribute("data-cta");
+      console.log("[CTA] aucun CTA ciblé (data-cta retiré)");
     }
-
-    var targetId = idFromTypeLabel(list[0]);
-    console.log("[CTA] type choisi:", list[0], "→ id ciblé:", targetId);
-
-    if (!targetId) return;
-    var el = getEl(targetId);
-    if (el) el.style.setProperty("display", "flex", "important");
   }
 
-  // Observer pour réappliquer après réinjections DOM
-  function ensureCTAObserver() {
+  // 4) Observer pour réappliquer après réinjections DOM
+  function ensureObserver() {
     if (window.__ctaObserverAttached) return;
     window.__ctaObserverAttached = true;
 
-    var container =
-      document.querySelector(".directory_sidebar_ctas_container") ||
-      document.body;
-
+    var container = document.querySelector(".directory_sidebar_ctas_container") || document.body;
     var obs = new MutationObserver(function () {
-      if (window.__lastSelectedTypes) {
-        toggleTypeCTAs(window.__lastSelectedTypes);
-      }
+      if (window.__lastSelectedTypes) applyCTAFromSelectedTypes(window.__lastSelectedTypes);
     });
     obs.observe(container, { childList: true, subtree: true });
     window.__ctaObserver = obs;
-    console.log("[CTA] observer attaché sur", container);
+    console.log("[CTA] observer attaché");
   }
 
-  // Expose
+  // 5) API globale (compat avec ton appel existant)
   window.__toggleTypeCTAs = function (selectedTypes) {
     window.__lastSelectedTypes = selectedTypes ? selectedTypes.slice() : [];
-    // s’assure que les CTAs existent au moment d’appliquer
+    // laisse à Webflow une frame si ça réinjecte
     requestAnimationFrame(function () {
-      toggleTypeCTAs(window.__lastSelectedTypes);
+      applyCTAFromSelectedTypes(window.__lastSelectedTypes);
     });
   };
-  window.__ensureCTAObserver = ensureCTAObserver;
+  window.__ensureCTAObserver = ensureObserver;
 
-  // État initial (au cas où les éléments sont déjà là)
-  // + retard minimal pour laisser Webflow injecter
-  setTimeout(hideAll, 0);
-
-  // Petit util debug manuel dans la console:
-  // window.__testCTA("Thérapeutes")
-  window.__testCTA = function (label) {
-    console.log("[CTA][TEST] forçant avec label =", label);
-    window.__toggleTypeCTAs([label]);
-  };
+  // Boot
+  ensureCTACSS();
 })();
-
 
 
 
