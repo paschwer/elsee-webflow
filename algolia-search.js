@@ -942,20 +942,7 @@ if (Therapeutes) {
   photoClasses += " is-contain";
 }
 
-var photoDiv =
-  '<div class="directory_card_photo_container">' +
-  '<div class="' +
-  photoClasses +
-  '" style="' +
-  finalStyle +
-  '">' +
-  '<div class="directory_card_label_tag" style="display:' +
-  (isNetwork ? "flex" : "none") +
-  ';">' +
-  '<img src="https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/65a65b49a0e66151845cad61_mob_menu_logo_dark_green.svg" loading="lazy" alt="" class="directory_card_label_tag_logo">' +
-  "</div>" +
-  "</div>" +
-  "</div>";
+
 
             var photoDiv =
               '<div class="directory_card_photo_container">' +
@@ -1155,9 +1142,284 @@ partnerDetails2Html +
       }),
       dynamicSuggestionsWidget
     ]);
+// === Fabrique HTML d'une carte (même logique que le template principal) ===
+function buildCardHTML(hit) {
+  var photoUrl = hit.photo_url || "";
+  var isNetwork = !!hit.is_elsee_network;
+  var isRemote = !!hit.is_remote;
+  var isAtHome = !!hit.is_at_home;
+  var reimbursement = hit.reimbursment_percentage != null ? hit.reimbursment_percentage : "";
+  var name = hit.name || "";
+  var city = hit.city || "";
+  var depNum = hit.department_number || "";
+  var url = hit.url || "#";
+  var showSearch = hit.show_search !== false;
+  var Therapeutes = isTherapeutes(hit);
+
+  var remoteSvg = (document.querySelector(".directory_remote_icon") || {}).innerHTML || "";
+  var atHomeSvg  = (document.querySelector(".directory_at_home_icon") || {}).innerHTML || "";
+  var discountSvg = (document.querySelector(".directory_discount_icon") || {}).innerHTML || "";
+  var locationSvg = (document.querySelector(".directory_card_location_icon") || {}).innerHTML || "";
+
+  var containStyle = "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
+  var coverStyle   = "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
+
+  var finalStyle;
+  if (photoUrl) {
+    finalStyle = (Therapeutes ? coverStyle : containStyle) + "background-image:url('" + photoUrl + "');";
+  } else {
+    finalStyle = coverStyle + "background-image:url('" + (Therapeutes ? THERAPIST_PLACEHOLDER_URL : DEFAULT_PLACEHOLDER_URL) + "');";
+  }
+
+  var photoClasses = "directory_card_photo";
+  if (isNetwork) photoClasses += " is-label";
+  photoClasses += Therapeutes ? " is-cover" : " is-contain";
+
+  var photoDiv =
+    '<div class="directory_card_photo_container">' +
+    '<div class="' + photoClasses + '" style="' + finalStyle + '">' +
+      '<div class="directory_card_label_tag" style="display:' + (isNetwork ? "flex" : "none") + ';">' +
+        '<img src="https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/65a65b49a0e66151845cad61_mob_menu_logo_dark_green.svg" loading="lazy" alt="" class="directory_card_label_tag_logo">' +
+      "</div>" +
+    "</div>" +
+    "</div>";
+
+  var remoteIcon =
+    '<div class="directory_remote_icon" style="display:' + (isRemote ? "block" : "none") + ';">' +
+      remoteSvg + '<div class="tooltip">Consultation en visio</div>' +
+    "</div>";
+
+  var atHomeIcon =
+    '<div class="directory_at_home_icon" style="display:' + (isAtHome ? "block" : "none") + ';">' +
+      atHomeSvg + '<div class="tooltip">Se déplace à votre domicile</div>' +
+    "</div>";
+
+  var showDiscount = !Therapeutes;
+  var discountDiv =
+    '<div class="directory_card_discount_tag" style="display:' + (showDiscount ? "flex" : "none") + ';">' +
+      '<div class="directory_discount_icon">' + discountSvg + "</div>" +
+      "<div>" + (reimbursement !== "" ? reimbursement + "%" : "") + "</div>" +
+    "</div>";
+
+  var titleDiv = '<div class="directory_card_title"><div>' + name + "</div></div>";
+
+  // details 1 & 2
+  var partnerDetails1Html, partnerDetails2Html;
+
+  if (Therapeutes) {
+    var mainJob = hit.mainjob || "";
+    partnerDetails1Html = '<div class="directory_card_partner_details_1"><div>' + mainJob + "</div></div>";
+
+    var jobsArr = toArray(hit.jobs);
+    var jobsTxt;
+    if (jobsArr.length > 3) {
+      jobsTxt = jobsArr.slice(0,3).join(", ") + " +" + (jobsArr.length - 3);
+    } else {
+      jobsTxt = jobsArr.join(", ");
+    }
+    partnerDetails2Html = '<div class="directory_card_partner_details_2"><div>' + jobsTxt + "</div></div>";
+  } else {
+    var rawTop = toArray(hit.prestations);
+    if (!rawTop.length) rawTop = toArray(hit.specialities);
+    var maxTop = 3, visibleTop = rawTop.slice(0, maxTop), extraTop = rawTop.length > maxTop ? rawTop.length - maxTop : 0;
+    var topHtml = visibleTop.join(", ");
+    if (extraTop > 0) {
+      topHtml += ', <span class="directory_card_more_specialities"><span class="directory_remote_icon">+' + extraTop + "</span></span>";
+    }
+    partnerDetails1Html = '<div class="directory_card_partner_details_1"><div>' + topHtml + "</div></div>";
+
+    var shortTxt = truncate(hit.short_desc || "", 70);
+    partnerDetails2Html = '<div class="directory_card_partner_details_2"><div class="directory_card_partner_short_desc">' + shortTxt + "</div></div>";
+  }
+
+  var showLocation = !!showSearch && (city || depNum);
+  var locationText = Therapeutes ? (city + (depNum ? " (" + depNum + ")" : "")) : city;
+  var locationDiv =
+    '<div class="directory_card_partner_location" style="display:' + (showLocation ? "flex" : "none") + ';">' +
+      '<div class="directory_card_location_icon">' + locationSvg + "</div>" +
+      '<div class="directory_card_location_text"><div>' + (locationText || "") + "</div></div>" +
+    "</div>";
+
+  var rawTags = Therapeutes ? toArray(hit.prestations) : toArray(hit.specialities);
+  var maxTags = 2, visibleTags = rawTags.slice(0, maxTags), extraCount = rawTags.length > maxTags ? rawTags.length - maxTags : 0;
+  var prestasHtml = visibleTags.map(function (p) {
+    return '<div class="directory_card_prestation_tag"><div>' + p + "</div></div>";
+  }).join("");
+  if (extraCount > 0) {
+    prestasHtml += '<div class="directory_card_prestation_tag"><div>+' + extraCount + "</div></div>";
+  }
+  var prestationsDiv = '<div class="directory_card_prestations_container">' + prestasHtml + "</div>";
+
+  return (
+    '<li class="directory_card_container">' +
+      '<a href="' + url + '" class="directory_card_body">' +
+        '<div class="directory_card_upper_container">' +
+          '<div class="directory_card_header">' +
+            photoDiv +
+            '<div class="directory_card_options_container">' + remoteIcon + atHomeIcon + discountDiv + '</div>' +
+          '</div>' +
+          titleDiv + partnerDetails1Html + partnerDetails2Html +
+        '</div>' +
+        locationDiv + prestationsDiv +
+      '</a>' +
+    '</li>'
+  );
+}
+
+// === Tri identique à transformItems principal ===
+function sortHitsLikeMain(items, query) {
+  var q = (query || "").trim().toLowerCase();
+  items.forEach(function (hit) {
+    var name = (hit.name || "").toLowerCase();
+    var score = 0;
+    if (q) {
+      if (name === q) score = 3;
+      else if (name.indexOf(q) === 0) score = 2;
+      else if (name.indexOf(q) !== -1) score = 1;
+    }
+    hit.__localScore = score;
+    hit.__networkBonus = hit.is_elsee_network ? 1 : 0;
+  });
+
+  return items.slice().sort(function (a, b) {
+    if ((b.__localScore || 0) !== (a.__localScore || 0)) {
+      return (b.__localScore || 0) - (a.__localScore || 0);
+    }
+    if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
+      return (b.__networkBonus || 0) - (a.__networkBonus || 0);
+    }
+    var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
+    var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
+    if (rankA !== rankB) return rankB - rankA;
+    var nameA = (a.name || "").toLowerCase();
+    var nameB = (b.name || "").toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+}
 
     // 8. START ---------------------------------------------------------------
     search.start();
+// === Index direct (requêtes secondaires sans géoloc) ===
+var rawIndex = null;
+try { rawIndex = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY).initIndex(ALGOLIA_INDEX_NAME); } catch(e) {}
+
+// Normalisation simple sans accents
+function normTxt(s){
+  return (s||"").toString().trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Récupère tags sélectionnés
+function getSelectedArray(prefix) {
+  return Array.from(selectedFacetTags)
+    .filter(function (k) { return k.indexOf(prefix + ":::") === 0; })
+    .map(function (k) { return k.split(":::")[1]; });
+}
+
+function buildFacetFiltersForTherapeutes() {
+  var arr = [];
+  // type Thérapeutes (avec et sans accent pour robustesse)
+  arr.push(["type:Thérapeutes", "type:therapeutes"]);
+
+  // appliquer les sélections prestas / specialities si présentes
+  var selectedPrestas = getSelectedArray("prestations");
+  var selectedSpecs   = getSelectedArray("specialities");
+
+  selectedPrestas.forEach(function (p) { arr.push("prestations:" + p); });
+  selectedSpecs.forEach(function (s) { arr.push("specialities:" + s); });
+
+  return arr;
+}
+
+function buildFacetFiltersFor(label) {
+  // label attendu: "Marques" ou "Applications et programmes"
+  return [[ "type:" + label ]];
+}
+
+// On garde ta règle de visibilité (show_home / show_search), mais on SUPPRIME la géoloc (pas de aroundLatLng).
+function makeFiltersString(extra) {
+  var base = getVisibilityFilter() || "";
+  if (extra && base) return base + " AND " + extra;
+  if (extra) return extra;
+  return base;
+}
+
+function renderInto(containerId, hits) {
+  var ul = document.getElementById(containerId);
+  if (!ul) return;
+  var query = (searchInstance && searchInstance.helper && searchInstance.helper.state && searchInstance.helper.state.query) || "";
+  var sorted = sortHitsLikeMain(hits, query);
+  ul.innerHTML = sorted.map(buildCardHTML).join("");
+}
+
+function toggleWrapper(wrapperId, count) {
+  var wrap = document.getElementById(wrapperId);
+  if (!wrap) return;
+  wrap.style.display = count > 0 ? "block" : "none";
+}
+
+async function fetchAndRenderMoreBlocks() {
+  var more = document.getElementById("more-results");
+  if (!rawIndex || !more) return;
+
+  // Afficher ces blocs SEULEMENT quand une recherche géoloc a été lancée
+  var hasGeo = !!currentGeoFilter;
+  if (!hasGeo) {
+    more.style.display = "none";
+    // on nettoie
+    toggleWrapper("hits_therapeutes_wrapper", 0);
+    toggleWrapper("hits_marques_wrapper", 0);
+    toggleWrapper("hits_applications_programmes_wrapper", 0);
+    return;
+  }
+
+  // --- Requête 1 : Thérapeutes (sans géoloc, is_remote:true, prestas/specs respectées) ---
+  var thpFacetFilters = buildFacetFiltersForTherapeutes();
+  var thpFilters = makeFiltersString("is_remote:true");
+  var thpRes = await rawIndex.search((searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "", {
+    hitsPerPage: 24,
+    facetFilters: thpFacetFilters,
+    // SANS aroundLatLng / aroundRadius -> pas de géoloc
+    filters: thpFilters
+  }).catch(function(){ return { hits: [] };});
+  var thpHits = (thpRes && thpRes.hits) || [];
+  renderInto("hits_therapeutes", thpHits);
+  toggleWrapper("hits_therapeutes_wrapper", thpHits.length);
+
+  // --- Requête 2 : Marques (sans géoloc) ---
+  var mqFacetFilters = buildFacetFiltersFor("Marques");
+  var mqFilters = makeFiltersString("");
+  var mqRes = await rawIndex.search((searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "", {
+    hitsPerPage: 24,
+    facetFilters: mqFacetFilters,
+    filters: mqFilters
+  }).catch(function(){ return { hits: [] };});
+  var mqHits = (mqRes && mqRes.hits) || [];
+  renderInto("hits_marques", mqHits);
+  toggleWrapper("hits_marques_wrapper", mqHits.length);
+
+  // --- Requête 3 : Applications et programmes (sans géoloc) ---
+  var apFacetFilters = buildFacetFiltersFor("Applications et programmes");
+  var apFilters = makeFiltersString("");
+  var apRes = await rawIndex.search((searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "", {
+    hitsPerPage: 24,
+    facetFilters: apFacetFilters,
+    filters: apFilters
+  }).catch(function(){ return { hits: [] };});
+  var apHits = (apRes && apRes.hits) || [];
+  renderInto("hits_applications_programmes", apHits);
+  toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
+
+  // Règle d'affichage de #more-results
+  var total = thpHits.length + mqHits.length + apHits.length;
+  if (total === 0) {
+    more.style.display = "none";
+  } else {
+    more.style.display = "block";
+  }
+}
 
     // 9. RENDER GLOBAL --------------------------------------------------------
     search.on("render", function () {
@@ -1198,8 +1460,6 @@ partnerDetails2Html +
     // on cache aussi le wrapper (souvent le vrai conteneur)
     if (showMoreWrapper) {
       showMoreWrapper.style.display = "none";
-      // si vraiment le style ne gagne pas :
-      // showMoreWrapper.innerHTML = "";
     }
   } else {
     if (showMoreWrapper) {
@@ -1209,7 +1469,12 @@ partnerDetails2Html +
       showMoreBtn.style.display = "inline-flex";
     }
   }
+
+  // === >>> AJOUT ICI <<< ===
+  // Rafraîchit les blocs "plus de résultats"
+  fetchAndRenderMoreBlocks();
 });
+
 
     // 10. CLIC GLOBAL SHOW MORE ----------------------------------------------
     document.addEventListener("click", function (e) {
