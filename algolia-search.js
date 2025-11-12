@@ -326,9 +326,7 @@ if (typesAltWrapper) {
     '" data-facet-name="type" data-facet-value="__ALL_TYPES__">Toutes les catégories</div>';
 
   altHtml += typeFacetValues
-    .filter(function (fv) {
-      return fv && fv.name;
-    })
+    .filter(function (fv) { return fv && fv.name; })
     .map(function (fv) {
       var key = "type:::" + fv.name;
       var isSelected = selectedFacetTags.has(key);
@@ -336,9 +334,7 @@ if (typesAltWrapper) {
       return (
         '<div class="directory_category_tag_wrapper ' +
         (isSelected ? "is-selected" : "") +
-        '" data-facet-name="type" data-facet-value="' +
-        fv.name +
-        '">' +
+        '" data-facet-name="type" data-facet-value="' + fv.name + '">' +
         label +
         "</div>"
       );
@@ -346,33 +342,34 @@ if (typesAltWrapper) {
     .join("");
 
   typesAltWrapper.innerHTML = altHtml;
+
+  // === CTA bien-être : visible seulement si ce type est l’UNIQUE sélectionné ===
+  var wellnessCtaEl = document.getElementById("adWellness-cta");
+  if (wellnessCtaEl) {
+    var WELLNESS_NAME = "Salons esthétiques / Centres bien-être";
+
+    // log debug
+    console.log("[Wellness CTA]");
+    console.log("element found:", true);
+    console.log("selectedTypes:", selectedTypes);
+
+    var isWellnessSelected = selectedTypes.some(function (t) {
+      return (t || "").trim().toLowerCase() === WELLNESS_NAME.toLowerCase();
+    });
+    var hasOtherTypes = selectedTypes.some(function (t) {
+      return (t || "").trim().toLowerCase() !== WELLNESS_NAME.toLowerCase();
+    });
+
+    var showCta = isWellnessSelected && !hasOtherTypes;
+    console.log("isWellnessSelected:", isWellnessSelected);
+    console.log("hasOtherTypes:", hasOtherTypes);
+    console.log("showCta:", showCta);
+
+    // forcer la priorité même face à du CSS avec !important
+    wellnessCtaEl.style.setProperty("display", showCta ? "flex" : "none", "important");
+  }
 }
 
-// --- [WELLNESS CTA - exclusif] ---------------------------------------------
-(function () {
-  var wellnessCtaEl = document.getElementById("adWellness-cta");
-  if (!wellnessCtaEl) {
-    console.log("[Wellness CTA] element not found");
-    return;
-  }
-
-  // Recalcule les types réellement sélectionnés à partir de la source de vérité (Set global)
-  var selectedTypesNow = Array.from(selectedFacetTags)
-    .filter(function (k) { return k.indexOf("type:::") === 0; })
-    .map(function (k) { return (k.split(":::")[1] || "").trim().toLowerCase(); });
-
-  var WELLNESS_SLUG = "salons esthétiques / centres bien-être";
-
-  var isWellnessSelected = selectedTypesNow.indexOf(WELLNESS_SLUG) !== -1;
-  var hasOtherTypes = selectedTypesNow.length > 1;
-  var showCta = isWellnessSelected && !hasOtherTypes;
-
-  console.log("[Wellness CTA] selectedTypes:", selectedTypesNow);
-  console.log("[Wellness CTA] showCta:", showCta);
-
-  // Force l’affichage (bat les règles CSS agressives)
-  wellnessCtaEl.style.setProperty("display", showCta ? "flex" : "none", "important");
-})();
 
 
         // SPÉCIALITÉS ---------------------------------------------------------
