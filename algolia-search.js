@@ -26,6 +26,8 @@ window.addEventListener("DOMContentLoaded", function () {
   var searchInstance = null;
   var hasUserLaunchedSearch = false;
   var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
+  var DIRECTORY_BASE_URL = "https://elsee-v-0.webflow.io/lannuaire-des-partenaires-elsee";
+
 
   // 3. INIT ------------------------------------------------------------------
   function initAlgolia() {
@@ -1346,9 +1348,13 @@ function makeFiltersString(extra) {
   return base;
 }
 
-function renderInto(containerId, hits) {
+function renderInto(containerId, hits, opts) {
   var container = document.getElementById(containerId);
   if (!container) return;
+
+  opts = opts || {};
+  var typeFacetValue = opts.typeFacetValue || ""; // ex: "Thérapeutes", "Marques", "Applications & Programmes"
+  var label = (opts.label || typeFacetValue || "").toLowerCase(); // pour le texte
 
   var query =
     (searchInstance &&
@@ -1358,27 +1364,43 @@ function renderInto(containerId, hits) {
 
   var sorted = sortHitsLikeMain(hits, query);
 
-  // Structure voulue : un <ol> ... et pour chaque hit :
-  // <li class="ais-InfiniteHits-item">
-  //   <div class="directory_card_container"> ... </div>
-  // </li>
+  // on limite à 5
+  var visible = sorted.slice(0, 5);
+
+  // liste HTML : <ol> -> <li class="ais-InfiniteHits-item"><div class="directory_card_container">…</div></li>
+  var itemsHtml = visible
+    .map(function (hit) {
+      return (
+        '<li class="ais-InfiniteHits-item">' +
+          '<div class="directory_card_container">' +
+            buildCardHTML(hit) + // buildCardHTML doit retourner le <a class="directory_card_body">…</a> SEUL
+          '</div>' +
+        '</li>'
+      );
+    })
+    .join("");
+
+  // 6e : carte “voir plus”
+  var moreUrl = buildMoreUrlForType(typeFacetValue);
+  var moreItemHtml =
+    '<li class="ais-InfiniteHits-item">' +
+      // tu pourras remplacer "more-card" par ta classe exacte
+      '<div class="directory_card_container more-card">' +
+        '<a href="' + moreUrl + '" class="directory_card_body">' +
+          '<div class="directory_card_title"><div>voir plus de ' + (label || "résultats") + '</div></div>' +
+        '</a>' +
+      '</div>' +
+    '</li>';
+
   var html =
     '<ol class="ais-InfiniteHits-list">' +
-    sorted
-      .map(function (hit) {
-        return (
-          '<li class="ais-InfiniteHits-item">' +
-            '<div class="directory_card_container">' +
-              buildCardHTML(hit) +            // buildCardHTML retourne SEULEMENT le <a class="directory_card_body">…</a>
-            '</div>' +
-          '</li>'
-        );
-      })
-      .join('') +
+      itemsHtml +
+      moreItemHtml +
     '</ol>';
 
   container.innerHTML = html;
 }
+
 
 
 
@@ -1415,9 +1437,12 @@ async function fetchAndRenderMoreBlocks() {
     filters: thpFilters
   }).catch(function(){ return { hits: [] };});
   var thpHits = (thpRes && thpRes.hits) || [];
-  renderInto("hits_therapeutes", thpHits);
-  toggleWrapper("hits_therapeutes_wrapper", thpHits.length);
-
+  // --- Thérapeutes ---
+renderInto("hits_therapeutes", thpHits, {
+  typeFacetValue: "Thérapeutes",
+  label: "thérapeutes"
+});
+toggleWrapper("hits_therapeutes_wrapper", thpHits.length);
   // --- Requête 2 : Marques (sans géoloc) ---
   var mqFacetFilters = buildFacetFiltersFor("Marques");
   var mqFilters = makeFiltersString("");
@@ -1427,9 +1452,11 @@ async function fetchAndRenderMoreBlocks() {
     filters: mqFilters
   }).catch(function(){ return { hits: [] };});
   var mqHits = (mqRes && mqRes.hits) || [];
-  renderInto("hits_marques", mqHits);
-  toggleWrapper("hits_marques_wrapper", mqHits.length);
-
+  rrenderInto("hits_marques", mqHits, {
+  typeFacetValue: "Marques",
+  label: "marques"
+});
+toggleWrapper("hits_marques_wrapper", mqHits.length);
   // --- Requête 3 : Applications et programmes (sans géoloc) ---
   var apFacetFilters = buildFacetFiltersFor("Applications et programmes");
   var apFilters = makeFiltersString("");
@@ -1439,9 +1466,12 @@ async function fetchAndRenderMoreBlocks() {
     filters: apFilters
   }).catch(function(){ return { hits: [] };});
   var apHits = (apRes && apRes.hits) || [];
-  renderInto("hits_applications_programmes", apHits);
-  toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
-
+  renderInto("hits_applications_programmes", apHits, {
+  typeFacetValue: "Applications et programmes",
+  label: "applications et programmes"
+});
+toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
+  
   // Règle d'affichage de #more-results
   var total = thpHits.length + mqHits.length + apHits.length;
   if (total === 0) {
@@ -1450,6 +1480,46 @@ async function fetchAndRenderMoreBlocks() {
     more.style.display = "block";
   }
 }
+    function buildMoreUrlForType(typeValue) {
+  if (!searchInstance || !searchInstance.helper) return DIRECTORY_BASE_URL;
+
+  var st = searchInstance.helper.state;
+  var params = new URLSearchParams();
+
+  // q
+  var q = (st.query || "").trim();
+  if (q) params.set("q", q);
+
+  // facets normales
+  var fr = st.facetsRefinements || {};
+  var disj = st.disjunctiveFacetsRefinements || {};
+
+  var spes = (fr.specialities || []).slice();
+  var prestas = (fr.prestations || []).slice();
+  var reimb = (disj.reimbursment_percentage || []).slice();
+
+  if (spes.length)    params.set("specialities", spes.join(","));
+  if (prestas.length) params.set("prestations", prestas.join(","));
+  if (reimb.length)   params.set("reimbursment_percentage", reimb.join(","));
+
+  // jobs sélectionnés (on garde ta source de vérité)
+  if (selectedJobTags.length) params.set("jobs", selectedJobTags.join(","));
+
+  // booléens (on garde)
+  if (isNetworkSelected) params.set("network", "true");
+  if (isRemoteSelected)  params.set("remote", "true");
+  if (isAtHomeSelected)  params.set("athome", "true");
+
+  // type -> forcé
+  if (typeValue) params.set("type", typeValue);
+
+  // géoloc -> supprimée
+  params.delete("geo");
+  params.delete("geolabel");
+
+  return DIRECTORY_BASE_URL + "?" + params.toString();
+}
+
 
     // 9. RENDER GLOBAL --------------------------------------------------------
     search.on("render", function () {
