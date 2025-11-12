@@ -1347,12 +1347,34 @@ function makeFiltersString(extra) {
 }
 
 function renderInto(containerId, hits) {
-  var ul = document.getElementById(containerId);
-  if (!ul) return;
-  var query = (searchInstance && searchInstance.helper && searchInstance.helper.state && searchInstance.helper.state.query) || "";
+  var container = document.getElementById(containerId);
+  if (!container) return;
+
+  // Récupération de la requête actuelle
+  var query =
+    (searchInstance &&
+      searchInstance.helper &&
+      searchInstance.helper.state &&
+      searchInstance.helper.state.query) ||
+    "";
+
+  // On trie comme le bloc principal
   var sorted = sortHitsLikeMain(hits, query);
-  ul.innerHTML = sorted.map(buildCardHTML).join("");
+
+  // On reconstruit la même structure <ol><li>...</li></ol>
+  var cardsHTML = sorted
+    .map(function (hit) {
+      return (
+        '<li class="ais-InfiniteHits-item">' + buildCardHTML(hit) + "</li>"
+      );
+    })
+    .join("");
+
+  // Structure identique à InstantSearch
+  container.innerHTML =
+    '<ol class="ais-InfiniteHits-list">' + cardsHTML + "</ol>";
 }
+
 
 function toggleWrapper(wrapperId, count) {
   var wrap = document.getElementById(wrapperId);
