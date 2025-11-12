@@ -1250,21 +1250,21 @@ function buildCardHTML(hit) {
   }
   var prestationsDiv = '<div class="directory_card_prestations_container">' + prestasHtml + "</div>";
 
+  // 👉 On ne met PAS de <li> ici, seulement le corps
   return (
-    '<li class="directory_card_container">' +
-      '<a href="' + url + '" class="directory_card_body">' +
-        '<div class="directory_card_upper_container">' +
-          '<div class="directory_card_header">' +
-            photoDiv +
-            '<div class="directory_card_options_container">' + remoteIcon + atHomeIcon + discountDiv + '</div>' +
-          '</div>' +
-          titleDiv + partnerDetails1Html + partnerDetails2Html +
+    '<a href="' + url + '" class="directory_card_body">' +
+      '<div class="directory_card_upper_container">' +
+        '<div class="directory_card_header">' +
+          photoDiv +
+          '<div class="directory_card_options_container">' + remoteIcon + atHomeIcon + discountDiv + '</div>' +
         '</div>' +
-        locationDiv + prestationsDiv +
-      '</a>' +
-    '</li>'
+        titleDiv + partnerDetails1Html + partnerDetails2Html +
+      '</div>' +
+      locationDiv + prestationsDiv +
+    '</a>'
   );
 }
+
 
 // === Tri identique à transformItems principal ===
 function sortHitsLikeMain(items, query) {
@@ -1350,7 +1350,7 @@ function renderInto(containerId, hits) {
   var container = document.getElementById(containerId);
   if (!container) return;
 
-  // Récupération de la requête actuelle
+  // Récupère la requête actuelle
   var query =
     (searchInstance &&
       searchInstance.helper &&
@@ -1358,22 +1358,18 @@ function renderInto(containerId, hits) {
       searchInstance.helper.state.query) ||
     "";
 
-  // On trie comme le bloc principal
+  // Trie les résultats comme le bloc principal
   var sorted = sortHitsLikeMain(hits, query);
 
-  // On reconstruit la même structure <ol><li>...</li></ol>
-  var cardsHTML = sorted
-    .map(function (hit) {
-      return (
-        '<li class="ais-InfiniteHits-item">' + buildCardHTML(hit) + "</li>"
-      );
-    })
-    .join("");
-
-  // Structure identique à InstantSearch
+  // Structure identique à InstantSearch : <ol> + <li>
   container.innerHTML =
-    '<ol class="ais-InfiniteHits-list">' + cardsHTML + "</ol>";
+    '<ol class="ais-InfiniteHits-list">' +
+    sorted.map(function (hit) {
+      return buildCardHTML(hit); // le <li> est déjà dans buildCardHTML()
+    }).join("") +
+    "</ol>";
 }
+
 
 
 function toggleWrapper(wrapperId, count) {
