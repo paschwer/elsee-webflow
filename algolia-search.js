@@ -114,6 +114,68 @@ window.addEventListener("DOMContentLoaded", function () {
       }
     }
 
+    
+    // === HELPER GLOBAL : toggle CTA bien-être + Observer ===
+(function () {
+  var WELLNESS_NAME = "Salons esthétiques / Centres bien-être";
+  var observerStarted = false;
+
+  function applyToggle(selectedTypes) {
+    var nodes = document.querySelectorAll("#adWellness-cta");
+    if (!nodes.length) return;
+
+    var isWellnessSelected = selectedTypes.some(function (t) {
+      return (t || "").trim().toLowerCase() === WELLNESS_NAME.toLowerCase();
+    });
+    var hasOtherTypes = selectedTypes.some(function (t) {
+      return (t || "").trim().toLowerCase() !== WELLNESS_NAME.toLowerCase();
+    });
+    var show = isWellnessSelected && !hasOtherTypes;
+
+    nodes.forEach(function (el, idx) {
+      try {
+        el.style.setProperty("display", show ? "flex" : "none", "important");
+        // debug utile
+        var comp = window.getComputedStyle(el).display;
+        console.log("[Wellness CTA] idx=", idx, "show=", show, "computed=", comp, el);
+      } catch (e) {
+        console.error("[Wellness CTA] setProperty error", e);
+      }
+    });
+  }
+
+  // exposé global pour l’appeler depuis le widget
+  window.__toggleWellnessCTA = applyToggle;
+
+  // démarre un observer qui réapplique après re-render Webflow/Algolia
+  window.__ensureWellnessObserver = function (selectedTypes) {
+    if (observerStarted) return;
+    var root =
+      document.querySelector(".directory_sidebar_ctas_container") || document.body;
+
+    // garde-fou : si rien, retente plus tard
+    if (!root) {
+      requestAnimationFrame(function () {
+        window.__ensureWellnessObserver(selectedTypes);
+      });
+      return;
+    }
+
+    observerStarted = true;
+    var mo = new MutationObserver(function () {
+      // laisse le temps au DOM de finir, puis ré-applique
+      requestAnimationFrame(function () {
+        applyToggle(selectedTypes);
+      });
+    });
+
+    mo.observe(root, {
+      childList: true,
+      subtree: true,
+    });
+  };
+})();
+
     // 5. FILTRES --------------------------------------------------------------
     function buildFiltersStringFromJobsAndBooleans() {
       var parts = [];
@@ -343,33 +405,16 @@ if (typesAltWrapper) {
 
   typesAltWrapper.innerHTML = altHtml;
 
-  // === CTA bien-être : visible seulement si ce type est l’UNIQUE sélectionné ===
-  var wellnessCtaEl = document.getElementById("adWellness-cta");
-  if (wellnessCtaEl) {
-    var WELLNESS_NAME = "Salons esthétiques / Centres bien-être";
-
-    // log debug
-    console.log("[Wellness CTA]");
-    console.log("element found:", true);
-    console.log("selectedTypes:", selectedTypes);
-
-    var isWellnessSelected = selectedTypes.some(function (t) {
-      return (t || "").trim().toLowerCase() === WELLNESS_NAME.toLowerCase();
-    });
-    var hasOtherTypes = selectedTypes.some(function (t) {
-      return (t || "").trim().toLowerCase() !== WELLNESS_NAME.toLowerCase();
-    });
-
-    var showCta = isWellnessSelected && !hasOtherTypes;
-    console.log("isWellnessSelected:", isWellnessSelected);
-    console.log("hasOtherTypes:", hasOtherTypes);
-    console.log("showCta:", showCta);
-
-    // forcer la priorité même face à du CSS avec !important
-    wellnessCtaEl.style.setProperty("display", showCta ? "flex" : "none", "important");
+  // === CTA bien-être : visible uniquement si CE type est seul sélectionné ===
+  console.log("[Wellness CTA] selectedTypes =", selectedTypes);
+  if (typeof window.__toggleWellnessCTA === "function") {
+    window.__toggleWellnessCTA(selectedTypes);
+    // armement de l’observer pour les re-renders Webflow/Algolia
+    if (typeof window.__ensureWellnessObserver === "function") {
+      window.__ensureWellnessObserver(selectedTypes);
+    }
   }
 }
-
 
 
         // SPÉCIALITÉS ---------------------------------------------------------
