@@ -1414,7 +1414,7 @@ var sorted = sortHitsLikeMain(pruned, query);
       );
     })
     .join("");
-
+}
   // 6e : carte “voir plus”
   function buildMoreUrlForType(typeValue) {
   // Normalisation simple pour test "thérapeutes"
