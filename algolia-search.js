@@ -88,6 +88,15 @@ window.addEventListener("DOMContentLoaded", function () {
       if (Array.isArray(v)) return v;
       return [v];
     }
+function normalizeUrl(u){
+  try {
+    var abs = new URL(String(u), window.location.origin).href;
+    abs = abs.replace(/\/+$/,''); // retire trailing slash
+    return abs.toLowerCase();
+  } catch(e){
+    return (String(u)||"").trim().toLowerCase();
+  }
+}
 
     function isTherapeutes(hit) {
       var t = (hit.type || "").trim().toLowerCase();
@@ -1364,13 +1373,14 @@ function renderInto(containerId, hits, opts) {
       searchInstance.helper.state &&
       searchInstance.helper.state.query) || "";
 
-// on retire ce qui est déjà dans le bloc principal (basé sur l’URL)
+// retire ce qui est déjà dans le bloc principal (comparaison sur URL normalisée)
 var pruned = (hits || []).filter(function (hit) {
-  var u = (hit && hit.url ? String(hit.url).trim() : "");
+  var u = hit && hit.url ? normalizeUrl(hit.url) : "";
   return u && !mainHitHrefSet.has(u);
 });
 
 var sorted = sortHitsLikeMain(pruned, query);
+
 
   // on limite à 5
   var visible = sorted.slice(0, 5);
@@ -1393,7 +1403,7 @@ var sorted = sortHitsLikeMain(pruned, query);
   var moreItemHtml =
     '<li class="ais-InfiniteHits-item">' +
       // tu pourras remplacer "more-card" par ta classe exacte
-      '<div class="directory_card_container more-card">' +
+      '<div class="more-card">' +
         '<a href="' + moreUrl + '" class="directory_card_body">' +
           '<div class="directory_card_title"><div>Voir plus de ' + (label || "résultats") + '</div></div>' +
         '</a>' +
@@ -1590,13 +1600,20 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
     }
   }
 
-  // Capture des URLs déjà affichées dans le bloc principal (#hits)
+  // URLs du bloc principal via le renderState (fiable et sans timing DOM)
 mainHitHrefSet.clear();
-Array.prototype.slice.call(
-  document.querySelectorAll('#hits li.directory_card_container > a.directory_card_body')
-).forEach(function(a){
-  if (a && a.href) mainHitHrefSet.add(a.href);
-});
+try {
+  var rs = searchInstance && searchInstance.renderState && searchInstance.renderState[ALGOLIA_INDEX_NAME];
+  var items = (rs && rs.infiniteHits && rs.infiniteHits.items) || [];
+  items.forEach(function(hit){
+    var u = hit && hit.url ? normalizeUrl(hit.url) : "";
+    if (u) mainHitHrefSet.add(u);
+  });
+} catch(e){ /* no-op */ }
+
+// Laisse un frame pour que le DOM finisse de se peindre, puis lance les secondaires
+requestAnimationFrame(fetchAndRenderMoreBlocks);
+
 
   // Rafraîchit les blocs "plus de résultats"
   fetchAndRenderMoreBlocks();
