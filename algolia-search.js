@@ -1570,7 +1570,7 @@ function renderInto(containerId, hits, opts) {
     '<li class="ais-InfiniteHits-item">' +
       '<div class="more-card">' +
         '<a href="' + moreUrl + '" class="directory_more_card_body">' +
-          '<div class="directory_card_title"><div>voir plus de ' + (label || "résultats") + '</div></div>' +
+          '<div class="directory_more_card_title"><div>voir plus de ' + (label || "résultats") + '</div></div>' +
         '</a>' +
       '</div>' +
     '</li>';
