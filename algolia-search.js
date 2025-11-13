@@ -27,6 +27,8 @@ window.addEventListener("DOMContentLoaded", function () {
   var hasUserLaunchedSearch = false;
   var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
   var DIRECTORY_BASE_URL = "https://elsee-v-0.webflow.io/lannuaire-des-partenaires-elsee";
+  var mainHitHrefSet = new Set();
+  var mainHitPathSet = new Set();
   var mainHitOdooSet = new Set();
 
 
@@ -800,7 +802,28 @@ if (typeof window.__toggleTypeCTAs === "function") {
       instantsearch.widgets.configure({
         facets: ["specialities", "prestations", "mainjob", "jobs"],
         disjunctiveFacets: ["type", "reimbursment_percentage"],
-        hitsPerPage: 48
+        hitsPerPage: 48,
+  attributesToRetrieve: [
+    "name",
+    "url",
+    "photo_url",
+    "is_elsee_network",
+    "is_remote",
+    "is_at_home",
+    "reimbursment_percentage",
+    "city",
+    "department_number",
+    "mainjob",
+    "jobs",
+    "prestations",
+    "specialities",
+    "short_desc",
+    "show_search",
+    "show_home",
+    "ranking",
+    "type",
+    "odoo_id" // <--- IMPORTANT
+  ]
       }),
       instantsearch.widgets.searchBox({
         container: "#searchbox",
@@ -828,6 +851,10 @@ if (typeof window.__toggleTypeCTAs === "function") {
           loadMore: "directory_show_more_button"
         },
         transformItems: function (items) {
+          if (items && items.length) {
+    console.log("[DEBUG HIT PRINCIPAL]", items[0]);
+    console.log("[DEBUG KEYS]", Object.keys(items[0]));
+  }
   var query = "";
   if (searchInstance && searchInstance.helper && searchInstance.helper.state) {
     query = (searchInstance.helper.state.query || "").trim().toLowerCase();
@@ -1430,26 +1457,21 @@ function renderInto(containerId, hits, opts) {
       searchInstance.helper.state.query) || "";
 
   // Retire les hits déjà présents dans le bloc principal (on compare href ET pathname)
+    // Retire les hits déjà présents dans le bloc principal (on compare par odoo_id)
   var pruned = (hits || []).filter(function (hit) {
-  if (!hit) return false;
+    if (!hit) return false;
 
-  var oid =
-    hit.odoo_id != null ? hit.odoo_id :
-    hit.odooId   != null ? hit.odooId   :
-    (hit.odoo && hit.odoo.id != null) ? hit.odoo.id :
-    (hit.odoo_id && hit.odoo_id.id != null) ? hit.odoo_id.id :
-    null;
-
-  if (oid != null) {
-    var key = String(oid);
-    if (mainHitOdooSet.has(key)) {
-      console.log("[DEDUPE] secondaire supprimé (odoo_id déjà vu)", key);
-      return false;
+    if (hit.odoo_id != null) {
+      var key = String(hit.odoo_id);
+      if (mainHitOdooSet.has(key)) {
+        console.log("[DEDUPE] secondaire supprimé (odoo_id déjà vu)", key);
+        return false;
+      }
     }
-  }
 
-  return true;
-});
+    return true;
+  });
+
 
 
 
@@ -1613,48 +1635,45 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
     }
   }
 
-  // URLs du bloc principal via le renderState (fiable et sans timing DOM)
-// Récupère les hits réellement rendus par infiniteHits (fiable)
-mainHitOdooSet.clear();
-try {
-  var rs = searchInstance &&
-           searchInstance.renderState &&
-           searchInstance.renderState[ALGOLIA_INDEX_NAME];
-  var items = (rs && rs.infiniteHits && rs.infiniteHits.items) || [];
+    // URLs du bloc principal via le renderState (fiable et sans timing DOM)
+  mainHitHrefSet.clear();
+  mainHitPathSet.clear();
+  mainHitOdooSet.clear(); // on remet l'ensemble à zéro
 
-  var foundAny = false;
+  try {
+    var rs =
+      searchInstance &&
+      searchInstance.renderState &&
+      searchInstance.renderState[ALGOLIA_INDEX_NAME];
 
-  items.forEach(function (hit, idx) {
-    if (!hit) return;
+    var items = (rs && rs.infiniteHits && rs.infiniteHits.items) || [];
 
-    // ESSAI : différents patterns possibles
-    var oid =
-      hit.odoo_id != null ? hit.odoo_id :
-      hit.odooId   != null ? hit.odooId   :
-      (hit.odoo && hit.odoo.id != null) ? hit.odoo.id :
-      (hit.odoo_id && hit.odoo_id.id != null) ? hit.odoo_id.id :
-      null;
+    items.forEach(function (hit) {
+      if (!hit) return;
 
-    if (oid != null) {
-      foundAny = true;
-      mainHitOdooSet.add(String(oid));
-    }
-  });
+      // URL / path (au cas où tu en aies encore besoin plus tard)
+      if (hit.url) {
+        var hrefKey = normalizeUrl(hit.url);
+        var pathKey = normalizePathKey(hit.url);
+        if (hrefKey) mainHitHrefSet.add(hrefKey);
+        if (pathKey) mainHitPathSet.add(pathKey);
+      }
 
-  if (!foundAny && items.length) {
-    console.log("[DEDUPE] aucun odoo_id trouvé sur les hits principaux");
-    console.log("[DEDUPE] keys du 1er hit =", Object.keys(items[0]));
-    console.log("[DEDUPE] 1er hit complet =", items[0]);
+      // déduplication par odoo_id
+      if (hit.odoo_id != null) {
+        mainHitOdooSet.add(String(hit.odoo_id));
+      }
+    });
+
+    console.log("[DEDUPE] mainHitOdooSet =", Array.from(mainHitOdooSet));
+  } catch (e) {
+    console.warn("[DEDUPE] erreur build mainHitOdooSet", e);
   }
 
-  console.log("[DEDUPE] mainHitOdooSet =", Array.from(mainHitOdooSet));
-} catch (e) {
-  console.warn("[DEDUPE] erreur build mainHitOdooSet", e);
-}
-
-setTimeout(fetchAndRenderMoreBlocks, 0);
-
+  // Laisse finir le cycle de rendu puis lance les secondaires
+  setTimeout(fetchAndRenderMoreBlocks, 0);
 });
+
 
 
     // 10. CLIC GLOBAL SHOW MORE ----------------------------------------------
