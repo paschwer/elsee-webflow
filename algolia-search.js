@@ -1436,12 +1436,27 @@ function renderInto(containerId, hits, opts) {
 
   // Retire les hits déjà présents dans le bloc principal (on compare href ET pathname)
   var pruned = (hits || []).filter(function (hit) {
-  var oid = hit && hit.odoo_id != null ? String(hit.odoo_id) : null;
-  // Si l’item secondaire a un odoo_id présent dans le principal → on l’exclut
-  if (oid && mainHitOdooSet.has(oid)) return false;
-  // Pas d’odoo_id → on garde (impossible de dédupliquer proprement)
+  if (!hit) return false;
+
+  var oid =
+    hit.odoo_id != null ? hit.odoo_id :
+    hit.odooId   != null ? hit.odooId   :
+    (hit.odoo && hit.odoo.id != null) ? hit.odoo.id :
+    null;
+
+  if (oid != null) {
+    var key = String(oid);
+    if (mainHitOdooSet.has(key)) {
+      // debug
+      console.log("[DEDUPE] secondaire supprimé (odoo_id déjà vu)", key);
+      return false;
+    }
+  }
+
+  // pas d’odoo_id ou pas dans le set -> on garde
   return true;
 });
+
 
   var sorted = sortHitsLikeMain(pruned, query);
 
@@ -1465,7 +1480,7 @@ function renderInto(containerId, hits, opts) {
   var moreUrl = buildMoreUrlForType(typeFacetValue);
   var moreItemHtml =
     '<li class="ais-InfiniteHits-item">' +
-      '<div class="directory_card_container more-card">' +
+      '<div class="more-card">' +
         '<a href="' + moreUrl + '" class="directory_card_body">' +
           '<div class="directory_card_title"><div>voir plus de ' + (label || "résultats") + '</div></div>' +
         '</a>' +
@@ -1612,18 +1627,34 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
 // Récupère les hits réellement rendus par infiniteHits (fiable)
 mainHitOdooSet.clear();
 try {
-  var rs = searchInstance && searchInstance.renderState && searchInstance.renderState[ALGOLIA_INDEX_NAME];
+  var rs = searchInstance &&
+           searchInstance.renderState &&
+           searchInstance.renderState[ALGOLIA_INDEX_NAME];
   var items = (rs && rs.infiniteHits && rs.infiniteHits.items) || [];
-  items.forEach(function(hit){
+
+  items.forEach(function (hit) {
     if (!hit) return;
-    if (hit.odoo_id != null) {
-      mainHitOdooSet.add(String(hit.odoo_id));
+
+    // récupère un ID "robuste"
+    var oid =
+      hit.odoo_id != null ? hit.odoo_id :
+      hit.odooId   != null ? hit.odooId   :
+      (hit.odoo && hit.odoo.id != null) ? hit.odoo.id :
+      null;
+
+    if (oid != null) {
+      mainHitOdooSet.add(String(oid));
     }
   });
-} catch(e){ /* no-op */ }
 
-// Laisse finir le cycle de rendu puis lance les secondaires
+  // debug : voir ce qu’il y a dedans
+  console.log("[DEDUPE] mainHitOdooSet =", Array.from(mainHitOdooSet));
+} catch (e) {
+  console.warn("[DEDUPE] erreur build mainHitOdooSet", e);
+}
+
 setTimeout(fetchAndRenderMoreBlocks, 0);
+
 
 });
 
