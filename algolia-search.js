@@ -1415,68 +1415,25 @@ var sorted = sortHitsLikeMain(pruned, query);
     })
     .join("");
 }
-  // 6e : carte “voir plus”
-  function buildMoreUrlForType(typeValue) {
-  // Normalisation simple pour test "thérapeutes"
-  function _norm(s){
-    return (s||"").toString().trim().toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  }
-  var isThera = _norm(typeValue).includes("therapeute");
+    // 6e : carte “voir plus”
+  var moreUrl = buildMoreUrlForType(typeFacetValue);
+  var moreItemHtml =
+    '<li class="ais-InfiniteHits-item">' +
+      '<div class="directory_card_container more-card">' +
+        '<a href="' + moreUrl + '" class="directory_card_body">' +
+          '<div class="directory_card_title"><div>voir plus de ' + (label || "résultats") + '</div></div>' +
+        '</a>' +
+      '</div>' +
+    '</li>';
 
-  // Si pas d'instance, on renvoie au moins ?type=... (+ remote=true si théra)
-  if (!searchInstance || !searchInstance.helper) {
-    var base = DIRECTORY_BASE_URL || "";
-    var params = new URLSearchParams();
-    if (typeValue) params.set("type", typeValue);
-    if (isThera)  params.set("remote","true");
-    var qs = params.toString();
-    return base + (qs ? "?" + qs : "");
-  }
+  var html =
+    '<ol class="ais-InfiniteHits-list">' +
+      itemsHtml +
+      moreItemHtml +
+    '</ol>';
 
-  var st = searchInstance.helper.state;
-  var params = new URLSearchParams();
-
-  // q
-  var q = (st.query || "").trim();
-  if (q) params.set("q", q);
-
-  // facets normales
-  var fr = st.facetsRefinements || {};
-  var disj = st.disjunctiveFacetsRefinements || {};
-
-  var spes    = (fr.specialities || []).slice();
-  var prestas = (fr.prestations  || []).slice();
-  var reimb   = (disj.reimbursment_percentage || []).slice();
-
-  if (spes.length)    params.set("specialities", spes.join(","));
-  if (prestas.length) params.set("prestations", prestas.join(","));
-  if (reimb.length)   params.set("reimbursment_percentage", reimb.join(","));
-
-  // jobs sélectionnés
-  if (selectedJobTags.length) params.set("jobs", selectedJobTags.join(","));
-
-  // booléens actuels
-  if (isNetworkSelected) params.set("network", "true");
-  if (isRemoteSelected)  params.set("remote", "true");
-  if (isAtHomeSelected)  params.set("athome", "true");
-
-  // type forcé pour le bloc
-  if (typeValue) params.set("type", typeValue);
-
-  // géoloc supprimée
-  params.delete("geo");
-  params.delete("geolabel");
-
-  // Ajout/force remote=true si "Thérapeutes"
-  if (isThera) params.set("remote","true");
-
-  // Si rien d'autre que le type n'existe, on renvoie quand même ?type=...
-  var qs = params.toString();
-  if (!qs && typeValue) qs = "type=" + encodeURIComponent(typeValue) + (isThera ? "&remote=true" : "");
-
-  return DIRECTORY_BASE_URL + (qs ? "?" + qs : "");
-}
+  container.innerHTML = html;
+} // <-- ferme bien renderInto ici
 
 function toggleWrapper(wrapperId, count) {
   var wrap = document.getElementById(wrapperId);
