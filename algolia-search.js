@@ -233,21 +233,21 @@ window.addEventListener("DOMContentLoaded", function () {
       return finalStr.length ? finalStr : undefined;
     }
 
-    // filtre de visibilité commun
-    function getVisibilityFilter() {
-      // cas spécial : on veut voir tous les membres réseau
-      if (isNetworkSelected) {
-        return "";
-      }
+    / filtre de visibilité commun
+function getVisibilityFilter(ignoreGeo) {
+  // cas spécial : on veut voir tous les membres réseau
+  if (isNetworkSelected) {
+    return "";
+  }
 
-      // seulement la recherche géolocalisée doit masquer les show_home
-      if (currentGeoFilter) {
-        return "NOT show_home:true";
-      }
+  // si on n’ignore PAS la géoloc et qu’elle est active → règle spéciale show_home
+  if (!ignoreGeo && currentGeoFilter) {
+    return "NOT show_home:true";
+  }
 
-      // toutes les autres recherches/états -> on masque ceux faits pour la recherche
-      return "NOT show_search:true";
-    }
+  // sinon, règle standard
+  return "NOT show_search:true";
+}
 
     function composeFilters(userFilters) {
       var visibility = getVisibilityFilter();
@@ -1388,11 +1388,10 @@ function buildFacetFiltersFor(label) {
 }
 
 
-// On garde ta règle de visibilité (show_home / show_search), mais on SUPPRIME la géoloc (pas de aroundLatLng).
-function makeFiltersString(extra) {
+function makeFiltersString(extra, ignoreGeo) {
   // jobs + booléens (network / remote / athome)
-  var userFilters = buildFiltersStringFromJobsAndBooleans(); 
-  var visibility  = getVisibilityFilter();
+  var userFilters = buildFiltersStringFromJobsAndBooleans();
+  var visibility  = getVisibilityFilter(!!ignoreGeo);
 
   var parts = [];
   if (userFilters && userFilters.length) parts.push(userFilters);
@@ -1622,67 +1621,85 @@ async function fetchAndRenderMoreBlocks() {
   var hasGeo = !!currentGeoFilter;
   if (!hasGeo) {
     more.style.display = "none";
-    // on nettoie
     toggleWrapper("hits_therapeutes_wrapper", 0);
     toggleWrapper("hits_marques_wrapper", 0);
     toggleWrapper("hits_applications_programmes_wrapper", 0);
     return;
   }
-// détecte si job actif
-var hasJobFilter = (selectedJobTags && selectedJobTags.length > 0);
 
-// === Marques + Applications seulement si pas de job ===
-if (!hasJobFilter) {
+  more.style.display = "flex";
 
-  // --- Marques ---
-  var mqFacetFilters = buildFacetFiltersFor("Marques");
-  var mqFilters = makeFiltersString("");
+  var hasJobFilter = (selectedJobTags && selectedJobTags.length > 0);
+  var queryStr =
+    (searchInstance &&
+      searchInstance.helper &&
+      searchInstance.helper.state &&
+      searchInstance.helper.state.query) || "";
 
-  var mqRes = await rawIndex.search(
-    (searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "",
-    {
+  // === THÉRAPEUTES SECONDAIRES : seulement visio, pas d'impact géoloc ===
+  var thFacetFilters = buildFacetFiltersForTherapeutes();
+  // on force ici is_remote:true et on ignore la géoloc dans la visibilité
+  var thFilters = makeFiltersString("is_remote:true", true);
+
+  var thRes = await rawIndex
+    .search(queryStr, {
       hitsPerPage: 24,
-      facetFilters: mqFacetFilters,
-      filters: mqFilters
-    }
-  ).catch(() => ({ hits: [] }));
+      facetFilters: thFacetFilters,
+      filters: thFilters
+    })
+    .catch(() => ({ hits: [] }));
 
-  var mqHits = (mqRes && mqRes.hits) || [];
-  renderInto("hits_marques", mqHits, {
-    typeFacetValue: "Marques",
-    label: "marques"
+  var thHits = (thRes && thRes.hits) || [];
+  renderInto("hits_therapeutes", thHits, {
+    typeFacetValue: "Thérapeutes",
+    label: "thérapeutes en visio"
   });
-  toggleWrapper("hits_marques_wrapper", mqHits.length);
+  toggleWrapper("hits_therapeutes_wrapper", thHits.length);
 
-  // --- Applications et programmes ---
-  var apFacetFilters = buildFacetFiltersFor("Applications et programmes");
-  var apFilters = makeFiltersString("");
+  // === Marques + Applications seulement si pas de job ===
+  if (!hasJobFilter) {
+    // --- Marques ---
+    var mqFacetFilters = buildFacetFiltersFor("Marques");
+    var mqFilters = makeFiltersString("", true); // ignore géoloc
 
-  var apRes = await rawIndex.search(
-    (searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "",
-    {
-      hitsPerPage: 24,
-      facetFilters: apFacetFilters,
-      filters: apFilters
-    }
-  ).catch(() => ({ hits: [] }));
+    var mqRes = await rawIndex
+      .search(queryStr, {
+        hitsPerPage: 24,
+        facetFilters: mqFacetFilters,
+        filters: mqFilters
+      })
+      .catch(() => ({ hits: [] }));
 
-  var apHits = (apRes && apRes.hits) || [];
-  renderInto("hits_applications_programmes", apHits, {
-    typeFacetValue: "Applications et programmes",
-    label: "applications et programmes"
-  });
-  toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
+    var mqHits = (mqRes && mqRes.hits) || [];
+    renderInto("hits_marques", mqHits, {
+      typeFacetValue: "Marques",
+      label: "marques"
+    });
+    toggleWrapper("hits_marques_wrapper", mqHits.length);
 
-} else {
+    // --- Applications et programmes ---
+    var apFacetFilters = buildFacetFiltersFor("Applications et programmes");
+    var apFilters = makeFiltersString("", true); // ignore géoloc
 
-  // cas : job sélectionné → on masque Marques + Applications
-  toggleWrapper("hits_marques_wrapper", 0);
-  toggleWrapper("hits_applications_programmes_wrapper", 0);
+    var apRes = await rawIndex
+      .search(queryStr, {
+        hitsPerPage: 24,
+        facetFilters: apFacetFilters,
+        filters: apFilters
+      })
+      .catch(() => ({ hits: [] }));
 
-  var mqHits = [];
-  var apHits = [];
-}
+    var apHits = (apRes && apRes.hits) || [];
+    renderInto("hits_applications_programmes", apHits, {
+      typeFacetValue: "Applications et programmes",
+      label: "applications et programmes"
+    });
+    toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
+  } else {
+    // job sélectionné → on masque Marques + Applications
+    toggleWrapper("hits_marques_wrapper", 0);
+    toggleWrapper("hits_applications_programmes_wrapper", 0);
+  }
 }
 
    
