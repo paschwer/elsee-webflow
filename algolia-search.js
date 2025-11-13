@@ -1731,7 +1731,7 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
       }
     });
     document.addEventListener("click", function (e) {
-  var link = e.target.closest(".directory_card_container.more-card a.directory_card_body");
+  var link = e.target.closest(".more-card");
   if (link) {
     console.log("[MORE CLICK] lien détecté =", link.href);
     // pas de preventDefault ici → navigation normale
