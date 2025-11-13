@@ -1442,20 +1442,20 @@ function renderInto(containerId, hits, opts) {
     hit.odoo_id != null ? hit.odoo_id :
     hit.odooId   != null ? hit.odooId   :
     (hit.odoo && hit.odoo.id != null) ? hit.odoo.id :
+    (hit.odoo_id && hit.odoo_id.id != null) ? hit.odoo_id.id :
     null;
 
   if (oid != null) {
     var key = String(oid);
     if (mainHitOdooSet.has(key)) {
-      // debug
       console.log("[DEDUPE] secondaire supprimé (odoo_id déjà vu)", key);
       return false;
     }
   }
 
-  // pas d’odoo_id ou pas dans le set -> on garde
   return true;
 });
+
 
 
   var sorted = sortHitsLikeMain(pruned, query);
@@ -1632,29 +1632,37 @@ try {
            searchInstance.renderState[ALGOLIA_INDEX_NAME];
   var items = (rs && rs.infiniteHits && rs.infiniteHits.items) || [];
 
-  items.forEach(function (hit) {
+  var foundAny = false;
+
+  items.forEach(function (hit, idx) {
     if (!hit) return;
 
-    // récupère un ID "robuste"
+    // ESSAI : différents patterns possibles
     var oid =
       hit.odoo_id != null ? hit.odoo_id :
       hit.odooId   != null ? hit.odooId   :
       (hit.odoo && hit.odoo.id != null) ? hit.odoo.id :
+      (hit.odoo_id && hit.odoo_id.id != null) ? hit.odoo_id.id :
       null;
 
     if (oid != null) {
+      foundAny = true;
       mainHitOdooSet.add(String(oid));
     }
   });
 
-  // debug : voir ce qu’il y a dedans
+  if (!foundAny && items.length) {
+    console.log("[DEDUPE] aucun odoo_id trouvé sur les hits principaux");
+    console.log("[DEDUPE] keys du 1er hit =", Object.keys(items[0]));
+    console.log("[DEDUPE] 1er hit complet =", items[0]);
+  }
+
   console.log("[DEDUPE] mainHitOdooSet =", Array.from(mainHitOdooSet));
 } catch (e) {
   console.warn("[DEDUPE] erreur build mainHitOdooSet", e);
 }
 
 setTimeout(fetchAndRenderMoreBlocks, 0);
-
 
 });
 
