@@ -1381,7 +1381,8 @@ function makeFiltersString(extra) {
 }
 // Construit l’URL "voir plus de X" pour les hits secondaires
 function buildMoreUrlForType(typeLabel) {
-  // on part des paramètres actuels de l’URL
+  console.log("[MORE] buildMoreUrlForType() – typeLabel =", typeLabel);
+
   var params = new URLSearchParams(window.location.search);
 
   // 1) query actuelle
@@ -1392,13 +1393,14 @@ function buildMoreUrlForType(typeLabel) {
       searchInstance.helper.state.query) ||
     "";
   q = (q || "").trim();
+  console.log("[MORE] current query =", q);
   if (q) {
     params.set("q", q);
   } else {
     params.delete("q");
   }
 
-  // 2) géoloc actuelle (on garde la même)
+  // 2) géoloc actuelle
   if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
     params.set(
       "geo",
@@ -1412,12 +1414,14 @@ function buildMoreUrlForType(typeLabel) {
     } else {
       params.delete("geolabel");
     }
+    console.log("[MORE] geo =", currentGeoFilter);
   } else {
     params.delete("geo");
     params.delete("geolabel");
+    console.log("[MORE] pas de geo");
   }
 
-  // 3) type à forcer dans l’URL
+  // 3) normalisation du type
   function norm(s) {
     return (s || "")
       .toString()
@@ -1438,21 +1442,28 @@ function buildMoreUrlForType(typeLabel) {
     typeParam = "Applications et programmes";
   }
 
+  console.log("[MORE] normalised label =", n, "→ typeParam =", typeParam);
+
   if (typeParam) {
     params.set("type", typeParam);
   } else {
     params.delete("type");
   }
 
-  // on ne transporte pas les filtres d’autres types (specialities, prestations, jobs…)
+  // 4) on nettoie les autres filtres pour élargir
   params.delete("specialities");
   params.delete("prestations");
   params.delete("jobs");
   params.delete("reimbursment_percentage");
 
   var qs = params.toString();
-  return DIRECTORY_BASE_URL + (qs ? "?" + qs : "");
+  var finalUrl = DIRECTORY_BASE_URL + (qs ? "?" + qs : "");
+
+  console.log("[MORE] finalUrl =", finalUrl);
+
+  return finalUrl;
 }
+
 
 
 function renderInto(containerId, hits, opts) {
@@ -1507,6 +1518,11 @@ function renderInto(containerId, hits, opts) {
     .join("");
 
   // 6e : carte “voir plus”
+  console.log("[MORE] renderInto() – containerId =", containerId,
+            "typeFacetValue =", typeFacetValue,
+            "label =", label,
+            "visible.length =", visible.length);
+
   var moreUrl = buildMoreUrlForType(typeFacetValue);
   var moreItemHtml =
     '<li class="ais-InfiniteHits-item">' +
