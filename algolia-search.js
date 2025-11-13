@@ -1368,17 +1368,40 @@ function buildFacetFiltersForTherapeutes() {
 }
 
 function buildFacetFiltersFor(label) {
-  // label attendu: "Marques" ou "Applications et programmes"
-  return [[ "type:" + label ]];
+  var arr = [];
+
+  // type ciblé
+  arr.push(["type:" + label]);
+
+  // on réutilise les mêmes helpers que pour les thérapeutes
+  var selectedPrestas = getSelectedArray("prestations");
+  var selectedSpecs   = getSelectedArray("specialities");
+
+  selectedPrestas.forEach(function (p) {
+    arr.push("prestations:" + p);
+  });
+  selectedSpecs.forEach(function (s) {
+    arr.push("specialities:" + s);
+  });
+
+  return arr;
 }
+
 
 // On garde ta règle de visibilité (show_home / show_search), mais on SUPPRIME la géoloc (pas de aroundLatLng).
 function makeFiltersString(extra) {
-  var base = getVisibilityFilter() || "";
-  if (extra && base) return base + " AND " + extra;
-  if (extra) return extra;
-  return base;
+  // jobs + booléens (network / remote / athome)
+  var userFilters = buildFiltersStringFromJobsAndBooleans(); 
+  var visibility  = getVisibilityFilter();
+
+  var parts = [];
+  if (userFilters && userFilters.length) parts.push(userFilters);
+  if (visibility && visibility.length)   parts.push(visibility);
+  if (extra && extra.length)             parts.push(extra);
+
+  return parts.join(" AND ");
 }
+
 // Construit l’URL "voir plus de X" pour les hits secondaires
 function buildMoreUrlForType(typeFacetValue) {
   if (!searchInstance || !searchInstance.helper) {
@@ -1605,62 +1628,62 @@ async function fetchAndRenderMoreBlocks() {
     toggleWrapper("hits_applications_programmes_wrapper", 0);
     return;
   }
+// détecte si job actif
+var hasJobFilter = (selectedJobTags && selectedJobTags.length > 0);
 
-  // --- Requête 1 : Thérapeutes (sans géoloc, is_remote:true, prestas/specs respectées) ---
-  var thpFacetFilters = buildFacetFiltersForTherapeutes();
-  var thpFilters = makeFiltersString("is_remote:true");
-  var thpRes = await rawIndex.search((searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "", {
-    hitsPerPage: 24,
-    facetFilters: thpFacetFilters,
-    // SANS aroundLatLng / aroundRadius -> pas de géoloc
-    filters: thpFilters
-  }).catch(function(){ return { hits: [] };});
-  var thpHits = (thpRes && thpRes.hits) || [];
-  // --- Thérapeutes ---
-renderInto("hits_therapeutes", thpHits, {
-  typeFacetValue: "Thérapeutes",
-  label: "thérapeutes"
-});
-toggleWrapper("hits_therapeutes_wrapper", thpHits.length);
-  // --- Requête 2 : Marques (sans géoloc) ---
+// === Marques + Applications seulement si pas de job ===
+if (!hasJobFilter) {
+
+  // --- Marques ---
   var mqFacetFilters = buildFacetFiltersFor("Marques");
   var mqFilters = makeFiltersString("");
-  var mqRes = await rawIndex.search((searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "", {
-    hitsPerPage: 24,
-    facetFilters: mqFacetFilters,
-    filters: mqFilters
-  }).catch(function(){ return { hits: [] };});
-  var mqHits = (mqRes && mqRes.hits) || [];
-  // --- Marques ---
-renderInto("hits_marques", mqHits, {
-  typeFacetValue: "Marques",
-  label: "marques"
-});
 
-toggleWrapper("hits_marques_wrapper", mqHits.length);
-  // --- Requête 3 : Applications et programmes (sans géoloc) ---
+  var mqRes = await rawIndex.search(
+    (searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "",
+    {
+      hitsPerPage: 24,
+      facetFilters: mqFacetFilters,
+      filters: mqFilters
+    }
+  ).catch(() => ({ hits: [] }));
+
+  var mqHits = (mqRes && mqRes.hits) || [];
+  renderInto("hits_marques", mqHits, {
+    typeFacetValue: "Marques",
+    label: "marques"
+  });
+  toggleWrapper("hits_marques_wrapper", mqHits.length);
+
+  // --- Applications et programmes ---
   var apFacetFilters = buildFacetFiltersFor("Applications et programmes");
   var apFilters = makeFiltersString("");
-  var apRes = await rawIndex.search((searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "", {
-    hitsPerPage: 24,
-    facetFilters: apFacetFilters,
-    filters: apFilters
-  }).catch(function(){ return { hits: [] };});
+
+  var apRes = await rawIndex.search(
+    (searchInstance && searchInstance.helper && searchInstance.helper.state.query) || "",
+    {
+      hitsPerPage: 24,
+      facetFilters: apFacetFilters,
+      filters: apFilters
+    }
+  ).catch(() => ({ hits: [] }));
+
   var apHits = (apRes && apRes.hits) || [];
   renderInto("hits_applications_programmes", apHits, {
-  typeFacetValue: "Applications et programmes",
-  label: "applications et programmes"
-});
-toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
-  
-  // Règle d'affichage de #more-results
-  var total = thpHits.length + mqHits.length + apHits.length;
-  if (total === 0) {
-    more.style.display = "none";
-  } else {
-    more.style.display = "block";
-  }
+    typeFacetValue: "Applications et programmes",
+    label: "applications et programmes"
+  });
+  toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
+
+} else {
+
+  // cas : job sélectionné → on masque Marques + Applications
+  toggleWrapper("hits_marques_wrapper", 0);
+  toggleWrapper("hits_applications_programmes_wrapper", 0);
+
+  var mqHits = [];
+  var apHits = [];
 }
+
    
     // 9. RENDER GLOBAL --------------------------------------------------------
     search.on("render", function () {
