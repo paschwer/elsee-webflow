@@ -27,8 +27,8 @@ window.addEventListener("DOMContentLoaded", function () {
   var hasUserLaunchedSearch = false;
   var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
   var DIRECTORY_BASE_URL = "https://elsee-v-0.webflow.io/lannuaire-des-partenaires-elsee";
-  var mainHitHrefSet = new Set();
-  var mainHitPathSet = new Set();
+  var mainHitOdooSet = new Set();
+
 
 
 
@@ -89,26 +89,6 @@ window.addEventListener("DOMContentLoaded", function () {
       if (Array.isArray(v)) return v;
       return [v];
     }
-function normalizeUrl(u){
-  try {
-    var abs = new URL(String(u), window.location.origin).href;
-    abs = abs.replace(/\/+$/,''); // retire trailing slash
-    return abs.toLowerCase();
-  } catch(e){
-    return (String(u)||"").trim().toLowerCase();
-  }
-}
-
-// Compare hors domaine (staging vs prod) → on garde seulement le pathname
-function normalizePathKey(u){
-  try {
-    var url = new URL(String(u), window.location.origin);
-    var p = url.pathname.replace(/\/+$/,'').toLowerCase();
-    return p || "/";
-  } catch(e){
-    return "/";
-  }
-}
 
 
     function isTherapeutes(hit) {
@@ -1388,12 +1368,12 @@ function renderInto(containerId, hits, opts) {
 
   // Retire les hits déjà présents dans le bloc principal (on compare href ET pathname)
   var pruned = (hits || []).filter(function (hit) {
-    var hrefKey = hit && hit.url ? normalizeUrl(hit.url) : "";
-    var pathKey = hit && hit.url ? normalizePathKey(hit.url) : "";
-    var dupHref = hrefKey && mainHitHrefSet.has(hrefKey);
-    var dupPath = pathKey && mainHitPathSet.has(pathKey);
-    return !(dupHref || dupPath);
-  });
+  var oid = hit && hit.odoo_id != null ? String(hit.odoo_id) : null;
+  // Si l’item secondaire a un odoo_id présent dans le principal → on l’exclut
+  if (oid && mainHitOdooSet.has(oid)) return false;
+  // Pas d’odoo_id → on garde (impossible de dédupliquer proprement)
+  return true;
+});
 
   var sorted = sortHitsLikeMain(pruned, query);
 
@@ -1562,17 +1542,15 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
 
   // URLs du bloc principal via le renderState (fiable et sans timing DOM)
 // Récupère les hits réellement rendus par infiniteHits (fiable)
-mainHitHrefSet.clear();
-mainHitPathSet.clear();
+mainHitOdooSet.clear();
 try {
   var rs = searchInstance && searchInstance.renderState && searchInstance.renderState[ALGOLIA_INDEX_NAME];
   var items = (rs && rs.infiniteHits && rs.infiniteHits.items) || [];
   items.forEach(function(hit){
-    if (!hit || !hit.url) return;
-    var hrefKey = normalizeUrl(hit.url);
-    var pathKey = normalizePathKey(hit.url);
-    if (hrefKey) mainHitHrefSet.add(hrefKey);
-    if (pathKey) mainHitPathSet.add(pathKey);
+    if (!hit) return;
+    if (hit.odoo_id != null) {
+      mainHitOdooSet.add(String(hit.odoo_id));
+    }
   });
 } catch(e){ /* no-op */ }
 
