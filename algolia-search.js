@@ -851,16 +851,21 @@ if (typeof window.__toggleTypeCTAs === "function") {
           loadMore: "directory_show_more_button"
         },
         transformItems: function (items) {
-          if (items && items.length) {
-    console.log("[DEBUG HIT PRINCIPAL]", items[0]);
-    console.log("[DEBUG KEYS]", Object.keys(items[0]));
-  }
   var query = "";
   if (searchInstance && searchInstance.helper && searchInstance.helper.state) {
     query = (searchInstance.helper.state.query || "").trim().toLowerCase();
   }
 
-  // on part de ce que renvoie Algolia, sans refiltrer show_home / show_search
+  // === MAJ de l'ensemble des odoo_id du bloc principal ===
+  mainHitOdooSet.clear();
+  items.forEach(function (hit) {
+    if (hit && hit.odoo_id != null) {
+      mainHitOdooSet.add(String(hit.odoo_id));
+    }
+  });
+  console.log("[DEDUPE] mainHitOdooSet (from transformItems) =", Array.from(mainHitOdooSet));
+
+  // scoring local / tri
   items.forEach(function (hit) {
     var name = (hit.name || "").toLowerCase();
     var score = 0;
@@ -898,6 +903,7 @@ if (typeof window.__toggleTypeCTAs === "function") {
     return 0;
   });
 },
+
 
         templates: {
           item: function (hit) {
@@ -1636,40 +1642,7 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
   }
 
     // URLs du bloc principal via le renderState (fiable et sans timing DOM)
-  mainHitHrefSet.clear();
-  mainHitPathSet.clear();
-  mainHitOdooSet.clear(); // on remet l'ensemble à zéro
-
-  try {
-    var rs =
-      searchInstance &&
-      searchInstance.renderState &&
-      searchInstance.renderState[ALGOLIA_INDEX_NAME];
-
-    var items = (rs && rs.infiniteHits && rs.infiniteHits.items) || [];
-
-    items.forEach(function (hit) {
-      if (!hit) return;
-
-      // URL / path (au cas où tu en aies encore besoin plus tard)
-      if (hit.url) {
-        var hrefKey = normalizeUrl(hit.url);
-        var pathKey = normalizePathKey(hit.url);
-        if (hrefKey) mainHitHrefSet.add(hrefKey);
-        if (pathKey) mainHitPathSet.add(pathKey);
-      }
-
-      // déduplication par odoo_id
-      if (hit.odoo_id != null) {
-        mainHitOdooSet.add(String(hit.odoo_id));
-      }
-    });
-
-    console.log("[DEDUPE] mainHitOdooSet =", Array.from(mainHitOdooSet));
-  } catch (e) {
-    console.warn("[DEDUPE] erreur build mainHitOdooSet", e);
-  }
-
+  
   // Laisse finir le cycle de rendu puis lance les secondaires
   setTimeout(fetchAndRenderMoreBlocks, 0);
 });
