@@ -26,7 +26,7 @@ window.addEventListener("DOMContentLoaded", function () {
   var searchInstance = null;
   var hasUserLaunchedSearch = false;
   var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
-  var DIRECTORY_BASE_URL = "https://elsee-v-0.webflow.io/lannuaire-des-partenaires-elsee";
+  var DIRECTORY_BASE_URL = "https://www.elsee.care/lannuaire-des-partenaires-elsee";
   var mainHitHrefSet = new Set();
   var mainHitPathSet = new Set();
   var mainHitOdooSet = new Set();
@@ -1401,7 +1401,7 @@ function makeFiltersString(extra, ignoreGeo) {
   return parts.join(" AND ");
 }
 
-// Construit l’URL "voir plus de X" pour les hits secondaires
+// Construit l’URL "Voir plus de X" pour les hits secondaires
 function buildMoreUrlForType(typeFacetValue) {
   if (!searchInstance || !searchInstance.helper) {
     return DIRECTORY_BASE_URL;
