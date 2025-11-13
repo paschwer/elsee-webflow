@@ -140,7 +140,6 @@ window.addEventListener("DOMContentLoaded", function () {
     style.type = "text/css";
     style.appendChild(document.createTextNode(css));
     document.head.appendChild(style);
-    console.log("[CTA] CSS global injecté");
   }
 
   // 2) Normalisation (sans accents) + mapping label → clé data-cta
@@ -166,16 +165,13 @@ window.addEventListener("DOMContentLoaded", function () {
   // 3) Applique en posant/unset l’attribut sur <body>
   function applyCTAFromSelectedTypes(selectedTypes) {
     var list = Array.isArray(selectedTypes) ? selectedTypes : [];
-    console.log("[CTA] selectedTypes =", list);
 
     // un seul type → on mappe; sinon on enlève l’attribut
     var key = (list.length === 1) ? mapLabelToKey(list[0]) : "";
     if (key) {
       document.body.setAttribute("data-cta", key);
-      console.log("[CTA] body[data-cta=\"%s\"] appliqué", key);
     } else {
       document.body.removeAttribute("data-cta");
-      console.log("[CTA] aucun CTA ciblé (data-cta retiré)");
     }
   }
 
@@ -190,7 +186,6 @@ window.addEventListener("DOMContentLoaded", function () {
     });
     obs.observe(container, { childList: true, subtree: true });
     window.__ctaObserver = obs;
-    console.log("[CTA] observer attaché");
   }
 
   // 5) API globale (compat avec ton appel existant)
@@ -1598,11 +1593,6 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
   var showMoreWrapper = document.querySelector(
     "#hits .ais-InfiniteHits-loadMore"
   );
-
-  console.log("[DEBUG hits] cartes visibles =", cards.length);
-  console.log("[DEBUG hits] bouton trouvé =", !!showMoreBtn);
-  console.log("[DEBUG hits] wrapper trouvé =", !!showMoreWrapper);
-
   var mustHide = cards.length < perPage;
 
   if (mustHide) {
