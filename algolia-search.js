@@ -1379,9 +1379,46 @@ function makeFiltersString(extra) {
   if (extra) return extra;
   return base;
 }
-function buildMoreUrlForType(typeValue) {
-  // normalisation simple pour tester "thérapeutes"
-  function _norm(s) {
+// Construit l’URL "voir plus de X" pour les hits secondaires
+function buildMoreUrlForType(typeLabel) {
+  // on part des paramètres actuels de l’URL
+  var params = new URLSearchParams(window.location.search);
+
+  // 1) query actuelle
+  var q =
+    (searchInstance &&
+      searchInstance.helper &&
+      searchInstance.helper.state &&
+      searchInstance.helper.state.query) ||
+    "";
+  q = (q || "").trim();
+  if (q) {
+    params.set("q", q);
+  } else {
+    params.delete("q");
+  }
+
+  // 2) géoloc actuelle (on garde la même)
+  if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
+    params.set(
+      "geo",
+      currentGeoFilter.lat + "," + currentGeoFilter.lng
+    );
+    if (currentGeoFilter.label) {
+      params.set(
+        "geolabel",
+        encodeURIComponent(currentGeoFilter.label)
+      );
+    } else {
+      params.delete("geolabel");
+    }
+  } else {
+    params.delete("geo");
+    params.delete("geolabel");
+  }
+
+  // 3) type à forcer dans l’URL
+  function norm(s) {
     return (s || "")
       .toString()
       .trim()
@@ -1390,63 +1427,33 @@ function buildMoreUrlForType(typeValue) {
       .replace(/[\u0300-\u036f]/g, "");
   }
 
-  var isThera = _norm(typeValue).includes("therapeute");
+  var n = norm(typeLabel);
+  var typeParam = "";
 
-  // Si pas d’instance, fallback simple
-  if (!searchInstance || !searchInstance.helper) {
-    var base = DIRECTORY_BASE_URL || "";
-    var params = new URLSearchParams();
-    if (typeValue) params.set("type", typeValue);
-    if (isThera) params.set("remote", "true");
-    var qs = params.toString();
-    return base + (qs ? "?" + qs : "");
+  if (n.indexOf("therapeutes") !== -1) {
+    typeParam = "Thérapeutes";
+  } else if (n.indexOf("marques") !== -1) {
+    typeParam = "Marques";
+  } else if (n.indexOf("application") !== -1 || n.indexOf("programme") !== -1) {
+    typeParam = "Applications et programmes";
   }
 
-  var st = searchInstance.helper.state;
-  var params = new URLSearchParams();
+  if (typeParam) {
+    params.set("type", typeParam);
+  } else {
+    params.delete("type");
+  }
 
-  // q
-  var q = (st.query || "").trim();
-  if (q) params.set("q", q);
-
-  // facets
-  var fr = st.facetsRefinements || {};
-  var disj = st.disjunctiveFacetsRefinements || {};
-
-  var spes    = (fr.specialities || []).slice();
-  var prestas = (fr.prestations  || []).slice();
-  var reimb   = (disj.reimbursment_percentage || []).slice();
-
-  if (spes.length)    params.set("specialities", spes.join(","));
-  if (prestas.length) params.set("prestations", prestas.join(","));
-  if (reimb.length)   params.set("reimbursment_percentage", reimb.join(","));
-
-  // jobs
-  if (selectedJobTags.length) params.set("jobs", selectedJobTags.join(","));
-
-  // booléens
-  if (isNetworkSelected) params.set("network", "true");
-  if (isRemoteSelected)  params.set("remote", "true");
-  if (isAtHomeSelected)  params.set("athome", "true");
-
-  // type forcé
-  if (typeValue) params.set("type", typeValue);
-
-  // on supprime la géoloc
-  params.delete("geo");
-  params.delete("geolabel");
-
-  // on force remote=true pour les thérapeutes
-  if (isThera) params.set("remote", "true");
+  // on ne transporte pas les filtres d’autres types (specialities, prestations, jobs…)
+  params.delete("specialities");
+  params.delete("prestations");
+  params.delete("jobs");
+  params.delete("reimbursment_percentage");
 
   var qs = params.toString();
-  if (!qs && typeValue) {
-    qs = "type=" + encodeURIComponent(typeValue);
-    if (isThera) qs += "&remote=true";
-  }
-
   return DIRECTORY_BASE_URL + (qs ? "?" + qs : "");
 }
+
 
 function renderInto(containerId, hits, opts) {
   var container = document.getElementById(containerId);
