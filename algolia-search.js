@@ -1386,18 +1386,16 @@ function renderInto(containerId, hits, opts) {
       searchInstance.helper.state &&
       searchInstance.helper.state.query) || "";
 
-// Retire les hits déjà présents dans le bloc principal (on compare href ET pathname)
-var pruned = (hits || []).filter(function (hit) {
-  var hrefKey = hit && hit.url ? normalizeUrl(hit.url) : "";
-  var pathKey = hit && hit.url ? normalizePathKey(hit.url) : "";
-  var dupHref = hrefKey && mainHitHrefSet.has(hrefKey);
-  var dupPath = pathKey && mainHitPathSet.has(pathKey);
-  return !(dupHref || dupPath);
-});
+  // Retire les hits déjà présents dans le bloc principal (on compare href ET pathname)
+  var pruned = (hits || []).filter(function (hit) {
+    var hrefKey = hit && hit.url ? normalizeUrl(hit.url) : "";
+    var pathKey = hit && hit.url ? normalizePathKey(hit.url) : "";
+    var dupHref = hrefKey && mainHitHrefSet.has(hrefKey);
+    var dupPath = pathKey && mainHitPathSet.has(pathKey);
+    return !(dupHref || dupPath);
+  });
 
-var sorted = sortHitsLikeMain(pruned, query);
-
-
+  var sorted = sortHitsLikeMain(pruned, query);
 
   // on limite à 5
   var visible = sorted.slice(0, 5);
@@ -1414,8 +1412,8 @@ var sorted = sortHitsLikeMain(pruned, query);
       );
     })
     .join("");
-}
-    // 6e : carte “voir plus”
+
+  // 6e : carte “voir plus”
   var moreUrl = buildMoreUrlForType(typeFacetValue);
   var moreItemHtml =
     '<li class="ais-InfiniteHits-item">' +
@@ -1433,7 +1431,8 @@ var sorted = sortHitsLikeMain(pruned, query);
     '</ol>';
 
   container.innerHTML = html;
-} // <-- ferme bien renderInto ici
+}
+// <-- ferme bien renderInto ici
 
 function toggleWrapper(wrapperId, count) {
   var wrap = document.getElementById(wrapperId);
@@ -1580,10 +1579,6 @@ try {
 // Laisse finir le cycle de rendu puis lance les secondaires
 setTimeout(fetchAndRenderMoreBlocks, 0);
 
-
-
-  // Rafraîchit les blocs "plus de résultats"
-  fetchAndRenderMoreBlocks();
 });
 
 
