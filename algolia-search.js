@@ -1730,13 +1730,28 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
         inf.showMore();
       }
     });
-    document.addEventListener("click", function (e) {
-  var link = e.target.closest(".more-card");
-  if (link) {
-    console.log("[MORE CLICK] lien détecté =", link.href);
-    // pas de preventDefault ici → navigation normale
-  }
-});
+    document.addEventListener(
+  "click",
+  function (e) {
+    var link = e.target.closest(
+      ".directory_card_container.more-card a.directory_card_body"
+    );
+    if (!link) return;
+
+    var href = link.getAttribute("href");
+    console.log("[MORE FORCE NAV]", href, { target: e.target });
+
+    // On stoppe tout ce que d'autres scripts pourraient faire
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (href) {
+      window.location.href = href;
+    }
+  },
+  true // <--- capture: on passe AVANT les autres listeners
+);
+
 
 
     // 11. AUTRES LISTENERS ----------------------------------------------------
