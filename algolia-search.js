@@ -233,7 +233,7 @@ window.addEventListener("DOMContentLoaded", function () {
       return finalStr.length ? finalStr : undefined;
     }
 
-    / filtre de visibilité commun
+    // filtre de visibilité commun
 function getVisibilityFilter(ignoreGeo) {
   // cas spécial : on veut voir tous les membres réseau
   if (isNetworkSelected) {
