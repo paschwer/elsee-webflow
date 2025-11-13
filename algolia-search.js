@@ -1683,6 +1683,7 @@ if (!hasJobFilter) {
   var mqHits = [];
   var apHits = [];
 }
+}
 
    
     // 9. RENDER GLOBAL --------------------------------------------------------
