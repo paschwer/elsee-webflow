@@ -1383,9 +1383,10 @@ function makeFiltersString(extra) {
 function buildMoreUrlForType(typeLabel) {
   console.log("[MORE] buildMoreUrlForType() – typeLabel =", typeLabel);
 
+  // On repart des params actuels…
   var params = new URLSearchParams(window.location.search);
 
-  // 1) query actuelle
+  // 1) Query actuelle
   var q =
     (searchInstance &&
       searchInstance.helper &&
@@ -1400,28 +1401,12 @@ function buildMoreUrlForType(typeLabel) {
     params.delete("q");
   }
 
-  // 2) géoloc actuelle
-  if (currentGeoFilter && currentGeoFilter.lat && currentGeoFilter.lng) {
-    params.set(
-      "geo",
-      currentGeoFilter.lat + "," + currentGeoFilter.lng
-    );
-    if (currentGeoFilter.label) {
-      params.set(
-        "geolabel",
-        encodeURIComponent(currentGeoFilter.label)
-      );
-    } else {
-      params.delete("geolabel");
-    }
-    console.log("[MORE] geo =", currentGeoFilter);
-  } else {
-    params.delete("geo");
-    params.delete("geolabel");
-    console.log("[MORE] pas de geo");
-  }
+  // 2) **ON NE MET PLUS JAMAIS LA GEO DANS L’URL**
+  params.delete("geo");
+  params.delete("geolabel");
+  console.log("[MORE] géoloc supprimée des params");
 
-  // 3) normalisation du type
+  // 3) Normalisation du type
   function norm(s) {
     return (s || "")
       .toString()
@@ -1450,7 +1435,7 @@ function buildMoreUrlForType(typeLabel) {
     params.delete("type");
   }
 
-  // 4) on nettoie les autres filtres pour élargir
+  // 4) On nettoie les autres filtres pour élargir
   params.delete("specialities");
   params.delete("prestations");
   params.delete("jobs");
@@ -1463,7 +1448,6 @@ function buildMoreUrlForType(typeLabel) {
 
   return finalUrl;
 }
-
 
 
 function renderInto(containerId, hits, opts) {
