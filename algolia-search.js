@@ -1380,74 +1380,132 @@ function makeFiltersString(extra) {
   return base;
 }
 // Construit l’URL "voir plus de X" pour les hits secondaires
-function buildMoreUrlForType(typeLabel) {
-  console.log("[MORE] buildMoreUrlForType() – typeLabel =", typeLabel);
+function buildMoreUrlForType(typeFacetValue) {
+  if (!searchInstance || !searchInstance.helper) {
+    return DIRECTORY_BASE_URL;
+  }
 
-  // On repart des params actuels…
-  var params = new URLSearchParams(window.location.search);
+  var helper = searchInstance.helper;
+  var state  = helper.state;
 
-  // 1) Query actuelle
-  var q =
-    (searchInstance &&
-      searchInstance.helper &&
-      searchInstance.helper.state &&
-      searchInstance.helper.state.query) ||
-    "";
-  q = (q || "").trim();
-  console.log("[MORE] current query =", q);
-  if (q) {
-    params.set("q", q);
+  // --- Query ---------------------------------------------------
+  var params = new URLSearchParams();
+  var query = (state.query || "").trim();
+  if (query) {
+    params.set("q", query);
+  }
+
+  // --- Facets / disjunctiveFacets ------------------------------
+  var facetRef = state.facetsRefinements || {};
+  var disjRef  = state.disjunctiveFacetsRefinements || {};
+
+  var typeRef =
+    (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) || [];
+
+  var speRef =
+    (disjRef.specialities && disjRef.specialities.length
+      ? disjRef.specialities
+      : facetRef.specialities) || [];
+
+  var prestaRef =
+    (facetRef.prestations && facetRef.prestations.length
+      ? facetRef.prestations
+      : []) || [];
+
+  var reimbRef =
+    (disjRef.reimbursment_percentage &&
+      disjRef.reimbursment_percentage.length
+      ? disjRef.reimbursment_percentage
+      : []) || [];
+
+  var hasSpeOrPresta =
+    (speRef && speRef.length > 0) ||
+    (prestaRef && prestaRef.length > 0);
+
+  // --- Types ---------------------------------------------------
+  var finalTypes;
+
+  if (!hasSpeOrPresta) {
+    // cas demandé : aucune presta/spe → on force le type du bloc
+    finalTypes = typeFacetValue ? [typeFacetValue] : [];
   } else {
-    params.delete("q");
+    // on garde les types déjà sélectionnés
+    finalTypes = typeRef;
   }
 
-  // 2) **ON NE MET PLUS JAMAIS LA GEO DANS L’URL**
-  params.delete("geo");
-  params.delete("geolabel");
-  console.log("[MORE] géoloc supprimée des params");
-
-  // 3) Normalisation du type
-  function norm(s) {
-    return (s || "")
-      .toString()
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-  }
-
-  var n = norm(typeLabel);
-  var typeParam = "";
-
-  if (n.indexOf("therapeutes") !== -1) {
-    typeParam = "Thérapeutes";
-  } else if (n.indexOf("marques") !== -1) {
-    typeParam = "Marques";
-  } else if (n.indexOf("application") !== -1 || n.indexOf("programme") !== -1) {
-    typeParam = "Applications et programmes";
-  }
-
-  console.log("[MORE] normalised label =", n, "→ typeParam =", typeParam);
-
-  if (typeParam) {
-    params.set("type", typeParam);
+  if (finalTypes && finalTypes.length) {
+    params.set("type", finalTypes.join(","));
   } else {
     params.delete("type");
   }
 
-  // 4) On nettoie les autres filtres pour élargir
-  params.delete("specialities");
-  params.delete("prestations");
-  params.delete("jobs");
-  params.delete("reimbursment_percentage");
+  // --- Specialities / Prestations ------------------------------
+  if (hasSpeOrPresta) {
+    if (speRef && speRef.length) {
+      params.set("specialities", speRef.join(","));
+    } else {
+      params.delete("specialities");
+    }
+
+    if (prestaRef && prestaRef.length) {
+      params.set("prestations", prestaRef.join(","));
+    } else {
+      params.delete("prestations");
+    }
+  } else {
+    // aucune presta/spe dans ce cas → rien dans l’URL
+    params.delete("specialities");
+    params.delete("prestations");
+  }
+
+  // --- Remboursement -------------------------------------------
+  if (reimbRef && reimbRef.length) {
+    params.set("reimbursment_percentage", reimbRef.join(","));
+  } else {
+    params.delete("reimbursment_percentage");
+  }
+
+  // --- Jobs (gardés dans tous les cas) -------------------------
+  if (selectedJobTags && selectedJobTags.length > 0) {
+    params.set("jobs", selectedJobTags.join(","));
+  } else {
+    params.delete("jobs");
+  }
+
+  // --- Booléens (network / remote / athome) --------------------
+  if (isNetworkSelected) params.set("network", "true");
+  else params.delete("network");
+
+  if (isRemoteSelected) params.set("remote", "true");
+  else params.delete("remote");
+
+  if (isAtHomeSelected) params.set("athome", "true");
+  else params.delete("athome");
+
+  // --- Géoloc : JAMAIS dans l’URL des hits secondaires ---------
+  params.delete("geo");
+  params.delete("geolabel");
 
   var qs = params.toString();
   var finalUrl = DIRECTORY_BASE_URL + (qs ? "?" + qs : "");
 
-  console.log("[MORE] finalUrl =", finalUrl);
+  console.log("[MORE] buildMoreUrlForType", {
+    typeFacetValue: typeFacetValue,
+    hasSpeOrPresta: hasSpeOrPresta,
+    finalTypes: finalTypes,
+    speRef: speRef,
+    prestaRef: prestaRef,
+    reimbRef: reimbRef,
+    jobs: (selectedJobTags || []).slice(),
+    isNetworkSelected: isNetworkSelected,
+    isRemoteSelected: isRemoteSelected,
+    isAtHomeSelected: isAtHomeSelected,
+    finalUrl: finalUrl
+  });
 
   return finalUrl;
 }
+
 
 
 function renderInto(containerId, hits, opts) {
@@ -1672,6 +1730,14 @@ toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
         inf.showMore();
       }
     });
+    document.addEventListener("click", function (e) {
+  var link = e.target.closest(".directory_card_container.more-card a.directory_card_body");
+  if (link) {
+    console.log("[MORE CLICK] lien détecté =", link.href);
+    // pas de preventDefault ici → navigation normale
+  }
+});
+
 
     // 11. AUTRES LISTENERS ----------------------------------------------------
     setupSearchDropdown();
