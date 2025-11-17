@@ -51,32 +51,46 @@ window.addEventListener("DOMContentLoaded", function () {
       indexName: ALGOLIA_INDEX_NAME,
       searchClient: searchClient,
       searchFunction: function (helper) {
-        // on conserve la page courante (show-more)
-        var currentPage =
-          typeof helper.state.page === "number" ? helper.state.page : 0;
+  var currentPage =
+    typeof helper.state.page === "number" ? helper.state.page : 0;
 
-        var query = (helper.state.query || "").trim();
+  var query = (helper.state.query || "").trim();
 
-        var userHasFilters =
-          selectedFacetTags.size > 0 ||
-          selectedJobTags.length > 0 ||
-          isNetworkSelected ||
-          isRemoteSelected ||
-          isAtHomeSelected ||
-          currentGeoFilter;
+  var userHasFilters =
+    selectedFacetTags.size > 0 ||
+    selectedJobTags.length > 0 ||
+    isNetworkSelected ||
+    isRemoteSelected ||
+    isAtHomeSelected ||
+    currentGeoFilter;
 
-        if (query !== "" || userHasFilters) {
-          hasUserLaunchedSearch = true;
-        }
+  if (query !== "" || userHasFilters) {
+    hasUserLaunchedSearch = true;
+  }
 
-        var userFilters = buildFiltersStringFromJobsAndBooleans();
-        var finalFilters = composeFilters(userFilters);
+  var userFilters = buildFiltersStringFromJobsAndBooleans();
+  var finalFilters = composeFilters(userFilters);
 
-        helper.setQueryParameter("filters", finalFilters);
-        helper.setPage(currentPage);
-        helper.search();
-      }
-    });
+  console.log("[SEARCH FUNCTION] before helper.search()", {
+    query: query,
+    currentPage: currentPage,
+    userFilters: userFilters,
+    finalFilters: finalFilters,
+    currentGeoFilter: currentGeoFilter,
+    aroundLatLng: helper.state.aroundLatLng,
+    aroundRadius: helper.state.aroundRadius,
+    selectedFacetTags: Array.from(selectedFacetTags),
+    selectedJobTags: selectedJobTags.slice(),
+    isNetworkSelected: isNetworkSelected,
+    isRemoteSelected: isRemoteSelected,
+    isAtHomeSelected: isAtHomeSelected
+  });
+
+  helper.setQueryParameter("filters", finalFilters);
+  helper.setPage(currentPage);
+  helper.search();
+}
+
 
     searchInstance = search;
 
@@ -235,19 +249,38 @@ window.addEventListener("DOMContentLoaded", function () {
 
     // filtre de visibilité commun
 function getVisibilityFilter(ignoreGeo) {
+  var debugInfo = {
+    where: "getVisibilityFilter",
+    ignoreGeo: !!ignoreGeo,
+    isNetworkSelected: isNetworkSelected,
+    hasGeo: !!currentGeoFilter,
+    currentGeoFilter: currentGeoFilter
+  };
+
   // cas spécial : on veut voir tous les membres réseau
   if (isNetworkSelected) {
+    console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
+      result: ""
+    }));
     return "";
   }
 
   // si on n’ignore PAS la géoloc et qu’elle est active → règle spéciale show_home
   if (!ignoreGeo && currentGeoFilter) {
+    console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
+      result: "NOT show_home:true"
+    }));
     return "NOT show_home:true";
   }
 
   // sinon, règle standard
-  return "NOT show_search:true";
+  console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
+    result: "NOT show_search:true (ou show_home:true selon ta version)"
+  }));
+  return "NOT show_search:true"; // ou `show_home:true` selon ce que tu as remis
 }
+
+
 
     function composeFilters(userFilters) {
       var visibility = getVisibilityFilter();
