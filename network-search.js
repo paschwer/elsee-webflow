@@ -52,37 +52,7 @@ window.addEventListener("DOMContentLoaded", function () {
         typeWrapper.classList.add("directory_suggestions_tags_wrapper");
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
-        // --- TYPES -----------------------------------------------------------
-        var typeFacetValues =
-          results.getFacetValues("type", {
-            sortBy: ["count:desc", "name:asc"]
-          }) || [];
-        if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
-
-        var typeHtml = typeFacetValues
-          .filter(function (fv) {
-            return fv && fv.name;
-          })
-          .map(function (fv) {
-            var key = "type:::" + fv.name;
-            var isSelected = selectedFacetTags.has(key);
-
-            if (fv.count === 0 && !isSelected) return "";
-
-            return (
-              '<div class="directory_suggestions_tag is-type ' +
-              (isSelected ? "is-selected" : "") +
-              '" data-facet-name="type" data-facet-value="' +
-              fv.name +
-              '">' +
-              fv.name +
-              "</div>"
-            );
-          })
-          .join("");
-
-        typeWrapper.innerHTML = typeHtml;
-
+       
         // --- SPÉCIALITÉS -----------------------------------------------------
         var speFacetValues =
           results.getFacetValues("specialities", {
