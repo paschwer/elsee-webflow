@@ -2361,7 +2361,7 @@ async function fetchAndRenderMoreBlocks() {
             label: geolabel ? decodeURIComponent(geolabel) : ""
           };
           helper.setQueryParameter("aroundLatLng", lat + "," + lng);
-          helper.setQueryParameter("aroundRadius", 100000);
+          helper.setQueryParameter("aroundRadius", 50000);
 
           var mapsInput = document.getElementById("maps_input");
           var mapsClear = document.querySelector(".directory_search_clear");
