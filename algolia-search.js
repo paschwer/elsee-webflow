@@ -30,6 +30,7 @@ window.addEventListener("DOMContentLoaded", function () {
   var mainHitHrefSet = new Set();
   var mainHitPathSet = new Set();
   var mainHitOdooSet = new Set();
+  var urlParamsApplied = false; 
 
 
 
@@ -1725,6 +1726,16 @@ async function fetchAndRenderMoreBlocks() {
    
     // 9. RENDER GLOBAL --------------------------------------------------------
     search.on("render", function () {
+      // 1) S’assurer que les params URL sont appliqués une fois que tout est prêt
+  if (!urlParamsApplied && searchInstance && searchInstance.helper) {
+    urlParamsApplied = true;
+    applyUrlParamsToSearch();
+    // on laisse applyUrlParamsToSearch déclencher son propre helper.search()
+    // le prochain render utilisera déjà l’état construit depuis l’URL
+    return;
+  }
+
+  // 2) Rendu normal
   renderClearButton();
 
   if (search.helper && search.helper.state) {
@@ -2383,7 +2394,6 @@ async function fetchAndRenderMoreBlocks() {
       helper.search();
     }
 
-    setTimeout(applyUrlParamsToSearch, 50);
     window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   }
 
