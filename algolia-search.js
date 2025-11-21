@@ -52,21 +52,6 @@ window.addEventListener("DOMContentLoaded", function () {
   indexName: ALGOLIA_INDEX_NAME,
   searchClient: searchClient,
   searchFunction: function (helper) {
-  console.log("[SEARCH FN] before", {
-    page: helper.state.page,
-    query: helper.state.query,
-    filtersBefore: helper.state.filters,
-    selectedFacetTags: Array.from(selectedFacetTags),
-    selectedJobTags: selectedJobTags.slice(),
-    isNetworkSelected,
-    isRemoteSelected,
-    isAtHomeSelected,
-    currentGeoFilter
-  });
-
-  var currentPage =
-    typeof helper.state.page === "number" ? helper.state.page : 0;
-
   var query = (helper.state.query || "").trim();
 
   var userHasFilters =
@@ -84,15 +69,12 @@ window.addEventListener("DOMContentLoaded", function () {
   var userFilters = buildFiltersStringFromJobsAndBooleans();
   var finalFilters = composeFilters(userFilters);
 
-  console.log("[SEARCH FN] after compose", {
-    currentPage,
-    finalFilters
-  });
-
   helper.setQueryParameter("filters", finalFilters);
-  helper.setPage(currentPage);
+
+  // Ne pas toucher à la page
   helper.search();
 }
+
 
 });
 
