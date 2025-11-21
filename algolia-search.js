@@ -3,34 +3,37 @@
 // ============================================================================
 window.addEventListener("DOMContentLoaded", function () {
   // 1. CONSTANTES ------------------------------------------------------------
-  const ALGOLIA_APP_ID = "DRTSPIHOUM";
-  const ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
-  const ALGOLIA_INDEX_NAME = "elsee_index";
+  var ALGOLIA_APP_ID = "DRTSPIHOUM";
+  var ALGOLIA_SEARCH_KEY = "137b70e88a3288926c97a689cdcf4048";
+  var ALGOLIA_INDEX_NAME = "elsee_index";
 
   // placeholders
-  const THERAPIST_PLACEHOLDER_URL =
+  var THERAPIST_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd36e1367cf7f0391812d_Fichier%20Convertio%20(3).webp";
-  const DEFAULT_PLACEHOLDER_URL =
+  var DEFAULT_PLACEHOLDER_URL =
     "https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/690dd373de251816ebaa511c_Placeholder%20de%20marque.webp";
 
   // 2. ÉTAT GLOBAL -----------------------------------------------------------
-  let selectedFacetTags = new Set();
-  let selectedJobTags = [];
-  let isNetworkSelected = false;
-  let isRemoteSelected = false;
-  let isAtHomeSelected = false;
-  let speExpanded = false;
-  let prestaExpanded = false;
-  let jobExpanded = false;
-  let currentGeoFilter = null; // {lat,lng,label}
-  let searchInstance = null;
-  let hasUserLaunchedSearch = false;
-  let discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
-  const DIRECTORY_BASE_URL = "https://www.elsee.care/lannuaire-des-partenaires-elsee";
-  let mainHitHrefSet = new Set();
-  let mainHitPathSet = new Set();
-  let mainHitOdooSet = new Set();
-  let urlParamsApplied = false;
+  var selectedFacetTags = new Set();
+  var selectedJobTags = [];
+  var isNetworkSelected = false;
+  var isRemoteSelected = false;
+  var isAtHomeSelected = false;
+  var speExpanded = false;
+  var prestaExpanded = false;
+  var jobExpanded = false;
+  var currentGeoFilter = null; // {lat,lng,label}
+  var searchInstance = null;
+  var hasUserLaunchedSearch = false;
+  var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
+  var DIRECTORY_BASE_URL = "https://www.elsee.care/lannuaire-des-partenaires-elsee";
+  var mainHitHrefSet = new Set();
+  var mainHitPathSet = new Set();
+  var mainHitOdooSet = new Set();
+  var urlParamsApplied = false; 
+
+
+
 
   // 3. INIT ------------------------------------------------------------------
   function initAlgolia() {
@@ -42,38 +45,42 @@ window.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
+    var searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY);
 
     // 3.1 instance instantsearch
-    const search = instantsearch({
-      indexName: ALGOLIA_INDEX_NAME,
-      searchClient: searchClient,
-      searchFunction: function (helper) {
-        const query = (helper.state.query || "").trim();
+    var search = instantsearch({
+  indexName: ALGOLIA_INDEX_NAME,
+  searchClient: searchClient,
+  searchFunction: function (helper) {
+  var query = (helper.state.query || "").trim();
 
-        const userHasFilters =
-          selectedFacetTags.size > 0 ||
-          selectedJobTags.length > 0 ||
-          isNetworkSelected ||
-          isRemoteSelected ||
-          isAtHomeSelected ||
-          currentGeoFilter;
+  var userHasFilters =
+    selectedFacetTags.size > 0 ||
+    selectedJobTags.length > 0 ||
+    isNetworkSelected ||
+    isRemoteSelected ||
+    isAtHomeSelected ||
+    currentGeoFilter;
 
-        if (query !== "" || userHasFilters) {
-          hasUserLaunchedSearch = true;
-        }
+  if (query !== "" || userHasFilters) {
+    hasUserLaunchedSearch = true;
+  }
 
-        const userFilters = buildFiltersStringFromJobsAndBooleans();
-        const finalFilters = composeFilters(userFilters);
+  var userFilters = buildFiltersStringFromJobsAndBooleans();
+  var finalFilters = composeFilters(userFilters);
 
-        const prevFilters = helper.state.filters || undefined;
-        if (prevFilters !== finalFilters) {
-          helper.setQueryParameter("filters", finalFilters);
-        }
+  var prevFilters = helper.state.filters || undefined;
+  if (prevFilters !== finalFilters) {
+    helper.setQueryParameter("filters", finalFilters);
+  }
 
-        helper.search();
-      }
-    });
+  helper.search();
+}
+
+
+
+});
+
 
     searchInstance = search;
 
@@ -89,25 +96,26 @@ window.addEventListener("DOMContentLoaded", function () {
       return [v];
     }
 
+
     function isTherapeutes(hit) {
-      const t = (hit.type || "").trim().toLowerCase();
+      var t = (hit.type || "").trim().toLowerCase();
       return t === "thérapeutes" || t === "therapeutes";
     }
 
     function updateOnlyThpVisibility(helperState, hasJobsFacet) {
-      const el = document.getElementById("onlythp");
+      var el = document.getElementById("onlythp");
       if (!el) return;
 
-      const disj = helperState.disjunctiveFacetsRefinements || {};
-      const facets = helperState.facetsRefinements || {};
+      var disj = helperState.disjunctiveFacetsRefinements || {};
+      var facets = helperState.facetsRefinements || {};
 
-      const types =
+      var types =
         (disj.type && disj.type.length ? disj.type : facets.type) || [];
 
-      const noTypeSelected = types.length === 0;
+      var noTypeSelected = types.length === 0;
 
-      const hasThera = types.some(function (t) {
-        const tt = t.toLowerCase().trim();
+      var hasThera = types.some(function (t) {
+        var tt = t.toLowerCase().trim();
         return tt === "thérapeutes" || tt === "therapeutes";
       });
 
@@ -118,94 +126,98 @@ window.addEventListener("DOMContentLoaded", function () {
       }
     }
 
+    
     // === Helpers CTA par type (via data-attr + CSS global) ======================
-    (function () {
-      // 1) CSS global une fois pour toutes (priorité !important)
-      function ensureCTACSS() {
-        if (document.getElementById("cta-style-global")) return;
-        const css = `
-          .directory_sidebar_ctas_container .directory_sidebar_cta_wrapper { display: none !important; }
+(function () {
+  // 1) CSS global une fois pour toutes (priorité !important)
+  function ensureCTACSS() {
+    if (document.getElementById("cta-style-global")) return;
+    var css = `
+      .directory_sidebar_ctas_container .directory_sidebar_cta_wrapper { display: none !important; }
 
-          body[data-cta="wellness"]    #adWellness-cta  { display: flex !important; }
-          body[data-cta="therapeutes"] #adTherapist-cta { display: flex !important; }
-          body[data-cta="marques"]     #adBrand-cta     { display: flex !important; }
-          body[data-cta="programmes"]  #adProgram-cta   { display: flex !important; }
-          body[data-cta="sports"]      #adSport-cta     { display: flex !important; }
-        `;
-        const style = document.createElement("style");
-        style.id = "cta-style-global";
-        style.type = "text/css";
-        style.appendChild(document.createTextNode(css));
-        document.head.appendChild(style);
-      }
+      body[data-cta="wellness"]    #adWellness-cta  { display: flex !important; }
+      body[data-cta="therapeutes"] #adTherapist-cta { display: flex !important; }
+      body[data-cta="marques"]     #adBrand-cta     { display: flex !important; }
+      body[data-cta="programmes"]  #adProgram-cta   { display: flex !important; }
+      body[data-cta="sports"]      #adSport-cta     { display: flex !important; }
+    `;
+    var style = document.createElement("style");
+    style.id = "cta-style-global";
+    style.type = "text/css";
+    style.appendChild(document.createTextNode(css));
+    document.head.appendChild(style);
+  }
 
-      // 2) Normalisation (sans accents) + mapping label → clé data-cta
-      function norm(s) {
-        return (s || "")
-          .toString()
-          .trim()
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-      }
+  // 2) Normalisation (sans accents) + mapping label → clé data-cta
+  function norm(s) {
+    return (s || "")
+      .toString()
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  }
 
-      function mapLabelToKey(label) {
-        const n = norm(label);
-        if (n.includes("salons esthetiques") || n.includes("centres bien-etre")) return "wellness";
-        if (n.includes("therapeutes")) return "therapeutes";
-        if (n.includes("marques")) return "marques";
-        if (n.includes("applications") || n.includes("programmes")) return "programmes";
-        if (n.includes("sports")) return "sports";
-        return ""; // rien
-      }
+  function mapLabelToKey(label) {
+    var n = norm(label);
+    if (n.includes("salons esthetiques") || n.includes("centres bien-etre")) return "wellness";
+    if (n.includes("therapeutes")) return "therapeutes";
+    if (n.includes("marques")) return "marques";
+    if (n.includes("applications") || n.includes("programmes")) return "programmes";
+    if (n.includes("sports")) return "sports";
+    return ""; // rien
+  }
 
-      // 3) Applique en posant/unset l’attribut sur <body>
-      function applyCTAFromSelectedTypes(selectedTypes) {
-        const list = Array.isArray(selectedTypes) ? selectedTypes : [];
+  // 3) Applique en posant/unset l’attribut sur <body>
+  function applyCTAFromSelectedTypes(selectedTypes) {
+    var list = Array.isArray(selectedTypes) ? selectedTypes : [];
 
-        // un seul type → on mappe; sinon on enlève l’attribut
-        const key = (list.length === 1) ? mapLabelToKey(list[0]) : "";
-        if (key) {
-          document.body.setAttribute("data-cta", key);
-        } else {
-          document.body.removeAttribute("data-cta");
-        }
-      }
+    // un seul type → on mappe; sinon on enlève l’attribut
+    var key = (list.length === 1) ? mapLabelToKey(list[0]) : "";
+    if (key) {
+      document.body.setAttribute("data-cta", key);
+    } else {
+      document.body.removeAttribute("data-cta");
+    }
+  }
 
-      // 4) Observer pour réappliquer après réinjections DOM
-      function ensureObserver() {
-        if (window.__ctaObserverAttached) return;
-        window.__ctaObserverAttached = true;
+  // 4) Observer pour réappliquer après réinjections DOM
+  function ensureObserver() {
+    if (window.__ctaObserverAttached) return;
+    window.__ctaObserverAttached = true;
 
-        const container = document.querySelector(".directory_sidebar_ctas_container") || document.body;
-        const obs = new MutationObserver(function () {
-          if (window.__lastSelectedTypes) applyCTAFromSelectedTypes(window.__lastSelectedTypes);
-        });
-        obs.observe(container, { childList: true, subtree: true });
-        window.__ctaObserver = obs;
-      }
+    var container = document.querySelector(".directory_sidebar_ctas_container") || document.body;
+    var obs = new MutationObserver(function () {
+      if (window.__lastSelectedTypes) applyCTAFromSelectedTypes(window.__lastSelectedTypes);
+    });
+    obs.observe(container, { childList: true, subtree: true });
+    window.__ctaObserver = obs;
+  }
 
-      // 5) API globale (compat avec ton appel existant)
-      window.__toggleTypeCTAs = function (selectedTypes) {
-        window.__lastSelectedTypes = selectedTypes ? selectedTypes.slice() : [];
-        // laisse à Webflow une frame si ça réinjecte
-        requestAnimationFrame(function () {
-          applyCTAFromSelectedTypes(window.__lastSelectedTypes);
-        });
-      };
-      window.__ensureCTAObserver = ensureObserver;
+  // 5) API globale (compat avec ton appel existant)
+  window.__toggleTypeCTAs = function (selectedTypes) {
+    window.__lastSelectedTypes = selectedTypes ? selectedTypes.slice() : [];
+    // laisse à Webflow une frame si ça réinjecte
+    requestAnimationFrame(function () {
+      applyCTAFromSelectedTypes(window.__lastSelectedTypes);
+    });
+  };
+  window.__ensureCTAObserver = ensureObserver;
 
-      // Boot
-      ensureCTACSS();
-    })();
+  // Boot
+  ensureCTACSS();
+})();
+
+
+
 
     // 5. FILTRES --------------------------------------------------------------
     function buildFiltersStringFromJobsAndBooleans() {
-      const parts = [];
+      var parts = [];
 
       if (selectedJobTags.length > 0) {
-        const jobParts = selectedJobTags.map(function (job) {
-          const safe = job.replace(/"/g, '\\"');
+        var jobParts = selectedJobTags.map(function (job) {
+          var safe = job.replace(/"/g, '\\"');
           return '(mainjob:"' + safe + '" OR jobs:"' + safe + '")';
         });
         parts.push(jobParts.join(" AND "));
@@ -221,45 +233,47 @@ window.addEventListener("DOMContentLoaded", function () {
         parts.push("is_at_home:true");
       }
 
-      const finalStr = parts.join(" AND ");
+      var finalStr = parts.join(" AND ");
       return finalStr.length ? finalStr : undefined;
     }
 
     // filtre de visibilité commun
-    function getVisibilityFilter(ignoreGeo) {
-      const debugInfo = {
-        where: "getVisibilityFilter",
-        ignoreGeo: !!ignoreGeo,
-        isNetworkSelected: isNetworkSelected,
-        hasGeo: !!currentGeoFilter,
-        currentGeoFilter: currentGeoFilter
-      };
+function getVisibilityFilter(ignoreGeo) {
+  var debugInfo = {
+    where: "getVisibilityFilter",
+    ignoreGeo: !!ignoreGeo,
+    isNetworkSelected: isNetworkSelected,
+    hasGeo: !!currentGeoFilter,
+    currentGeoFilter: currentGeoFilter
+  };
 
-      // cas spécial : on veut voir tous les membres réseau
-      if (isNetworkSelected) {
-        console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-          result: ""
-        }));
-        return "";
-      }
+  // cas spécial : on veut voir tous les membres réseau
+  if (isNetworkSelected) {
+    console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
+      result: ""
+    }));
+    return "";
+  }
 
-      // si on n’ignore PAS la géoloc et qu’elle est active → règle spéciale show_home
-      if (!ignoreGeo && currentGeoFilter) {
-        console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-          result: "NOT show_home:true"
-        }));
-        return "NOT show_home:true";
-      }
+  // si on n’ignore PAS la géoloc et qu’elle est active → règle spéciale show_home
+  if (!ignoreGeo && currentGeoFilter) {
+    console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
+      result: "NOT show_home:true"
+    }));
+    return "NOT show_home:true";
+  }
 
-      // sinon, règle standard
-      console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-        result: "NOT show_search:true (ou show_home:true selon ta version)"
-      }));
-      return "NOT show_search:true"; // ou `show_home:true` selon ce que tu as remis
-    }
+  // sinon, règle standard
+  console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
+    result: "NOT show_search:true (ou show_home:true selon ta version)"
+  }));
+  return "NOT show_search:true"; // ou `show_home:true` selon ce que tu as remis
+}
+
+
 
     function composeFilters(userFilters) {
-      const visibility = getVisibilityFilter();
+      var visibility = getVisibilityFilter();
 
       if (userFilters && userFilters.length && visibility) {
         return userFilters + " AND " + visibility;
@@ -272,30 +286,30 @@ window.addEventListener("DOMContentLoaded", function () {
 
     function updateUrlFromState(state) {
       if (typeof window === "undefined") return;
-      const params = new URLSearchParams(window.location.search);
+      var params = new URLSearchParams(window.location.search);
 
-      const query = state.query || "";
+      var query = state.query || "";
       if (query.trim() !== "") {
         params.set("q", query.trim());
       } else {
         params.delete("q");
       }
 
-      const facetRef = state.facetsRefinements || {};
-      const disjRef = state.disjunctiveFacetsRefinements || {};
+      var facetRef = state.facetsRefinements || {};
+      var disjRef = state.disjunctiveFacetsRefinements || {};
 
-      const typeRef =
+      var typeRef =
         (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) ||
         [];
-      const speRef =
+      var speRef =
         (disjRef.specialities && disjRef.specialities.length
           ? disjRef.specialities
           : facetRef.specialities) || [];
-      const prestaRef =
+      var prestaRef =
         (facetRef.prestations && facetRef.prestations.length
           ? facetRef.prestations
           : []) || [];
-      const reimbRef =
+      var reimbRef =
         (disjRef.reimbursment_percentage &&
           disjRef.reimbursment_percentage.length
           ? disjRef.reimbursment_percentage
@@ -339,31 +353,31 @@ window.addEventListener("DOMContentLoaded", function () {
       if (isAtHomeSelected) params.set("athome", "true");
       else params.delete("athome");
 
-      const newUrl =
+      var newUrl =
         window.location.pathname +
         (params.toString() ? "?" + params.toString() : "");
       window.history.replaceState({}, "", newUrl);
     }
 
     // 6. WIDGET CUSTOM TAGS ---------------------------------------------------
-    const dynamicSuggestionsWidget = {
+    var dynamicSuggestionsWidget = {
       render: function (opts) {
-        const results = opts.results;
+        var results = opts.results;
         if (!results) return;
 
-        const typeWrapper = document.getElementById("tags_autocomplete_type");
-        const speWrapper = document.getElementById("tags_autocomplete_spe");
-        const speFilterWrapper = document.getElementById("spe_filtre");
-        const prestaFilterWrapper = document.getElementById("presta_filtre");
-        const jobFilterWrapper = document.getElementById("job_filtre");
-        const labelFilterWrapper = document.getElementById("label-filter");
-        const remoteFilterWrapper = document.getElementById(
+        var typeWrapper = document.getElementById("tags_autocomplete_type");
+        var speWrapper = document.getElementById("tags_autocomplete_spe");
+        var speFilterWrapper = document.getElementById("spe_filtre");
+        var prestaFilterWrapper = document.getElementById("presta_filtre");
+        var jobFilterWrapper = document.getElementById("job_filtre");
+        var labelFilterWrapper = document.getElementById("label-filter");
+        var remoteFilterWrapper = document.getElementById(
           "works-remotely-filter"
         );
-        const atHomeFilterWrapper = document.getElementById(
+        var atHomeFilterWrapper = document.getElementById(
           "works-at-home-filter"
         );
-        const discountFilterWrapper = document.getElementById("discount-tags");
+        var discountFilterWrapper = document.getElementById("discount-tags");
 
         if (!typeWrapper || !speWrapper) return;
 
@@ -371,14 +385,14 @@ window.addEventListener("DOMContentLoaded", function () {
         speWrapper.classList.add("directory_suggestions_tags_wrapper");
 
         // TYPES ----------------------------------------------------------------
-        let typeFacetValues =
+        var typeFacetValues =
           results.getFacetValues("type", {
             sortBy: ["count:desc", "name:asc"]
           }) || [];
         if (!Array.isArray(typeFacetValues)) typeFacetValues = [];
 
         // quels types sont VRAIMENT sélectionnés ?
-        const selectedTypes = Array.from(selectedFacetTags)
+        var selectedTypes = Array.from(selectedFacetTags)
           .filter(function (k) {
             return k.indexOf("type:::") === 0;
           })
@@ -386,22 +400,25 @@ window.addEventListener("DOMContentLoaded", function () {
             return k.split(":::")[1] || "";
           });
 
-        const noTypeSelected = selectedTypes.length === 0;
-        const hasTheraSelected = selectedTypes.some(function (t) {
-          const norm = (t || "").toLowerCase();
+        var noTypeSelected = selectedTypes.length === 0;
+        var hasTheraSelected = selectedTypes.some(function (t) {
+          var norm = (t || "").toLowerCase();
           return norm === "thérapeutes" || norm === "therapeutes";
         });
 
-        // c'est cette règle qui commande l'affichage visio/domicile
-        const shouldShowTheraOnlyFilters = noTypeSelected || hasTheraSelected;
 
-        const typeHtml = typeFacetValues
+
+
+        // c'est cette règle qui commande l'affichage visio/domicile
+        var shouldShowTheraOnlyFilters = noTypeSelected || hasTheraSelected;
+
+        var typeHtml = typeFacetValues
           .filter(function (fv) {
             return fv && fv.name;
           })
           .map(function (fv) {
-            const key = "type:::" + fv.name;
-            const isSelected = selectedFacetTags.has(key);
+            var key = "type:::" + fv.name;
+            var isSelected = selectedFacetTags.has(key);
             if (fv.count === 0 && !isSelected) return "";
             return (
               '<div class="directory_suggestions_tag is-type ' +
@@ -415,63 +432,64 @@ window.addEventListener("DOMContentLoaded", function () {
           })
           .join("");
         typeWrapper.innerHTML = typeHtml;
+var typesAltWrapper = document.getElementById("directory_types");
+if (typesAltWrapper) {
+  var hasTypeSelected = selectedTypes.length > 0;
 
-        const typesAltWrapper = document.getElementById("directory_types");
-        if (typesAltWrapper) {
-          const hasTypeSelected = selectedTypes.length > 0;
+  var altHtml =
+    '<div class="directory_category_tag_wrapper ' +
+    (hasTypeSelected ? "" : "is-selected") +
+    '" data-facet-name="type" data-facet-value="__ALL_TYPES__">Toutes les catégories</div>';
 
-          let altHtml =
-            '<div class="directory_category_tag_wrapper ' +
-            (hasTypeSelected ? "" : "is-selected") +
-            '" data-facet-name="type" data-facet-value="__ALL_TYPES__">Toutes les catégories</div>';
+  altHtml += typeFacetValues
+    .filter(function (fv) { return fv && fv.name; })
+    .map(function (fv) {
+      var key = "type:::" + fv.name;
+      var isSelected = selectedFacetTags.has(key);
+      var label = "Les " + fv.name.toLowerCase();
+      return (
+        '<div class="directory_category_tag_wrapper ' +
+        (isSelected ? "is-selected" : "") +
+        '" data-facet-name="type" data-facet-value="' + fv.name + '">' +
+        label +
+        "</div>"
+      );
+    })
+    .join("");
 
-          altHtml += typeFacetValues
-            .filter(function (fv) { return fv && fv.name; })
-            .map(function (fv) {
-              const key = "type:::" + fv.name;
-              const isSelected = selectedFacetTags.has(key);
-              const label = "Les " + fv.name.toLowerCase();
-              return (
-                '<div class="directory_category_tag_wrapper ' +
-                (isSelected ? "is-selected" : "") +
-                '" data-facet-name="type" data-facet-value="' + fv.name + '">' +
-                label +
-                "</div>"
-              );
-            })
-            .join("");
+  typesAltWrapper.innerHTML = altHtml;
 
-          typesAltWrapper.innerHTML = altHtml;
+// === CTAs par type : visible uniquement si UN seul type est sélectionné ===
+if (typeof window.__toggleTypeCTAs === "function") {
+  window.__toggleTypeCTAs(selectedTypes);
+  if (typeof window.__ensureCTAObserver === "function") {
+    window.__ensureCTAObserver();
+  }
+}
+}
 
-          // === CTAs par type : visible uniquement si UN seul type est sélectionné ===
-          if (typeof window.__toggleTypeCTAs === "function") {
-            window.__toggleTypeCTAs(selectedTypes);
-            if (typeof window.__ensureCTAObserver === "function") {
-              window.__ensureCTAObserver();
-            }
-          }
-        }
+
 
         // SPÉCIALITÉS ---------------------------------------------------------
-        let speFacetValues =
+        var speFacetValues =
           results.getFacetValues("specialities", {
             sortBy: ["count:desc", "name:asc"]
           }) || [];
         if (!Array.isArray(speFacetValues)) speFacetValues = [];
 
-        const speFacetValuesAlpha = speFacetValues.slice().sort(function (a, b) {
+        var speFacetValuesAlpha = speFacetValues.slice().sort(function (a, b) {
           return (a.name || "").localeCompare(b.name || "");
         });
 
-        const speContainer = document.getElementById("speContainer");
+        var speContainer = document.getElementById("speContainer");
         if (speContainer) {
-          const hasSpe = speFacetValues.some(function (fv) {
+          var hasSpe = speFacetValues.some(function (fv) {
             return fv && fv.count > 0;
           });
           speContainer.style.display = hasSpe ? "flex" : "none";
         }
 
-        const selectedSpe = Array.from(selectedFacetTags)
+        var selectedSpe = Array.from(selectedFacetTags)
           .filter(function (k) {
             return k.indexOf("specialities:::") === 0;
           })
@@ -479,16 +497,16 @@ window.addEventListener("DOMContentLoaded", function () {
             return k.split(":::")[1];
           });
 
-        const seen = new Set();
-        const speBlocks = [];
+        var seen = new Set();
+        var speBlocks = [];
 
         selectedSpe.forEach(function (value) {
           seen.add(value);
           speBlocks.push({ name: value, count: null });
         });
 
-        for (let i = 0; i < speFacetValues.length; i++) {
-          const fv = speFacetValues[i];
+        for (var i = 0; i < speFacetValues.length; i++) {
+          var fv = speFacetValues[i];
           if (!fv || !fv.name) continue;
           if (seen.has(fv.name)) continue;
           if (speBlocks.length >= 10) break;
@@ -497,10 +515,10 @@ window.addEventListener("DOMContentLoaded", function () {
           seen.add(fv.name);
         }
 
-        const speHtml = speBlocks
+        var speHtml = speBlocks
           .map(function (item) {
-            const key = "specialities:::" + item.name;
-            const isSelected = selectedFacetTags.has(key);
+            var key = "specialities:::" + item.name;
+            var isSelected = selectedFacetTags.has(key);
             return (
               '<div class="directory_suggestions_tag ' +
               (isSelected ? "is-selected" : "") +
@@ -515,15 +533,15 @@ window.addEventListener("DOMContentLoaded", function () {
         speWrapper.innerHTML = speHtml;
 
         if (speFilterWrapper) {
-          const maxToShow = speExpanded ? speFacetValuesAlpha.length : 6;
-          const speListHtml = speFacetValuesAlpha
+          var maxToShow = speExpanded ? speFacetValuesAlpha.length : 6;
+          var speListHtml = speFacetValuesAlpha
             .filter(function (fv) {
               return fv && fv.name;
             })
             .slice(0, maxToShow)
             .map(function (fv) {
-              const key = "specialities:::" + fv.name;
-              const isSelected = selectedFacetTags.has(key);
+              var key = "specialities:::" + fv.name;
+              var isSelected = selectedFacetTags.has(key);
               return (
                 '<div class="directory_category_tag_wrapper ' +
                 (isSelected ? "is-selected" : "") +
@@ -538,49 +556,50 @@ window.addEventListener("DOMContentLoaded", function () {
 
           speFilterWrapper.innerHTML = speListHtml;
 
-          const moreSpeBtn = document.getElementById("more-spe");
+          var moreSpeBtn = document.getElementById("more-spe");
           if (moreSpeBtn) {
             moreSpeBtn.textContent = speExpanded
               ? "En voir moins"
               : "Voir toutes les spécialités";
           }
-          // idem pour le header "lessSpe" (icône chevron)
-          const lessSpeBtn = document.getElementById("lessSpe");
+        }
+        // idem pour le header "lessSpe" (icône chevron)
+          var lessSpeBtn = document.getElementById("lessSpe");
           if (lessSpeBtn) {
-            const chevron = lessSpeBtn.querySelector(".directory_chevron_icon");
+            var chevron = lessSpeBtn.querySelector(".directory_chevron_icon");
             if (chevron) {
               chevron.style.transition = "transform 0.2s ease";
               chevron.style.transform = speExpanded ? "rotate(180deg)" : "rotate(0deg)";
             }
           }
-        }
+
 
         // PRESTATIONS ---------------------------------------------------------
         if (prestaFilterWrapper) {
-          let prestaFacetValues =
+          var prestaFacetValues =
             results.getFacetValues("prestations", {
               sortBy: ["name:asc"]
             }) || [];
           if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
 
-          const serviceContainer = document.getElementById("serviceContainer");
+          var serviceContainer = document.getElementById("serviceContainer");
           if (serviceContainer) {
-            const hasPresta = prestaFacetValues.some(function (fv) {
+            var hasPresta = prestaFacetValues.some(function (fv) {
               return fv && fv.count > 0;
             });
             serviceContainer.style.display = hasPresta ? "flex" : "none";
           }
 
-          const maxToShowPresta = prestaExpanded ? prestaFacetValues.length : 6;
+          var maxToShowPresta = prestaExpanded ? prestaFacetValues.length : 6;
 
-          const prestaListHtml = prestaFacetValues
+          var prestaListHtml = prestaFacetValues
             .filter(function (fv) {
               return fv && fv.name;
             })
             .slice(0, maxToShowPresta)
             .map(function (fv) {
-              const key = "prestations:::" + fv.name;
-              const isSelected = selectedFacetTags.has(key);
+              var key = "prestations:::" + fv.name;
+              var isSelected = selectedFacetTags.has(key);
               return (
                 '<div class="directory_category_tag_wrapper ' +
                 (isSelected ? "is-selected" : "") +
@@ -594,31 +613,22 @@ window.addEventListener("DOMContentLoaded", function () {
             .join("");
 
           prestaFilterWrapper.innerHTML = prestaListHtml;
-          const morePrestaBtn = document.getElementById("more-presta");
+
+          var morePrestaBtn = document.getElementById("more-presta");
           if (morePrestaBtn) {
             morePrestaBtn.textContent = prestaExpanded
               ? "En voir moins"
               : "Voir tous les services";
           }
-
-          const lessPrestBtn = document.getElementById("lessPrest");
-          if (lessPrestBtn) {
-            const chevronPresta = lessPrestBtn.querySelector(".directory_chevron_icon");
-            if (chevronPresta) {
-              chevronPresta.style.transition = "transform 0.2s ease";
-              chevronPresta.style.transform = prestaExpanded ? "rotate(180deg)" : "rotate(0deg)";
-            }
-          }
         }
-
 
         // MÉTIERS --------------------------------------------------------------
         if (jobFilterWrapper) {
-          let mainFacetValues =
+          var mainFacetValues =
             results.getFacetValues("mainjob", {
               sortBy: ["name:asc"]
             }) || [];
-          let jobFacetValues =
+          var jobFacetValues =
             results.getFacetValues("jobs", {
               sortBy: ["name:asc"]
             }) || [];
@@ -626,7 +636,7 @@ window.addEventListener("DOMContentLoaded", function () {
           if (!Array.isArray(mainFacetValues)) mainFacetValues = [];
           if (!Array.isArray(jobFacetValues)) jobFacetValues = [];
 
-          const merged = new Map();
+          var merged = new Map();
 
           mainFacetValues.forEach(function (fv) {
             if (!fv || !fv.name) return;
@@ -638,10 +648,10 @@ window.addEventListener("DOMContentLoaded", function () {
           });
 
           jobFacetValues.forEach(function (fv) {
-            const nameRaw = fv && fv.name ? fv.name.trim() : "";
+            var nameRaw = fv && fv.name ? fv.name.trim() : "";
             if (!nameRaw) return;
             if (merged.has(nameRaw)) {
-              const cur = merged.get(nameRaw);
+              var cur = merged.get(nameRaw);
               cur.jobCount = fv.count || 0;
             } else {
               merged.set(nameRaw, {
@@ -652,11 +662,11 @@ window.addEventListener("DOMContentLoaded", function () {
             }
           });
 
-          const mergedArr = Array.from(merged.values()).sort(function (a, b) {
+          var mergedArr = Array.from(merged.values()).sort(function (a, b) {
             return (a.name || "").localeCompare(b.name || "");
           });
 
-          const hasJobsFacet =
+          var hasJobsFacet =
             mainFacetValues.some(function (fv) {
               return fv && fv.count > 0;
             }) ||
@@ -668,14 +678,14 @@ window.addEventListener("DOMContentLoaded", function () {
             updateOnlyThpVisibility(searchInstance.helper.state, hasJobsFacet);
           }
 
-          const maxToShowJob = jobExpanded ? mergedArr.length : 6;
+          var maxToShowJob = jobExpanded ? mergedArr.length : 6;
 
-          const jobListHtml = mergedArr
+          var jobListHtml = mergedArr
             .slice(0, maxToShowJob)
             .map(function (item) {
-              const value = (item.name || "").trim();
-              const key = "jobs:::" + value;
-              const isSelected =
+              var value = (item.name || "").trim();
+              var key = "jobs:::" + value;
+              var isSelected =
                 selectedFacetTags.has(key) ||
                 selectedJobTags.indexOf(value) !== -1;
               return (
@@ -691,20 +701,12 @@ window.addEventListener("DOMContentLoaded", function () {
             .join("");
 
           jobFilterWrapper.innerHTML = jobListHtml;
-          const moreJobBtn = document.getElementById("more-job");
+
+          var moreJobBtn = document.getElementById("more-job");
           if (moreJobBtn) {
             moreJobBtn.textContent = jobExpanded
               ? "En voir moins"
               : "Voir tous les métiers";
-          }
-
-          const lessJobBtn = document.getElementById("lessJob");
-          if (lessJobBtn) {
-            const chevronJob = lessJobBtn.querySelector(".directory_chevron_icon");
-            if (chevronJob) {
-              chevronJob.style.transition = "transform 0.2s ease";
-              chevronJob.style.transform = jobExpanded ? "rotate(180deg)" : "rotate(0deg)";
-            }
           }
         }
 
@@ -754,7 +756,7 @@ window.addEventListener("DOMContentLoaded", function () {
 
         // REMBOURSEMENT --------------------------------------------------------
         if (discountFilterWrapper) {
-          let reimburseFacetValues =
+          var reimburseFacetValues =
             results.getFacetValues("reimbursment_percentage", {
               sortBy: ["name:asc"]
             }) || [];
@@ -763,7 +765,7 @@ window.addEventListener("DOMContentLoaded", function () {
           }
 
           // on nettoie / trie
-          const filtered = reimburseFacetValues
+          var filtered = reimburseFacetValues
             .filter(function (fv) {
               return fv && fv.name !== undefined && fv.name !== null;
             })
@@ -786,632 +788,1627 @@ window.addEventListener("DOMContentLoaded", function () {
           });
 
           // au moins une valeur < 50 ?
-          const hasBelow50 = filtered.some(function (item) {
+          var hasBelow50 = filtered.some(function (item) {
             return Number(item.name) < 50;
           });
 
-          let html = "";
+          var html = "";
 
           // tag virtuel <50%
           if (hasBelow50) {
-            const virtualKey = "reimbursment_percentage:::lt50";
-            const isSelectedVirtual = selectedFacetTags.has(virtualKey);
+            var virtualKey = "reimbursment_percentage:::lt50";
+            var isSelectedVirtual = selectedFacetTags.has(virtualKey);
             html +=
               '<div class="directory_category_tag_wrapper ' +
               (isSelectedVirtual ? "is-selected" : "") +
               '" data-facet-name="reimbursment_percentage" data-facet-value="lt50">' +
-              "Moins de 50%" +
-              "</div>";
-          }
-          // Suite de votre code original
-          const fiftyPlus = filtered.some(function (item) {
-            return Number(item.name) >= 50 && Number(item.name) < 100;
-          });
-
-          if (fiftyPlus) {
-            const virtualKey = "reimbursment_percentage:::50-99";
-            const isSelectedVirtual = selectedFacetTags.has(virtualKey);
-            html +=
-              '<div class="directory_category_tag_wrapper ' +
-              (isSelectedVirtual ? "is-selected" : "") +
-              '" data-facet-name="reimbursment_percentage" data-facet-value="50-99">' +
-              "De 50 à 99%" +
-              "</div>";
+              "<div>&lt;50%</div></div>";
           }
 
-          const isFull = filtered.some(function (item) {
-            return Number(item.name) === 100;
-          });
-
-          if (isFull) {
-            const virtualKey = "reimbursment_percentage:::100";
-            const isSelectedVirtual = selectedFacetTags.has(virtualKey);
-            html +=
-              '<div class="directory_category_tag_wrapper ' +
-              (isSelectedVirtual ? "is-selected" : "") +
-              '" data-facet-name="reimbursment_percentage" data-facet-value="100">' +
-              "100%" +
-              "</div>";
-          }
+          // valeurs réelles mais seulement >= 50
+          html += filtered
+            .filter(function (item) {
+              return Number(item.name) >= 50;
+            })
+            .map(function (item) {
+              var key = "reimbursment_percentage:::" + item.name;
+              var isSelected = selectedFacetTags.has(key);
+              return (
+                '<div class="directory_category_tag_wrapper ' +
+                (isSelected ? "is-selected" : "") +
+                '" data-facet-name="reimbursment_percentage" data-facet-value="' +
+                item.name +
+                '"><div>' +
+                item.name +
+                "%</div></div>"
+              );
+            })
+            .join("");
 
           discountFilterWrapper.innerHTML = html;
         }
-
-        // --------------------------------------------------------------------
       }
     };
 
-    // 7. WIDGET DE RÉSULTATS ---------------------------------------------------
-    const hitsWidget = instantsearch.connectors.connectHits(function (opts) {
-      const { hits, results, instantSearchInstance } = opts;
-      if (!instantSearchInstance) return;
-
-      const hitsContainer = document.getElementById("algolia-hits");
-      const noResultsContainer = document.getElementById("algolia-no-results");
-      const hitsCountContainer = document.getElementById("algolia-hits-count");
-
-      if (!hitsContainer || !noResultsContainer || !hitsCountContainer) return;
-
-      if (results && results.nbHits > 0) {
-        hitsContainer.style.display = "grid";
-        noResultsContainer.style.display = "none";
-        hitsCountContainer.textContent =
-          results.nbHits.toLocaleString("fr-FR") +
-          (results.nbHits > 1 ? " résultats" : " résultat");
-      } else if (hasUserLaunchedSearch) {
-        hitsContainer.style.display = "none";
-        noResultsContainer.style.display = "flex";
-        hitsCountContainer.textContent = "0 résultat";
-      } else {
-        // État initial (pas de recherche lancée)
-        hitsContainer.style.display = "none";
-        noResultsContainer.style.display = "none";
-        hitsCountContainer.textContent = "";
-      }
-
-      mainHitHrefSet.clear();
-      mainHitPathSet.clear();
-      mainHitOdooSet.clear();
-
-      hitsContainer.innerHTML = hits
-        .map(function (hit) {
-          const isThp = isTherapeutes(hit);
-          const path = (hit.path || "").trim();
-          const odooId = (hit.odoo_id || "").trim();
-
-          // Dédoublonnage
-          if (path) {
-            if (mainHitPathSet.has(path)) return "";
-            mainHitPathSet.add(path);
-          } else if (odooId) {
-            if (mainHitOdooSet.has(odooId)) return "";
-            mainHitOdooSet.add(odooId);
-          } else if (hit.href) {
-            if (mainHitHrefSet.has(hit.href)) return "";
-            mainHitHrefSet.add(hit.href);
-          } else {
-            return ""; // ni path, ni odoo, ni href : on zappe
+    // 7. WIDGETS ALGOLIA ------------------------------------------------------
+    search.addWidgets([
+      instantsearch.widgets.configure({
+        facets: ["specialities", "prestations", "mainjob", "jobs"],
+        disjunctiveFacets: ["type", "reimbursment_percentage"],
+        hitsPerPage: 48,
+  attributesToRetrieve: [
+    "name",
+    "url",
+    "photo_url",
+    "is_elsee_network",
+    "is_remote",
+    "is_at_home",
+    "reimbursment_percentage",
+    "city",
+    "department_number",
+    "mainjob",
+    "jobs",
+    "prestations",
+    "specialities",
+    "short_desc",
+    "show_search",
+    "show_home",
+    "ranking",
+    "type",
+    "odoo_id" // <--- IMPORTANT
+  ]
+      }),
+      instantsearch.widgets.searchBox({
+        container: "#searchbox",
+        placeholder: "Écrivez ici tout ce qui concerne vos besoins...",
+        cssClasses: {
+          root: "directory_search_field_container",
+          input: "directory_search_text"
+        }
+      }),
+      instantsearch.widgets.stats({
+        container: "#search_count",
+        templates: {
+          text: function (data) {
+            if (data.nbHits === 0) return "0 résultat";
+            if (data.nbHits === 1) return "1 résultat";
+            return data.nbHits + " résultats";
           }
+        }
+      }),
+      instantsearch.widgets.infiniteHits({
+        container: "#hits",
+        hitsPerPage: 48,
+        showMore: true,
+        cssClasses: {
+          loadMore: "directory_show_more_button"
+        },
+        transformItems: function (items) {
+  var query = "";
+  if (searchInstance && searchInstance.helper && searchInstance.helper.state) {
+    query = (searchInstance.helper.state.query || "").trim().toLowerCase();
+  }
 
-          const href = hit.href || DIRECTORY_BASE_URL + "/?odoo_id=" + odooId;
-          const image =
-            hit.image_url || (isThp ? THERAPIST_PLACEHOLDER_URL : DEFAULT_PLACEHOLDER_URL);
+  // === MAJ de l'ensemble des odoo_id du bloc principal ===
+  mainHitOdooSet.clear();
+  items.forEach(function (hit) {
+    if (hit && hit.odoo_id != null) {
+      mainHitOdooSet.add(String(hit.odoo_id));
+    }
+  });
+  console.log("[DEDUPE] mainHitOdooSet (from transformItems) =", Array.from(mainHitOdooSet));
 
-          const speList = toArray(hit.specialities || []).join(", ");
-          const jobList = toArray(hit.mainjob || hit.jobs || []).join(", ");
-          const location =
-            (hit.city || "") +
-            (hit.city && hit.zip_code ? " - " : "") +
-            (hit.zip_code || "");
+  // scoring local / tri
+  items.forEach(function (hit) {
+    var name = (hit.name || "").toLowerCase();
+    var score = 0;
 
-          return (
-            '<a href="' +
-            href +
-            '" class="directory_hit_card w-inline-block">' +
-            '<div class="directory_hit_card_image_wrapper">' +
-            '<img src="' +
-            image +
-            '" loading="lazy" alt="' +
-            hit.title +
-            '" class="directory_hit_card_image" />' +
-            "</div>" +
-            '<div class="directory_hit_card_content">' +
-            '<h4 class="directory_hit_card_title">' +
-            truncate(hit.title, 50) +
-            "</h4>" +
-            '<div class="directory_hit_card_subtitle">' +
-            (isThp ? truncate(jobList, 50) : truncate(hit.type || "", 50)) +
-            "</div>" +
-            (location
-              ? '<div class="directory_hit_card_location_wrapper">' +
-              '<div class="directory_hit_card_icon">📍</div>' +
-              '<div class="directory_hit_card_location_text">' +
-              truncate(location, 50) +
+    if (query) {
+      if (name === query) {
+        score = 3;
+      } else if (name.indexOf(query) === 0) {
+        score = 2;
+      } else if (name.indexOf(query) !== -1) {
+        score = 1;
+      }
+    }
+
+    var networkBonus = hit.is_elsee_network ? 1 : 0;
+
+    hit.__localScore = score;
+    hit.__networkBonus = networkBonus;
+  });
+
+  return items.slice().sort(function (a, b) {
+    if ((b.__localScore || 0) !== (a.__localScore || 0)) {
+      return (b.__localScore || 0) - (a.__localScore || 0);
+    }
+    if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
+      return (b.__networkBonus || 0) - (a.__networkBonus || 0);
+    }
+    var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
+    var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
+    if (rankA !== rankB) return rankB - rankA;
+    var nameA = (a.name || "").toLowerCase();
+    var nameB = (b.name || "").toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+},
+
+
+        templates: {
+          item: function (hit) {
+            var photoUrl = hit.photo_url || "";
+            var isNetwork = !!hit.is_elsee_network; // vrai seulement si le record l’est
+            var isRemote = !!hit.is_remote;
+            var isAtHome = !!hit.is_at_home;
+            var reimbursement =
+              hit.reimbursment_percentage != null
+                ? hit.reimbursment_percentage
+                : "";
+            var name = hit.name || "";
+            var city = hit.city || "";
+            var depNum = hit.department_number || "";
+            var url = hit.url || "#";
+            var showSearch = hit.show_search !== false;
+            var showHome = !!hit.show_home;
+            var Therapeutes = isTherapeutes(hit);
+
+            var remoteSvg =
+              (document.querySelector(".directory_remote_icon") || {})
+                .innerHTML || "";
+            var atHomeSvg =
+              (document.querySelector(".directory_at_home_icon") || {})
+                .innerHTML || "";
+            var discountSvg =
+              (document.querySelector(".directory_discount_icon") || {})
+                .innerHTML || "";
+            var locationSvg =
+              (document.querySelector(".directory_card_location_icon") || {})
+                .innerHTML || "";
+
+            var containStyle =
+              "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
+            var coverStyle =
+              "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
+
+            var finalStyle;
+            if (photoUrl) {
+              if (Therapeutes) {
+                finalStyle =
+                  coverStyle + "background-image:url('" + photoUrl + "');";
+              } else {
+                finalStyle =
+                  containStyle + "background-image:url('" + photoUrl + "');";
+              }
+            } else {
+              if (Therapeutes) {
+                finalStyle =
+                  coverStyle +
+                  "background-image:url('" +
+                  THERAPIST_PLACEHOLDER_URL +
+                  "');";
+              } else {
+                finalStyle =
+                  coverStyle +
+                  "background-image:url('" +
+                  DEFAULT_PLACEHOLDER_URL +
+                  "');";
+              }
+            }
+
+            var photoClasses = "directory_card_photo";
+if (isNetwork) {
+  photoClasses += " is-label";
+}
+if (Therapeutes) {
+  photoClasses += " is-cover";
+} else {
+  photoClasses += " is-contain";
+}
+
+
+
+            var photoDiv =
+              '<div class="directory_card_photo_container">' +
+              '<div class="directory_card_photo' +
+              (isNetwork ? " is-label" : "") +
+              '" style="' +
+              finalStyle +
+              '">' +
+              '<div class="directory_card_label_tag" style="display:' +
+              (isNetwork ? "flex" : "none") +
+              ';">' +
+              '<img src="https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/65a65b49a0e66151845cad61_mob_menu_logo_dark_green.svg" loading="lazy" alt="" class="directory_card_label_tag_logo">' +
               "</div>" +
-              "</div>"
-              : "") +
-            (speList && isThp
-              ? '<div class="directory_hit_card_spe_wrapper">' +
-              '<div class="directory_hit_card_icon">✨</div>' +
-              '<div class="directory_hit_card_spe_text">' +
-              truncate(speList, 50) +
               "</div>" +
-              "</div>"
-              : "") +
-            "</div>" +
-            "</a>"
-          );
-        })
-        .join("");
+              "</div>";
+
+            var remoteIcon =
+              '<div class="directory_remote_icon" style="display:' +
+              (isRemote ? "block" : "none") +
+              ';">' +
+              remoteSvg +
+              '<div class="tooltip">Consultation en visio</div>' +
+              "</div>";
+
+            var atHomeIcon =
+              '<div class="directory_at_home_icon" style="display:' +
+              (isAtHome ? "block" : "none") +
+              ';">' +
+              atHomeSvg +
+              '<div class="tooltip">Se déplace à votre domicile</div>' +
+              "</div>";
+
+            var showDiscount = !Therapeutes;
+            var discountDiv =
+              '<div class="directory_card_discount_tag" style="display:' +
+              (showDiscount ? "flex" : "none") +
+              ';">' +
+              '<div class="directory_discount_icon">' +
+              discountSvg +
+              "</div>" +
+              "<div>" +
+              (reimbursement !== "" ? reimbursement + "%" : "") +
+              "</div>" +
+              "</div>";
+
+            var titleDiv =
+              '<div class="directory_card_title"><div>' +
+              name +
+              "</div></div>";
+
+            var prestationsArr = toArray(hit.prestations);
+            var specialitiesArr = toArray(hit.specialities);
+            // bloc partenaire details 1
+var partnerDetails1Html;
+
+if (Therapeutes) {
+  // cas thérapeutes : on garde le mainjob tel quel
+  var mainJob = hit.mainjob || "";
+  partnerDetails1Html =
+    '<div class="directory_card_partner_details_1"><div>' +
+    mainJob +
+    "</div></div>";
+} else {
+  // on prend d'abord les prestations, sinon les spécialités
+  var rawTop = toArray(hit.prestations);
+  if (!rawTop.length) {
+    rawTop = toArray(hit.specialities);
+  }
+
+  var maxTop = 3; // nombre qu’on affiche
+  var visibleTop = rawTop.slice(0, maxTop);
+  var extraTop = rawTop.length > maxTop ? rawTop.length - maxTop : 0;
+
+  var topHtml = visibleTop.join(", ");
+
+  if (extraTop > 0) {
+    topHtml +=
+      ', <span class="directory_card_more_specialities"><span class="directory_remote_icon">+' +
+      extraTop +
+      "</span></span>";
+  }
+
+  partnerDetails1Html =
+    '<div class="directory_card_partner_details_1"><div>' +
+    topHtml +
+    "</div></div>";
+}
+
+
+            var partnerDetails2Html;
+            if (Therapeutes) {
+              var jobsArr = toArray(hit.jobs);
+              var jobsTxt;
+              if (jobsArr.length > 3) {
+                var firstThree = jobsArr.slice(0, 3).join(", ");
+                var extraCountJobs = jobsArr.length - 3;
+                jobsTxt = firstThree + " +" + extraCountJobs;
+              } else {
+                jobsTxt = jobsArr.join(", ");
+              }
+              partnerDetails2Html =
+                '<div class="directory_card_partner_details_2"><div>' +
+                jobsTxt +
+                "</div></div>";
+            } else {
+              var shortTxt = truncate(hit.short_desc || "", 70);
+              partnerDetails2Html =
+                '<div class="directory_card_partner_details_2"><div class="directory_card_partner_short_desc">' +
+                shortTxt +
+                "</div></div>";
+            }
+
+            var showLocation = true;
+            if (!showSearch) showLocation = false;
+            if (!city && !depNum) showLocation = false;
+
+            var locationText =
+              Therapeutes
+                ? city + (depNum ? " (" + depNum + ")" : "")
+                : city;
+
+            var locationDiv =
+              '<div class="directory_card_partner_location" style="display:' +
+              (showLocation ? "flex" : "none") +
+              ';">' +
+              '<div class="directory_card_location_icon">' +
+              locationSvg +
+              "</div>" +
+              '<div class="directory_card_location_text"><div>' +
+              locationText +
+              "</div></div>" +
+              "</div>";
+
+            var rawTags;
+if (Therapeutes) {
+  rawTags = toArray(hit.prestations);
+} else {
+  rawTags = toArray(hit.specialities);
+}
+
+var maxTags = 2;
+var visibleTags = rawTags.slice(0, maxTags);
+var extraCount = rawTags.length > maxTags ? rawTags.length - maxTags : 0;
+
+var prestasHtml = visibleTags
+  .map(function (p) {
+    return (
+      '<div class="directory_card_prestation_tag"><div>' +
+      p +
+      "</div></div>"
+    );
+  })
+  .join("");
+
+// si plus que la limite, on ajoute un tag "+X"
+if (extraCount > 0) {
+  prestasHtml +=
+    '<div class="directory_card_prestation_tag"><div>+' +
+    extraCount +
+    "</div></div>";
+}
+
+
+            var prestationsDiv =
+              '<div class="directory_card_prestations_container">' +
+              prestasHtml +
+              "</div>";
+
+            return (
+              '<li class="directory_card_container">' +
+              '<a href="' +
+              url +
+              '" class="directory_card_body">' +
+              '<div class="directory_card_upper_container">' +
+              '<div class="directory_card_header">' +
+              photoDiv +
+              '<div class="directory_card_options_container">' +
+              remoteIcon +
+              atHomeIcon +
+              discountDiv +
+              "</div>" +
+              "</div>" +
+              titleDiv +
+partnerDetails1Html +
+partnerDetails2Html +
+
+              "</div>" +
+              locationDiv +
+              prestationsDiv +
+              "</a>" +
+              "</li>"
+            );
+          },
+          empty: "<div>Aucun résultat trouvé.</div>",
+          showMoreText: "Afficher plus de résultat"
+        }
+      }),
+      dynamicSuggestionsWidget
+    ]);
+// === Fabrique HTML d'une carte (même logique que le template principal) ===
+function buildCardHTML(hit) {
+  var photoUrl = hit.photo_url || "";
+  var isNetwork = !!hit.is_elsee_network;
+  var isRemote = !!hit.is_remote;
+  var isAtHome = !!hit.is_at_home;
+  var reimbursement = hit.reimbursment_percentage != null ? hit.reimbursment_percentage : "";
+  var name = hit.name || "";
+  var city = hit.city || "";
+  var depNum = hit.department_number || "";
+  var url = hit.url || "#";
+  var showSearch = hit.show_search !== false;
+  var Therapeutes = isTherapeutes(hit);
+
+  var remoteSvg = (document.querySelector(".directory_remote_icon") || {}).innerHTML || "";
+  var atHomeSvg  = (document.querySelector(".directory_at_home_icon") || {}).innerHTML || "";
+  var discountSvg = (document.querySelector(".directory_discount_icon") || {}).innerHTML || "";
+  var locationSvg = (document.querySelector(".directory_card_location_icon") || {}).innerHTML || "";
+
+  var containStyle = "background-position:50% 50%;background-size:contain;background-repeat:no-repeat;";
+  var coverStyle   = "background-position:50% 50%;background-size:cover;background-repeat:no-repeat;";
+
+  var finalStyle;
+  if (photoUrl) {
+    finalStyle = (Therapeutes ? coverStyle : containStyle) + "background-image:url('" + photoUrl + "');";
+  } else {
+    finalStyle = coverStyle + "background-image:url('" + (Therapeutes ? THERAPIST_PLACEHOLDER_URL : DEFAULT_PLACEHOLDER_URL) + "');";
+  }
+
+  var photoClasses = "directory_card_photo";
+  if (isNetwork) photoClasses += " is-label";
+  photoClasses += Therapeutes ? " is-cover" : " is-contain";
+
+  var photoDiv =
+    '<div class="directory_card_photo_container">' +
+      '<div class="' + photoClasses + '" style="' + finalStyle + '">' +
+        '<div class="directory_card_label_tag" style="display:' + (isNetwork ? "flex" : "none") + ';">' +
+          '<img src="https://cdn.prod.website-files.com/64708634ac0bc7337aa7acd8/65a65b49a0e66151845cad61_mob_menu_logo_dark_green.svg" loading="lazy" alt="" class="directory_card_label_tag_logo">' +
+        "</div>" +
+      "</div>" +
+    "</div>";
+
+  var remoteIcon =
+    '<div class="directory_remote_icon" style="display:' + (isRemote ? "block" : "none") + ';">' +
+      remoteSvg + '<div class="tooltip">Consultation en visio</div>' +
+    "</div>";
+
+  var atHomeIcon =
+    '<div class="directory_at_home_icon" style="display:' + (isAtHome ? "block" : "none") + ';">' +
+      atHomeSvg + '<div class="tooltip">Se déplace à votre domicile</div>' +
+    "</div>";
+
+  var showDiscount = !Therapeutes;
+  var discountDiv =
+    '<div class="directory_card_discount_tag" style="display:' + (showDiscount ? "flex" : "none") + ';">' +
+      '<div class="directory_discount_icon">' + discountSvg + "</div>" +
+      "<div>" + (reimbursement !== "" ? reimbursement + "%" : "") + "</div>" +
+    "</div>";
+
+  var titleDiv = '<div class="directory_card_title"><div>' + name + "</div></div>";
+
+  // détails 1 & 2
+  var partnerDetails1Html, partnerDetails2Html;
+
+  if (Therapeutes) {
+    var mainJob = hit.mainjob || "";
+    partnerDetails1Html = '<div class="directory_card_partner_details_1"><div>' + mainJob + "</div></div>";
+
+    var jobsArr = toArray(hit.jobs);
+    var jobsTxt;
+    if (jobsArr.length > 3) {
+      jobsTxt = jobsArr.slice(0, 3).join(", ") + " +" + (jobsArr.length - 3);
+    } else {
+      jobsTxt = jobsArr.join(", ");
+    }
+    partnerDetails2Html = '<div class="directory_card_partner_details_2"><div>' + jobsTxt + "</div></div>";
+  } else {
+    var rawTop = toArray(hit.prestations);
+    if (!rawTop.length) rawTop = toArray(hit.specialities);
+    var maxTop = 3, visibleTop = rawTop.slice(0, maxTop), extraTop = rawTop.length > maxTop ? rawTop.length - maxTop : 0;
+    var topHtml = visibleTop.join(", ");
+    if (extraTop > 0) {
+      topHtml += ', <span class="directory_card_more_specialities"><span class="directory_remote_icon">+' + extraTop + "</span></span>";
+    }
+    partnerDetails1Html = '<div class="directory_card_partner_details_1"><div>' + topHtml + "</div></div>";
+
+    var shortTxt = truncate(hit.short_desc || "", 70);
+    partnerDetails2Html = '<div class="directory_card_partner_details_2"><div class="directory_card_partner_short_desc">' + shortTxt + "</div></div>";
+  }
+
+  var showLocation = !!showSearch && (city || depNum);
+  var locationText = Therapeutes ? (city + (depNum ? " (" + depNum + ")" : "")) : city;
+  var locationDiv =
+    '<div class="directory_card_partner_location" style="display:' + (showLocation ? "flex" : "none") + ';">' +
+      '<div class="directory_card_location_icon">' + locationSvg + "</div>" +
+      '<div class="directory_card_location_text"><div>' + (locationText || "") + "</div></div>" +
+    "</div>";
+
+  var rawTags = Therapeutes ? toArray(hit.prestations) : toArray(hit.specialities);
+  var maxTags = 2, visibleTags = rawTags.slice(0, maxTags), extraCount = rawTags.length > maxTags ? rawTags.length - maxTags : 0;
+  var prestasHtml = visibleTags.map(function (p) {
+    return '<div class="directory_card_prestation_tag"><div>' + p + "</div></div>";
+  }).join("");
+  if (extraCount > 0) {
+    prestasHtml += '<div class="directory_card_prestation_tag"><div>+' + extraCount + "</div></div>";
+  }
+  var prestationsDiv = '<div class="directory_card_prestations_container">' + prestasHtml + "</div>";
+
+  return (
+    '<a href="' + url + '" class="directory_card_body">' +
+      '<div class="directory_card_upper_container">' +
+        '<div class="directory_card_header">' +
+          photoDiv +
+          '<div class="directory_card_options_container">' + remoteIcon + atHomeIcon + discountDiv + '</div>' +
+        '</div>' +
+        titleDiv + partnerDetails1Html + partnerDetails2Html +
+      '</div>' +
+      locationDiv + prestationsDiv +
+    '</a>'
+  );
+}
+
+
+
+// === Tri identique à transformItems principal ===
+function sortHitsLikeMain(items, query) {
+  var q = (query || "").trim().toLowerCase();
+  items.forEach(function (hit) {
+    var name = (hit.name || "").toLowerCase();
+    var score = 0;
+    if (q) {
+      if (name === q) score = 3;
+      else if (name.indexOf(q) === 0) score = 2;
+      else if (name.indexOf(q) !== -1) score = 1;
+    }
+    hit.__localScore = score;
+    hit.__networkBonus = hit.is_elsee_network ? 1 : 0;
+  });
+
+  return items.slice().sort(function (a, b) {
+    if ((b.__localScore || 0) !== (a.__localScore || 0)) {
+      return (b.__localScore || 0) - (a.__localScore || 0);
+    }
+    if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
+      return (b.__networkBonus || 0) - (a.__networkBonus || 0);
+    }
+    var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
+    var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
+    if (rankA !== rankB) return rankB - rankA;
+    var nameA = (a.name || "").toLowerCase();
+    var nameB = (b.name || "").toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+}
+
+    // 8. START ---------------------------------------------------------------
+    search.start();
+// === Index direct (requêtes secondaires sans géoloc) ===
+var rawIndex = null;
+try { rawIndex = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY).initIndex(ALGOLIA_INDEX_NAME); } catch(e) {}
+
+// Normalisation simple sans accents
+function normTxt(s){
+  return (s||"").toString().trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Récupère tags sélectionnés
+function getSelectedArray(prefix) {
+  return Array.from(selectedFacetTags)
+    .filter(function (k) { return k.indexOf(prefix + ":::") === 0; })
+    .map(function (k) { return k.split(":::")[1]; });
+}
+
+function buildFacetFiltersForTherapeutes() {
+  var arr = [];
+  // type Thérapeutes (avec et sans accent pour robustesse)
+  arr.push(["type:Thérapeutes", "type:therapeutes"]);
+
+  // appliquer les sélections prestas / specialities si présentes
+  var selectedPrestas = getSelectedArray("prestations");
+  var selectedSpecs   = getSelectedArray("specialities");
+
+  selectedPrestas.forEach(function (p) { arr.push("prestations:" + p); });
+  selectedSpecs.forEach(function (s) { arr.push("specialities:" + s); });
+
+  return arr;
+}
+
+function buildFacetFiltersFor(label) {
+  var arr = [];
+
+  // type ciblé
+  arr.push(["type:" + label]);
+
+  // on réutilise les mêmes helpers que pour les thérapeutes
+  var selectedPrestas = getSelectedArray("prestations");
+  var selectedSpecs   = getSelectedArray("specialities");
+
+  selectedPrestas.forEach(function (p) {
+    arr.push("prestations:" + p);
+  });
+  selectedSpecs.forEach(function (s) {
+    arr.push("specialities:" + s);
+  });
+
+  return arr;
+}
+
+
+function makeFiltersString(extra, ignoreGeo) {
+  // jobs + booléens (network / remote / athome)
+  var userFilters = buildFiltersStringFromJobsAndBooleans();
+  var visibility  = getVisibilityFilter(!!ignoreGeo);
+
+  var parts = [];
+  if (userFilters && userFilters.length) parts.push(userFilters);
+  if (visibility && visibility.length)   parts.push(visibility);
+  if (extra && extra.length)             parts.push(extra);
+
+  return parts.join(" AND ");
+}
+
+// Construit l’URL "Voir plus de X" pour les hits secondaires
+function buildMoreUrlForType(typeFacetValue) {
+  if (!searchInstance || !searchInstance.helper) {
+    return DIRECTORY_BASE_URL;
+  }
+
+  var helper = searchInstance.helper;
+  var state  = helper.state;
+
+  // --- Query ---------------------------------------------------
+  var params = new URLSearchParams();
+  var query = (state.query || "").trim();
+  if (query) {
+    params.set("q", query);
+  }
+
+  // --- Facets / disjunctiveFacets ------------------------------
+  var facetRef = state.facetsRefinements || {};
+  var disjRef  = state.disjunctiveFacetsRefinements || {};
+
+  var typeRef =
+    (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) || [];
+
+  var speRef =
+    (disjRef.specialities && disjRef.specialities.length
+      ? disjRef.specialities
+      : facetRef.specialities) || [];
+
+  var prestaRef =
+    (facetRef.prestations && facetRef.prestations.length
+      ? facetRef.prestations
+      : []) || [];
+
+  var reimbRef =
+    (disjRef.reimbursment_percentage &&
+      disjRef.reimbursment_percentage.length
+      ? disjRef.reimbursment_percentage
+      : []) || [];
+
+  var hasSpeOrPresta =
+    (speRef && speRef.length > 0) ||
+    (prestaRef && prestaRef.length > 0);
+
+  // --- Types ---------------------------------------------------
+  var finalTypes;
+
+  if (!hasSpeOrPresta) {
+    // cas demandé : aucune presta/spe → on force le type du bloc
+    finalTypes = typeFacetValue ? [typeFacetValue] : [];
+  } else {
+    // on garde les types déjà sélectionnés
+    finalTypes = typeRef;
+  }
+
+  if (finalTypes && finalTypes.length) {
+    params.set("type", finalTypes.join(","));
+  } else {
+    params.delete("type");
+  }
+
+  // --- Specialities / Prestations ------------------------------
+  if (hasSpeOrPresta) {
+    if (speRef && speRef.length) {
+      params.set("specialities", speRef.join(","));
+    } else {
+      params.delete("specialities");
+    }
+
+    if (prestaRef && prestaRef.length) {
+      params.set("prestations", prestaRef.join(","));
+    } else {
+      params.delete("prestations");
+    }
+  } else {
+    // aucune presta/spe dans ce cas → rien dans l’URL
+    params.delete("specialities");
+    params.delete("prestations");
+  }
+
+  // --- Remboursement -------------------------------------------
+  if (reimbRef && reimbRef.length) {
+    params.set("reimbursment_percentage", reimbRef.join(","));
+  } else {
+    params.delete("reimbursment_percentage");
+  }
+
+  // --- Jobs (gardés dans tous les cas) -------------------------
+  if (selectedJobTags && selectedJobTags.length > 0) {
+    params.set("jobs", selectedJobTags.join(","));
+  } else {
+    params.delete("jobs");
+  }
+
+  // --- Booléens (network / remote / athome) --------------------
+  if (isNetworkSelected) params.set("network", "true");
+  else params.delete("network");
+
+  if (isRemoteSelected) params.set("remote", "true");
+  else params.delete("remote");
+
+  if (isAtHomeSelected) params.set("athome", "true");
+  else params.delete("athome");
+
+  // --- Géoloc : JAMAIS dans l’URL des hits secondaires ---------
+  params.delete("geo");
+  params.delete("geolabel");
+
+  var qs = params.toString();
+  var finalUrl = DIRECTORY_BASE_URL + (qs ? "?" + qs : "");
+
+  console.log("[MORE] buildMoreUrlForType", {
+    typeFacetValue: typeFacetValue,
+    hasSpeOrPresta: hasSpeOrPresta,
+    finalTypes: finalTypes,
+    speRef: speRef,
+    prestaRef: prestaRef,
+    reimbRef: reimbRef,
+    jobs: (selectedJobTags || []).slice(),
+    isNetworkSelected: isNetworkSelected,
+    isRemoteSelected: isRemoteSelected,
+    isAtHomeSelected: isAtHomeSelected,
+    finalUrl: finalUrl
+  });
+
+  return finalUrl;
+}
+
+
+
+function renderInto(containerId, hits, opts) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+
+  opts = opts || {};
+  var typeFacetValue = opts.typeFacetValue || ""; // ex: "Thérapeutes", "Marques", "Applications & Programmes"
+  var label = (opts.label || typeFacetValue || "").toLowerCase(); // pour le texte
+
+  var query =
+    (searchInstance &&
+      searchInstance.helper &&
+      searchInstance.helper.state &&
+      searchInstance.helper.state.query) || "";
+
+  // Retire les hits déjà présents dans le bloc principal (on compare href ET pathname)
+    // Retire les hits déjà présents dans le bloc principal (on compare par odoo_id)
+  var pruned = (hits || []).filter(function (hit) {
+    if (!hit) return false;
+
+    if (hit.odoo_id != null) {
+      var key = String(hit.odoo_id);
+      if (mainHitOdooSet.has(key)) {
+        console.log("[DEDUPE] secondaire supprimé (odoo_id déjà vu)", key);
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+
+
+
+  var sorted = sortHitsLikeMain(pruned, query);
+
+  // on limite à 5
+  var visible = sorted.slice(0, 5);
+
+  // liste HTML : <ol> -> <li class="ais-InfiniteHits-item"><div class="directory_card_container">…</div></li>
+  var itemsHtml = visible
+    .map(function (hit) {
+      return (
+        '<li class="ais-InfiniteHits-item">' +
+          '<div class="directory_card_container">' +
+            buildCardHTML(hit) + // buildCardHTML doit retourner le <a class="directory_card_body">…</a> SEUL
+          '</div>' +
+        '</li>'
+      );
+    })
+    .join("");
+
+  // 6e : carte “voir plus”
+  console.log("[MORE] renderInto() – containerId =", containerId,
+            "typeFacetValue =", typeFacetValue,
+            "label =", label,
+            "visible.length =", visible.length);
+
+  var moreUrl = buildMoreUrlForType(typeFacetValue);
+  var moreItemHtml =
+    '<li class="ais-InfiniteHits-item">' +
+      '<div class="more-card">' +
+        '<a href="' + moreUrl + '" class="directory_more_card_body">' +
+          '<div class="directory_more_card_title"><div>voir plus de ' + (label || "résultats") + '</div></div>' +
+        '</a>' +
+      '</div>' +
+    '</li>';
+
+  var html =
+    '<ol class="ais-InfiniteHits-list">' +
+      itemsHtml +
+      moreItemHtml +
+    '</ol>';
+
+  container.innerHTML = html;
+}
+// <-- ferme bien renderInto ici
+
+function toggleWrapper(wrapperId, count) {
+  var wrap = document.getElementById(wrapperId);
+  if (!wrap) return;
+  wrap.style.display = count > 0 ? "flex" : "none";
+}
+
+async function fetchAndRenderMoreBlocks() {
+  var more = document.getElementById("more-results");
+  if (!rawIndex || !more) return;
+
+  // Afficher ces blocs SEULEMENT quand une recherche géoloc a été lancée
+  var hasGeo = !!currentGeoFilter;
+  if (!hasGeo) {
+    more.style.display = "none";
+    toggleWrapper("hits_therapeutes_wrapper", 0);
+    toggleWrapper("hits_marques_wrapper", 0);
+    toggleWrapper("hits_applications_programmes_wrapper", 0);
+    return;
+  }
+
+  more.style.display = "flex";
+
+  var hasJobFilter = (selectedJobTags && selectedJobTags.length > 0);
+  var queryStr =
+    (searchInstance &&
+      searchInstance.helper &&
+      searchInstance.helper.state &&
+      searchInstance.helper.state.query) || "";
+
+  // === THÉRAPEUTES SECONDAIRES : seulement visio, pas d'impact géoloc ===
+  var thFacetFilters = buildFacetFiltersForTherapeutes();
+  // on force ici is_remote:true et on ignore la géoloc dans la visibilité
+  var thFilters = makeFiltersString("is_remote:true", true);
+
+  var thRes = await rawIndex
+    .search(queryStr, {
+      hitsPerPage: 24,
+      facetFilters: thFacetFilters,
+      filters: thFilters
+    })
+    .catch(() => ({ hits: [] }));
+
+  var thHits = (thRes && thRes.hits) || [];
+  renderInto("hits_therapeutes", thHits, {
+    typeFacetValue: "Thérapeutes",
+    label: "thérapeutes en visio"
+  });
+  toggleWrapper("hits_therapeutes_wrapper", thHits.length);
+
+  // === Marques + Applications seulement si pas de job ===
+  if (!hasJobFilter) {
+    // --- Marques ---
+    var mqFacetFilters = buildFacetFiltersFor("Marques");
+    var mqFilters = makeFiltersString("", true); // ignore géoloc
+
+    var mqRes = await rawIndex
+      .search(queryStr, {
+        hitsPerPage: 24,
+        facetFilters: mqFacetFilters,
+        filters: mqFilters
+      })
+      .catch(() => ({ hits: [] }));
+
+    var mqHits = (mqRes && mqRes.hits) || [];
+    renderInto("hits_marques", mqHits, {
+      typeFacetValue: "Marques",
+      label: "marques"
+    });
+    toggleWrapper("hits_marques_wrapper", mqHits.length);
+
+    // --- Applications et programmes ---
+    var apFacetFilters = buildFacetFiltersFor("Applications et programmes");
+    var apFilters = makeFiltersString("", true); // ignore géoloc
+
+    var apRes = await rawIndex
+      .search(queryStr, {
+        hitsPerPage: 24,
+        facetFilters: apFacetFilters,
+        filters: apFilters
+      })
+      .catch(() => ({ hits: [] }));
+
+    var apHits = (apRes && apRes.hits) || [];
+    renderInto("hits_applications_programmes", apHits, {
+      typeFacetValue: "Applications et programmes",
+      label: "applications et programmes"
+    });
+    toggleWrapper("hits_applications_programmes_wrapper", apHits.length);
+  } else {
+    // job sélectionné → on masque Marques + Applications
+    toggleWrapper("hits_marques_wrapper", 0);
+    toggleWrapper("hits_applications_programmes_wrapper", 0);
+  }
+}
+
+   
+    // 9. RENDER GLOBAL --------------------------------------------------------
+    search.on("render", function () {
+      // 1) S’assurer que les params URL sont appliqués une fois que tout est prêt
+  if (!urlParamsApplied && searchInstance && searchInstance.helper) {
+    urlParamsApplied = true;
+    applyUrlParamsToSearch();
+    // on laisse applyUrlParamsToSearch déclencher son propre helper.search()
+    // le prochain render utilisera déjà l’état construit depuis l’URL
+    return;
+  }
+
+  // 2) Rendu normal
+  renderClearButton();
+
+  if (search.helper && search.helper.state) {
+    updateUrlFromState(search.helper.state);
+  }
+
+    var perPage = 48;
+
+  // cartes visibles
+  var cards = Array.prototype.slice
+    .call(document.querySelectorAll("#hits .directory_card_container"))
+    .filter(function (el) {
+      return el.offsetParent !== null;
     });
 
-    // 8. WIDGET DE GÉOLOCALISATION ----------------------------------------------
-    const currentGeoWidget = {
-      render: function (opts) {
-        const { instantSearchInstance } = opts;
-        if (!instantSearchInstance) return;
+  // bouton lui-même
+  var showMoreBtn = document.querySelector(".directory_show_more_button");
 
-        const container = document.getElementById("geo-filter-tag-wrapper");
-        const clearBtn = document.getElementById("clear-geo-filter");
-        const geoInput = document.getElementById("geo-autocomplete-input");
+  // wrapper algolia autour du bouton
+  var showMoreWrapper = document.querySelector(
+    "#hits .ais-InfiniteHits-loadMore"
+  );
 
-        if (!container || !clearBtn || !geoInput) return;
+  // état réel d'infiniteHits côté Algolia
+  var infState =
+    searchInstance &&
+    searchInstance.renderState &&
+    searchInstance.renderState[ALGOLIA_INDEX_NAME] &&
+    searchInstance.renderState[ALGOLIA_INDEX_NAME].infiniteHits;
 
-        // Mise à jour de l'affichage
-        if (currentGeoFilter) {
-          container.style.display = "flex";
-          container.querySelector(".directory_geo_tag_text").textContent =
-            currentGeoFilter.label || "Filtre géographique actif";
-        } else {
-          container.style.display = "none";
-          container.querySelector(".directory_geo_tag_text").textContent = "";
+  var isLastPage = !!(infState && infState.isLastPage);
+
+  // on masque si :
+  // - on est sur la dernière page
+  // - OU il y a moins que 48 cartes (donc une seule page)
+  var mustHide = isLastPage || cards.length < perPage;
+
+  if (mustHide) {
+    if (showMoreBtn) {
+      showMoreBtn.style.display = "none";
+    }
+    if (showMoreWrapper) {
+      showMoreWrapper.style.display = "none";
+    }
+  } else {
+    if (showMoreWrapper) {
+      showMoreWrapper.style.display = "";
+    }
+    if (showMoreBtn) {
+      showMoreBtn.style.display = "inline-flex";
+    }
+  }
+
+  // Laisse finir le cycle de rendu puis lance les secondaires
+  setTimeout(fetchAndRenderMoreBlocks, 0);
+});
+
+
+
+
+    // 10. CLIC GLOBAL SHOW MORE ----------------------------------------------
+//    document.addEventListener("click", function (e) {
+//  var btn = e.target.closest(".directory_show_more_button");
+//  if (!btn) return;
+
+//  console.log("[DEBUG SHOW MORE] click", {
+//    renderState: searchInstance && searchInstance.renderState
+//  });
+
+//  var inf =
+//    searchInstance &&
+//    searchInstance.renderState &&
+//    searchInstance.renderState[ALGOLIA_INDEX_NAME] &&
+//    searchInstance.renderState[ALGOLIA_INDEX_NAME].infiniteHits;
+//
+//  if (inf && typeof inf.showMore === "function") {
+//    e.preventDefault();
+//    inf.showMore();
+//  } else {
+//    console.warn("[DEBUG SHOW MORE] infiniteHits introuvable");
+//  }
+// });
+
+    document.addEventListener(
+  "click",
+  function (e) {
+    var link = e.target.closest(
+      ".directory_card_container.more-card a.directory_card_body"
+    );
+    if (!link) return;
+
+    var href = link.getAttribute("href");
+    console.log("[MORE FORCE NAV]", href, { target: e.target });
+
+    // On stoppe tout ce que d'autres scripts pourraient faire
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (href) {
+      window.location.href = href;
+    }
+  },
+  true // <--- capture: on passe AVANT les autres listeners
+);
+
+
+
+    // 11. AUTRES LISTENERS ----------------------------------------------------
+    setupSearchDropdown();
+    setupSuggestionClicks();
+    setupTypeBlockClicks();
+    setupSpePrestaBlockClicks();
+    setupJobBlockClicks();
+    setupBooleanBlockClicks();
+    setupDiscountBlockClicks();
+
+    var mapsClearBtn = document.querySelector(".directory_search_clear");
+    if (mapsClearBtn) {
+      mapsClearBtn.addEventListener("click", function () {
+        if (!searchInstance || !searchInstance.helper) return;
+        var helper = searchInstance.helper;
+
+        currentGeoFilter = null;
+        helper.setQueryParameter("aroundLatLng", undefined);
+        helper.setQueryParameter("aroundRadius", undefined);
+
+        var mapsInput = document.getElementById("maps_input");
+        var mapsBox = document.getElementById("maps_autocomplete");
+        if (mapsInput) {
+          mapsInput.value = "";
+          mapsInput.classList.remove("is-selected");
+        }
+        if (mapsBox) {
+          mapsBox.style.display = "none";
+        }
+        mapsClearBtn.style.display = "none";
+
+        helper.search();
+      });
+    }
+
+    var clearBtnMobile = document.getElementById("clear_button_mobile");
+    if (clearBtnMobile) {
+      clearBtnMobile.addEventListener("click", function () {
+        if (!searchInstance || !searchInstance.helper) return;
+        var helper = searchInstance.helper;
+
+        selectedFacetTags.clear();
+        selectedJobTags.length = 0;
+        isNetworkSelected = false;
+        isRemoteSelected = false;
+        isAtHomeSelected = false;
+        helper.setQuery("");
+        helper.clearRefinements();
+        helper.setQueryParameter("filters", undefined);
+        helper.setQueryParameter("aroundLatLng", undefined);
+        helper.setQueryParameter("aroundRadius", undefined);
+        currentGeoFilter = null;
+        hasUserLaunchedSearch = false;
+
+        var mapsInput = document.getElementById("maps_input");
+        var mapsBox = document.getElementById("maps_autocomplete");
+        var mapsClear = document.querySelector(".directory_search_clear");
+        if (mapsInput) {
+          mapsInput.value = "";
+          mapsInput.classList.remove("is-selected");
+        }
+        if (mapsBox) {
+          mapsBox.style.display = "none";
+        }
+        if (mapsClear) {
+          mapsClear.style.display = "none";
         }
 
-        // Mettre à jour l'input de l'autocomplétion
-        if (geoInput.value !== (currentGeoFilter?.label || "")) {
-          geoInput.value = currentGeoFilter?.label || "";
-        }
+        helper.search();
+      });
+    }
 
-        // Gérer l'état du bouton "Effacer"
-        clearBtn.style.display = currentGeoFilter ? "flex" : "none";
-
-        // Gérer le click du bouton "Effacer"
-        if (!window.__geoClearListener) {
-          window.__geoClearListener = true;
-          clearBtn.addEventListener("click", function (e) {
-            e.preventDefault();
-            currentGeoFilter = null;
-            geoInput.value = "";
-            instantSearchInstance.helper.setQueryParameter("aroundLatLng", undefined);
-            instantSearchInstance.helper.setQueryParameter("aroundRadius", undefined);
-            instantSearchInstance.helper.setQueryParameter("filters", composeFilters(buildFiltersStringFromJobsAndBooleans()));
-            instantSearchInstance.helper.search();
-            updateUrlFromState(instantSearchInstance.helper.state);
-          });
-        }
-      }
-    };
-
-    // 9. WIDGET D'AUTOSUGGESTION DE GÉOLOC ---------------------------------------
-    // Ce widget est purement déclaratif pour éviter d'interférer avec le comportement
-    // de l'autocomplétion Google Maps/Algolia déjà en place dans Webflow.
-    const geoAutocompleteWidget = {
-      render: function (opts) {
-        const { instantSearchInstance } = opts;
-        if (!instantSearchInstance) return;
-
-        // Si l'URL a déjà des paramètres, Algolia a déjà mis à jour son état (si possible)
-        // et on ne fait rien de plus ici, on se fie au `currentGeoFilter` pour l'état.
-      }
-    };
-
-    // 10. WIDGET DE GESTION DES EXPANSIONS ---------------------------------------
-    const expandWidget = {
-      render: function (opts) {
-        const speExpand = document.getElementById("spe_expand");
-        const prestaExpand = document.getElementById("presta_expand");
-        const jobExpand = document.getElementById("job_expand");
-
-        function setupToggle(elementId, stateVar, updateFunc) {
-          const el = document.getElementById(elementId);
-          if (el && !el.__listenerAttached) {
-            el.__listenerAttached = true;
-            el.addEventListener("click", function () {
-              // eslint-disable-next-line no-eval
-              eval(stateVar + " = !" + stateVar); // Met à jour l'état (speExpanded, etc.)
-              updateFunc();
-              opts.instantSearchInstance.helper.search(); // Déclenche un re-render
-            });
-          }
-        }
-
-        function updateSpe() {
-          const chevron = document.querySelector("#lessSpe .directory_chevron_icon");
-          if (chevron) {
-            chevron.style.transform = speExpanded ? "rotate(180deg)" : "rotate(0deg)";
-          }
-          const btn = document.getElementById("more-spe");
-          if (btn) {
-            btn.textContent = speExpanded ? "En voir moins" : "Voir toutes les spécialités";
-          }
-        }
-
-        function updatePresta() {
-          const chevron = document.querySelector("#lessPrest .directory_chevron_icon");
-          if (chevron) {
-            chevron.style.transform = prestaExpanded ? "rotate(180deg)" : "rotate(0deg)";
-          }
-          const btn = document.getElementById("more-presta");
-          if (btn) {
-            btn.textContent = prestaExpanded ? "En voir moins" : "Voir tous les services";
-          }
-        }
-
-        function updateJob() {
-          const chevron = document.querySelector("#lessJob .directory_chevron_icon");
-          if (chevron) {
-            chevron.style.transform = jobExpanded ? "rotate(180deg)" : "rotate(0deg)";
-          }
-          const btn = document.getElementById("more-job");
-          if (btn) {
-            btn.textContent = jobExpanded ? "En voir moins" : "Voir tous les métiers";
-          }
-        }
-
-        if (speExpand) setupToggle("spe_expand", "speExpanded", updateSpe);
-        if (prestaExpand) setupToggle("presta_expand", "prestaExpanded", updatePresta);
-        if (jobExpand) setupToggle("job_expand", "jobExpanded", updateJob);
-
-        updateSpe();
-        updatePresta();
-        updateJob();
-      }
-    };
-
-    // 11. WIDGET DE GESTION DES URLS -------------------------------------------
-    const urlSyncWidget = {
-      init: function (opts) {
-        // Appliquer les paramètres de l'URL à l'état initial
-        if (!urlParamsApplied) {
-          const params = new URLSearchParams(window.location.search);
-          const helper = opts.helper;
-
-          const q = params.get("q");
-          if (q) helper.setQuery(q);
-
-          const geo = params.get("geo");
-          const geolabel = decodeURIComponent(params.get("geolabel") || "");
-          if (geo) {
-            const [lat, lng] = geo.split(",");
-            currentGeoFilter = { lat: parseFloat(lat), lng: parseFloat(lng), label: geolabel };
-            helper.setQueryParameter("aroundLatLng", lat + "," + lng);
-            helper.setQueryParameter("aroundRadius", 50000); // 50km
-          }
-
-          const network = params.get("network");
-          if (network === "true") isNetworkSelected = true;
-
-          const remote = params.get("remote");
-          if (remote === "true") isRemoteSelected = true;
-
-          const athome = params.get("athome");
-          if (athome === "true") isAtHomeSelected = true;
-
-          const jobs = params.get("jobs");
-          if (jobs) {
-            selectedJobTags = jobs.split(",");
-          }
-
-          const type = params.get("type");
-          if (type) {
-            type.split(",").forEach(function (v) {
-              helper.toggleFacetRefinement("type", v);
-              selectedFacetTags.add("type:::" + v);
-            });
-          }
-
-          const spe = params.get("specialities");
-          if (spe) {
-            spe.split(",").forEach(function (v) {
-              helper.toggleFacetRefinement("specialities", v);
-              selectedFacetTags.add("specialities:::" + v);
-            });
-          }
-
-          const presta = params.get("prestations");
-          if (presta) {
-            presta.split(",").forEach(function (v) {
-              helper.toggleFacetRefinement("prestations", v);
-              selectedFacetTags.add("prestations:::" + v);
-            });
-          }
-
-          const reimb = params.get("reimbursment_percentage");
-          if (reimb) {
-            reimb.split(",").forEach(function (v) {
-              const facetName = "reimbursment_percentage";
-              let filterStr = "";
-
-              if (v === "lt50") {
-                filterStr = "reimbursment_percentage < 50";
-              } else if (v === "50-99") {
-                filterStr = "reimbursment_percentage >= 50 AND reimbursment_percentage < 100";
-              } else if (v === "100") {
-                filterStr = "reimbursment_percentage = 100";
-              }
-
-              if (filterStr) {
-                helper.toggleFacetRefinement(facetName, v);
-                selectedFacetTags.add(facetName + ":::" + v);
-              }
-            });
-          }
-
-          // Force la première recherche pour appliquer les filtres booléens et visibilité
-          if (params.toString() !== "") {
-            helper.setQueryParameter("filters", composeFilters(buildFiltersStringFromJobsAndBooleans()));
-            helper.search();
-          }
-
-          urlParamsApplied = true;
-        }
-      },
-      render: function (opts) {
-        updateUrlFromState(opts.instantSearchInstance.helper.state);
-      }
-    };
-
-    // 12. DÉMARRAGE DES WIDGETS ET DE LA RECHERCHE ------------------------------
-    search.addWidgets([
-      instantsearch.widgets.searchBox({
-        container: "#algolia-search-input",
-        placeholder: "Recherchez un prestataire, une spécialité, un métier...",
-        showReset: false,
-        showSubmit: false,
-        poweredBy: false,
-        autofocus: false,
-        cssClasses: {
-          input: "directory_search_input"
-        }
-      }),
-      instantsearch.widgets.pagination({
-        container: "#algolia-pagination",
-        scrollTo: "#algolia-search-input",
-        showFirst: false,
-        showLast: false,
-        padding: 5,
-        cssClasses: {
-          root: "directory_pagination_wrapper",
-          list: "directory_pagination_list",
-          item: "directory_pagination_item",
-          selectedItem: "is-selected",
-          link: "directory_pagination_link"
-        }
-      }),
-      instantsearch.widgets.clearRefinements({
-        container: "#algolia-clear-filters",
-        cssClasses: {
-          button: "directory_clear_filters_btn"
-        },
-        // Maintient la géolocalisation et les booléens de localisation
-        transformItems: function (items) {
-          const facetsToKeep = [
-            "aroundLatLng",
-            "aroundRadius",
-            "is_remote",
-            "is_at_home",
-            "is_elsee_network",
-            "mainjob",
-            "jobs"
-          ];
-          return items.filter(function (item) {
-            return !facetsToKeep.includes(item.attribute);
-          });
-        },
-        // Réinitialisation manuelle des booléens et de l'état local
-        containerRef: {
-          create: function () {
-            return {
-              addEventListener: function (type, handler) {
-                if (type === "click") {
-                  document.getElementById("algolia-clear-filters").addEventListener("click", function (e) {
-                    e.preventDefault();
-                    selectedFacetTags.clear();
-                    isNetworkSelected = false;
-                    isRemoteSelected = false;
-                    isAtHomeSelected = false;
-                    selectedJobTags = [];
-                    // currentGeoFilter n'est pas réinitialisé ici, il faut le faire manuellement via son bouton
-                    // pour éviter une désactivation accidentelle
-                    handler();
-
-                    // Correction du problème où clearRefinements ne met pas à jour le filtre booléen dans l'URL/état
-                    const helper = search.helper;
-                    helper.setQueryParameter("filters", composeFilters(buildFiltersStringFromJobsAndBooleans()));
-                    helper.search(); // Nouvelle recherche avec les filtres mis à jour
-                  });
-                }
-              }
-            };
-          },
-          // eslint-disable-next-line @typescript-eslint/no-empty-function
-          dispose: function () { }
-        },
-        templates: {
-          resetLabel: "Effacer tous les filtres"
-        }
-      }),
-      instantsearch.widgets.panel({
-        templates: {
-          header: "Catégories",
-        },
-        hidden: function (opts) {
-          // Masque la catégorie si pas de résultats
-          return !opts.results.getFacetValues("type").some(function (v) {
-            return v.count > 0;
-          });
-        }
-      })(dynamicSuggestionsWidget), // Remplace les widgets de facettes par le custom
-      hitsWidget, // Widget de rendu des résultats
-      currentGeoWidget, // Widget de gestion de l'affichage du filtre geo
-      geoAutocompleteWidget, // Widget de gestion de l'autocomplétion
-      urlSyncWidget, // Synchronisation de l'URL
-      expandWidget, // Gestion des expansions
-    ]);
-
-    // 13. ÉVÉNEMENTS -------------------------------------------------------------
-    document.addEventListener("click", function (e) {
-      const tag = e.target.closest(
-        ".directory_suggestions_tag, .directory_category_tag_wrapper"
+    // 12. FONCTIONS DE SETUP --------------------------------------------------
+    function setupBooleanBlockClicks() {
+      var labelFilterWrapper = document.getElementById("label-filter");
+      var remoteFilterWrapper = document.getElementById(
+        "works-remotely-filter"
       );
-      if (!tag) return;
+      var atHomeFilterWrapper = document.getElementById(
+        "works-at-home-filter"
+      );
 
-      e.preventDefault();
-      const facetName = tag.getAttribute("data-facet-name");
-      const facetValue = tag.getAttribute("data-facet-value");
-      const boolFilter = tag.getAttribute("data-bool-filter");
-      const key = facetName ? facetName + ":::" + facetValue : "";
-
-      if (boolFilter) {
-        // Logique pour les booléens (Network, Remote, At Home)
-        if (boolFilter === "network") {
+      function toggleAndSearch(flagName) {
+        if (!searchInstance || !searchInstance.helper) return;
+        if (flagName === "network") {
           isNetworkSelected = !isNetworkSelected;
-        } else if (boolFilter === "remote") {
+        }
+        if (flagName === "remote") {
           isRemoteSelected = !isRemoteSelected;
-        } else if (boolFilter === "athome") {
+        }
+        if (flagName === "athome") {
           isAtHomeSelected = !isAtHomeSelected;
         }
-        search.helper.setQueryParameter("filters", composeFilters(buildFiltersStringFromJobsAndBooleans()));
-        search.helper.search();
-        return;
+
+        var helper = searchInstance.helper;
+        var filtersStr = buildFiltersStringFromJobsAndBooleans();
+        helper.setQueryParameter("filters", filtersStr);
+        helper.search();
       }
 
-      if (facetName && facetValue) {
-        if (facetName === "jobs") {
-          // Logique pour les métiers (Jobs) : sélection unique
-          const index = selectedJobTags.indexOf(facetValue);
-          if (index === -1) {
-            selectedJobTags = [facetValue];
-          } else {
-            selectedJobTags = [];
-          }
+      if (labelFilterWrapper) {
+        labelFilterWrapper.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-bool-filter]");
+          if (!btn) return;
+          var flagName = btn.getAttribute("data-bool-filter");
+          toggleAndSearch(flagName);
+        });
+      }
+      if (remoteFilterWrapper) {
+        remoteFilterWrapper.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-bool-filter]");
+          if (!btn) return;
+          var flagName = btn.getAttribute("data-bool-filter");
+          toggleAndSearch(flagName);
+        });
+      }
+      if (atHomeFilterWrapper) {
+        atHomeFilterWrapper.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-bool-filter]");
+          if (!btn) return;
+          var flagName = btn.getAttribute("data-bool-filter");
+          toggleAndSearch(flagName);
+        });
+      }
+    }
 
-          // Nettoyage de l'état `selectedFacetTags` pour les métiers
-          Array.from(selectedFacetTags).forEach(function (k) {
-            if (k.indexOf("jobs:::") === 0) {
-              selectedFacetTags.delete(k);
-            }
-          });
+    function setupDiscountBlockClicks() {
+      var discountWrapper = document.getElementById("discount-tags");
+      if (!discountWrapper) return;
 
-          if (selectedJobTags.length > 0) {
-            selectedFacetTags.add(key);
-          }
+      discountWrapper.addEventListener("click", function (e) {
+        var tag = e.target.closest(".directory_category_tag_wrapper");
+        if (!tag || !searchInstance || !searchInstance.helper) return;
 
-          search.helper.setQueryParameter("filters", composeFilters(buildFiltersStringFromJobsAndBooleans()));
-          search.helper.search();
-          return;
-        }
+        var facetName = tag.getAttribute("data-facet-name");
+        var facetValue = tag.getAttribute("data-facet-value");
+        var helper = searchInstance.helper;
 
-        if (facetName === "reimbursment_percentage") {
-          // Logique pour le remboursement (Reimbursment) : sélection unique virtuelle
-          const isSelected = selectedFacetTags.has(key);
+        // cas spécial: tag virtuel "<50%"
+        if (facetValue === "lt50") {
+          var virtualKey = "reimbursment_percentage:::lt50";
+          var isSelectedVirtual = selectedFacetTags.has(virtualKey);
 
-          // Si déjà sélectionné, on le désélectionne et on enlève les filtres
-          if (isSelected) {
-            selectedFacetTags.delete(key);
-            search.helper.removeDisjunctiveFacetRefinement(facetName, "lt50");
-            search.helper.removeDisjunctiveFacetRefinement(facetName, "50-99");
-            search.helper.removeDisjunctiveFacetRefinement(facetName, "100");
-          } else {
-            // Désélectionne tous les autres filtres de remboursement virtuels
-            Array.from(selectedFacetTags).forEach(function (k) {
-              if (k.indexOf("reimbursment_percentage:::") === 0) {
-                selectedFacetTags.delete(k);
+          if (isSelectedVirtual) {
+            selectedFacetTags.delete(virtualKey);
+            discountRawValues.forEach(function (val) {
+              if (Number(val) < 50) {
+                helper.removeDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
               }
             });
-
-            // Applique le nouveau filtre virtuel
-            selectedFacetTags.add(key);
-            search.helper.removeDisjunctiveFacetRefinement(facetName, "lt50");
-            search.helper.removeDisjunctiveFacetRefinement(facetName, "50-99");
-            search.helper.removeDisjunctiveFacetRefinement(facetName, "100");
-
-            if (facetValue === "lt50") {
-              // Applique la clause OR pour les valeurs < 50
-              discountRawValues
-                .filter(function (v) { return Number(v) < 50; })
-                .forEach(function (v) {
-                  search.helper.addDisjunctiveFacetRefinement(facetName, v);
-                });
-            } else if (facetValue === "50-99") {
-              // Applique la clause OR pour les valeurs entre 50 et 99
-              discountRawValues
-                .filter(function (v) { return Number(v) >= 50 && Number(v) < 100; })
-                .forEach(function (v) {
-                  search.helper.addDisjunctiveFacetRefinement(facetName, v);
-                });
-            } else if (facetValue === "100") {
-              search.helper.addDisjunctiveFacetRefinement(facetName, "100");
-            }
+          } else {
+            selectedFacetTags.add(virtualKey);
+            discountRawValues.forEach(function (val) {
+              if (Number(val) < 50) {
+                helper.addDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
+              }
+            });
           }
-          search.helper.search();
+
+          helper.search();
           return;
         }
 
-        if (facetValue === "__ALL_TYPES__") {
-          // Logique pour "Toutes les catégories"
-          search.helper.clearRefinements("type");
-          // Nettoyage de l'état local
-          Array.from(selectedFacetTags).forEach(function (k) {
-            if (k.indexOf("type:::") === 0) {
-              selectedFacetTags.delete(k);
-            }
-          });
-          search.helper.search();
-          return;
-        }
-
-
-        // Logique générale pour les autres facettes (type, specialities, prestations)
-        const isSelected = selectedFacetTags.has(key);
+        // cas normal (valeur réelle >= 50)
+        var key = facetName + ":::" + facetValue;
+        var isSelected = selectedFacetTags.has(key);
 
         if (isSelected) {
           selectedFacetTags.delete(key);
-          search.helper.removeDisjunctiveFacetRefinement(facetName, facetValue);
-          search.helper.removeFacetRefinement(facetName, facetValue);
+          helper.removeDisjunctiveFacetRefinement(facetName, facetValue);
         } else {
-          // Pour les types, on utilise un comportement de `disjunctiveFacet`
-          if (facetName === "type" || facetName === "specialities" || facetName === "reimbursment_percentage") {
-            search.helper.addDisjunctiveFacetRefinement(facetName, facetValue);
-          } else {
-            search.helper.addFacetRefinement(facetName, facetValue);
-          }
           selectedFacetTags.add(key);
+          helper.addDisjunctiveFacetRefinement(facetName, facetValue);
         }
 
-        search.helper.search();
+        helper.search();
+      });
+    }
+
+    function setupSearchDropdown() {
+      var input = document.querySelector(".directory_search_field_container");
+      var dropdown =
+        document.getElementById("tags_autocomplete") ||
+        document.querySelector(".directory_search_dropdown_wrapper");
+      if (!input || !dropdown) return;
+
+      function openDropdown() {
+        dropdown.style.display = "flex";
       }
-    });
 
-    // Événement personnalisé pour la géolocalisation
-    window.addEventListener("updateGeoFilter", function (e) {
-      const { lat, lng, label } = e.detail;
+      function closeDropdown(e) {
+        if (dropdown.contains(e.target) || input.contains(e.target)) return;
+        dropdown.style.display = "none";
+      }
 
-      currentGeoFilter = { lat, lng, label };
+      input.addEventListener("focus", openDropdown);
+      input.addEventListener("click", openDropdown);
+      document.addEventListener("click", closeDropdown);
+    }
 
-      // Appliquer les filtres de géolocalisation
-      search.helper.setQueryParameter("aroundLatLng", `${lat},${lng}`);
-      search.helper.setQueryParameter("aroundRadius", 50000); // 50km
+    function renderClearButton() {
+      var clearBtn = document.getElementById("clear_button");
+      if (!clearBtn) return;
 
-      // Important : Réapplique le filtre de visibilité après avoir setté la géoloc
-      search.helper.setQueryParameter("filters", composeFilters(buildFiltersStringFromJobsAndBooleans()));
-      search.helper.search();
-    });
+      var hasQuery =
+        searchInstance &&
+        searchInstance.helper &&
+        (searchInstance.helper.state.query || "").trim() !== "";
+      var hasFacets = selectedFacetTags.size > 0;
+      var hasGeo = !!currentGeoFilter;
+      var hasJobs = selectedJobTags.length > 0;
+      var hasBools =
+        isNetworkSelected || isRemoteSelected || isAtHomeSelected;
 
-    // 14. DÉMARRAGE DE LA RECHERCHE INSTANTANÉE ----------------------------------
-    search.start();
+      clearBtn.style.display =
+        hasQuery || hasFacets || hasGeo || hasJobs || hasBools
+          ? "flex"
+          : "none";
+    }
+
+    var clearBtnInit = document.getElementById("clear_button");
+    if (clearBtnInit) {
+      clearBtnInit.addEventListener("click", function () {
+        if (!searchInstance || !searchInstance.helper) return;
+        var helper = searchInstance.helper;
+
+        selectedFacetTags.clear();
+        selectedJobTags.length = 0;
+        isNetworkSelected = false;
+        isRemoteSelected = false;
+        isAtHomeSelected = false;
+        helper.setQuery("");
+        helper.clearRefinements();
+        helper.setQueryParameter("filters", undefined);
+        helper.setQueryParameter("aroundLatLng", undefined);
+        helper.setQueryParameter("aroundRadius", undefined);
+        currentGeoFilter = null;
+        hasUserLaunchedSearch = false;
+
+        var mapsInput = document.getElementById("maps_input");
+        var mapsBox = document.getElementById("maps_autocomplete");
+        var mapsClear = document.querySelector(".directory_search_clear");
+        if (mapsInput) {
+          mapsInput.value = "";
+          mapsInput.classList.remove("is-selected");
+        }
+        if (mapsBox) {
+          mapsBox.style.display = "none";
+        }
+        if (mapsClear) {
+          mapsClear.style.display = "none";
+        }
+
+        helper.search();
+      });
+    }
+
+    function setupSuggestionClicks() {
+      var dropdown =
+        document.getElementById("tags_autocomplete") ||
+        document.querySelector(".directory_search_dropdown_wrapper");
+      if (!dropdown) return;
+
+      dropdown.addEventListener("click", function (e) {
+        var tag = e.target.closest(".directory_suggestions_tag");
+        if (!tag || !searchInstance) return;
+
+        var facetName = tag.getAttribute("data-facet-name");
+        var facetValue = tag.getAttribute("data-facet-value");
+        if (!facetName || !facetValue) return;
+
+        var helper = searchInstance.helper;
+        var key = facetName + ":::" + facetValue;
+        var isSelected = tag.classList.contains("is-selected");
+
+        if (helper) {
+          if (facetName === "type") {
+            if (isSelected) {
+              tag.classList.remove("is-selected");
+              selectedFacetTags.delete(key);
+              helper
+                .removeDisjunctiveFacetRefinement(facetName, facetValue)
+                .search();
+            } else {
+              tag.classList.add("is-selected");
+              selectedFacetTags.add(key);
+              helper
+                .addDisjunctiveFacetRefinement(facetName, facetValue)
+                .search();
+            }
+          } else {
+            if (isSelected) {
+              tag.classList.remove("is-selected");
+              selectedFacetTags.delete(key);
+              helper.removeFacetRefinement(facetName, facetValue).search();
+            } else {
+              tag.classList.add("is-selected");
+              selectedFacetTags.add(key);
+              helper.addFacetRefinement(facetName, facetValue).search();
+            }
+          }
+        }
+
+        dropdown.style.display = "flex";
+      });
+    }
+
+    function setupTypeBlockClicks() {
+      var typesAltWrapper = document.getElementById("directory_types");
+      if (!typesAltWrapper) return;
+
+      typesAltWrapper.addEventListener("click", function (e) {
+        var tag = e.target.closest(".directory_category_tag_wrapper");
+        if (!tag || !searchInstance || !searchInstance.helper) return;
+
+        var facetName = tag.getAttribute("data-facet-name");
+        var facetValue = (tag.getAttribute("data-facet-value") || "").trim();
+        var helper = searchInstance.helper;
+
+        if (facetValue === "__ALL_TYPES__") {
+          helper.clearRefinements("type");
+          Array.from(selectedFacetTags)
+            .filter(function (k) {
+              return k.indexOf("type:::") === 0;
+            })
+            .forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
+          helper.search();
+          return;
+        }
+
+        var key = facetName + ":::" + facetValue;
+        var isSelected = selectedFacetTags.has(key);
+
+        if (isSelected) {
+          selectedFacetTags.delete(key);
+          helper
+            .removeDisjunctiveFacetRefinement(facetName, facetValue)
+            .search();
+        } else {
+          selectedFacetTags.add(key);
+          helper.addDisjunctiveFacetRefinement(facetName, facetValue).search();
+        }
+      });
+    }
+
+    function setupSpePrestaBlockClicks() {
+      var speWrapper = document.getElementById("spe_filtre");
+      var moreSpe = document.getElementById("more-spe");
+      var lessSpe = document.getElementById("lessSpe");
+      
+      if (speWrapper) {
+        speWrapper.addEventListener("click", function (e) {
+          var tag = e.target.closest(".directory_category_tag_wrapper");
+          if (!tag || !searchInstance || !searchInstance.helper) return;
+          var facetName = tag.getAttribute("data-facet-name");
+          var facetValue = tag.getAttribute("data-facet-value");
+          var key = facetName + ":::" + facetValue;
+          var helper = searchInstance.helper;
+          var isSelected = selectedFacetTags.has(key);
+          if (isSelected) {
+            selectedFacetTags.delete(key);
+            helper.removeFacetRefinement(facetName, facetValue).search();
+          } else {
+            selectedFacetTags.add(key);
+            helper.addFacetRefinement(facetName, facetValue).search();
+          }
+        });
+      }
+      
+      // petite fonction commune pour ouvrir/fermer la liste
+      function toggleSpeExpanded() {
+        speExpanded = !speExpanded;
+        if (searchInstance) searchInstance.refresh();
+      }
+      
+      if (moreSpe) {
+        moreSpe.addEventListener("click", toggleSpeExpanded);
+      }
+      if (lessSpe) {
+        lessSpe.addEventListener("click", toggleSpeExpanded);
+      }
+    }
+
+    function setupJobBlockClicks() {
+      var jobWrapper = document.getElementById("job_filtre");
+      var moreJob = document.getElementById("more-job");
+
+      if (jobWrapper) {
+        jobWrapper.addEventListener("click", function (e) {
+          var tag = e.target.closest(".directory_category_tag_wrapper");
+          if (!tag || !searchInstance || !searchInstance.helper) return;
+          var value = (tag.getAttribute("data-facet-value") || "").trim();
+          var helper = searchInstance.helper;
+          var key = "jobs:::" + value;
+          var idx = selectedJobTags.indexOf(value);
+
+          if (idx > -1) {
+            selectedJobTags.splice(idx, 1);
+            selectedFacetTags.delete(key);
+          } else {
+            selectedJobTags.push(value);
+            selectedFacetTags.add(key);
+          }
+
+          var filtersStr = buildFiltersStringFromJobsAndBooleans();
+          helper.setQueryParameter("filters", filtersStr);
+          helper.search();
+        });
+      }
+
+      if (moreJob) {
+        moreJob.addEventListener("click", function () {
+          jobExpanded = !jobExpanded;
+          if (searchInstance) searchInstance.refresh();
+        });
+      }
+    }
+
+    // 13. PARAMS URL ----------------------------------------------------------
+    function applyGeoFilterFromMaps(lat, lng, label) {
+      if (label === undefined) label = "";
+      currentGeoFilter = { lat: lat, lng: lng, label: label };
+      if (searchInstance && searchInstance.helper) {
+        var helper = searchInstance.helper;
+        helper.setQueryParameter("aroundLatLng", lat + "," + lng);
+        helper.setQueryParameter("aroundRadius", 100000);
+        helper.search();
+      }
+      var mapsInput = document.getElementById("maps_input");
+      var mapsClear = document.querySelector(".directory_search_clear");
+      if (mapsInput) {
+        mapsInput.value = label || "";
+        mapsInput.classList.add("is-selected");
+      }
+      if (mapsClear) {
+        mapsClear.style.display = "block";
+      }
+    }
+
+    function applyUrlParamsToSearch() {
+      if (typeof window === "undefined") return;
+      var params = new URLSearchParams(window.location.search);
+      var query = params.get("q") || "";
+      var types = (params.get("type") || "").split(",").filter(Boolean);
+      var spes = (params.get("specialities") || "").split(",").filter(Boolean);
+      var geo = params.get("geo") || "";
+      var prestas = (params.get("prestations") || "").split(",").filter(Boolean);
+      var jobs = (params.get("jobs") || "").split(",").filter(Boolean);
+      var reimb = (params.get("reimbursment_percentage") || "")
+        .split(",")
+        .filter(Boolean);
+      var geolabel = params.get("geolabel") || "";
+      var urlNetwork = params.get("network") === "true";
+      var urlRemote = params.get("remote") === "true";
+      var urlAtHome = params.get("athome") === "true";
+
+      if (!searchInstance || !searchInstance.helper) return;
+      var helper = searchInstance.helper;
+
+      if (query) {
+        helper.setQuery(query);
+      }
+
+      helper.clearRefinements("type");
+      helper.clearRefinements("specialities");
+      helper.clearRefinements("prestations");
+      helper.clearRefinements("jobs");
+      helper.clearRefinements("reimbursment_percentage");
+
+      types.forEach(function (t) {
+        helper.addDisjunctiveFacetRefinement("type", t);
+      });
+      spes.forEach(function (s) {
+        helper.addFacetRefinement("specialities", s);
+      });
+      prestas.forEach(function (p) {
+        helper.addFacetRefinement("prestations", p);
+      });
+      reimb.forEach(function (r) {
+        helper.addDisjunctiveFacetRefinement("reimbursment_percentage", r);
+      });
+
+      types.forEach(function (t) {
+        selectedFacetTags.add("type:::" + t);
+      });
+      spes.forEach(function (s) {
+        selectedFacetTags.add("specialities:::" + s);
+      });
+      prestas.forEach(function (p) {
+        selectedFacetTags.add("prestations:::" + p);
+      });
+      reimb.forEach(function (r) {
+        selectedFacetTags.add("reimbursment_percentage:::" + r);
+      });
+
+      jobs.forEach(function (j) {
+        var cleanJob = j.trim();
+        if (!cleanJob) return;
+        if (selectedJobTags.indexOf(cleanJob) === -1) {
+          selectedJobTags.push(cleanJob);
+        }
+      });
+
+      isNetworkSelected = urlNetwork;
+      isRemoteSelected = urlRemote;
+      isAtHomeSelected = urlAtHome;
+
+      var filtersStr = buildFiltersStringFromJobsAndBooleans();
+      helper.setQueryParameter("filters", filtersStr);
+
+      if (geo) {
+        var parts = geo.split(",");
+        var lat = parseFloat(parts[0]);
+        var lng = parseFloat(parts[1]);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          currentGeoFilter = {
+            lat: lat,
+            lng: lng,
+            label: geolabel ? decodeURIComponent(geolabel) : ""
+          };
+          helper.setQueryParameter("aroundLatLng", lat + "," + lng);
+          helper.setQueryParameter("aroundRadius", 50000);
+
+          var mapsInput = document.getElementById("maps_input");
+          var mapsClear = document.querySelector(".directory_search_clear");
+          if (mapsInput) {
+            if (geolabel) {
+              mapsInput.value = decodeURIComponent(geolabel);
+              mapsInput.classList.add("is-selected");
+            } else {
+              mapsInput.value = "";
+              mapsInput.classList.remove("is-selected");
+            }
+          }
+          if (mapsClear) {
+            mapsClear.style.display = "block";
+          }
+        }
+      }
+
+      helper.search();
+    }
+
+    window.applyGeoFilterFromMaps = applyGeoFilterFromMaps;
   }
 
-  // Démarre l'initialisation Algolia
   initAlgolia();
 });
+
+
