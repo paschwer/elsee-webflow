@@ -1744,7 +1744,7 @@ async function fetchAndRenderMoreBlocks() {
     updateUrlFromState(search.helper.state);
   }
 
-  var perPage = 48;
+    var perPage = 48;
 
   // cartes visibles
   var cards = Array.prototype.slice
@@ -1756,18 +1756,29 @@ async function fetchAndRenderMoreBlocks() {
   // bouton lui-même
   var showMoreBtn = document.querySelector(".directory_show_more_button");
 
-  // wrapper algolia autour du bouton (nom courant)
+  // wrapper algolia autour du bouton
   var showMoreWrapper = document.querySelector(
     "#hits .ais-InfiniteHits-loadMore"
   );
-  var mustHide = cards.length < perPage;
+
+  // état réel d'infiniteHits côté Algolia
+  var infState =
+    searchInstance &&
+    searchInstance.renderState &&
+    searchInstance.renderState[ALGOLIA_INDEX_NAME] &&
+    searchInstance.renderState[ALGOLIA_INDEX_NAME].infiniteHits;
+
+  var isLastPage = !!(infState && infState.isLastPage);
+
+  // on masque si :
+  // - on est sur la dernière page
+  // - OU il y a moins que 48 cartes (donc une seule page)
+  var mustHide = isLastPage || cards.length < perPage;
 
   if (mustHide) {
-    // on cache le bouton
     if (showMoreBtn) {
       showMoreBtn.style.display = "none";
     }
-    // on cache aussi le wrapper (souvent le vrai conteneur)
     if (showMoreWrapper) {
       showMoreWrapper.style.display = "none";
     }
@@ -1780,11 +1791,10 @@ async function fetchAndRenderMoreBlocks() {
     }
   }
 
-    // URLs du bloc principal via le renderState (fiable et sans timing DOM)
-  
   // Laisse finir le cycle de rendu puis lance les secondaires
   setTimeout(fetchAndRenderMoreBlocks, 0);
 });
+
 
 
 
