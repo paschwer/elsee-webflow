@@ -575,19 +575,56 @@ if (typeof window.__toggleTypeCTAs === "function") {
 
 
         // PRESTATIONS ---------------------------------------------------------
-                if (prestaFilterWrapper) {
+        if (prestaFilterWrapper) {
           var prestaFacetValues =
             results.getFacetValues("prestations", {
               sortBy: ["name:asc"]
             }) || [];
-          // ...
+
+          if (!Array.isArray(prestaFacetValues)) prestaFacetValues = [];
+
+          // debug léger pour vérifier qu’on a bien des valeurs
+          console.log("[PRESTA] facets", prestaFacetValues);
+
+          var serviceContainer = document.getElementById("serviceContainer");
+          if (serviceContainer) {
+            var hasPresta = prestaFacetValues.some(function (fv) {
+              return fv && fv.count > 0;
+            });
+            serviceContainer.style.display = hasPresta ? "flex" : "none";
+          }
+
+          var maxToShowPresta = prestaExpanded ? prestaFacetValues.length : 6;
+
+          var prestaListHtml = prestaFacetValues
+            .filter(function (fv) {
+              return fv && fv.name;
+            })
+            .slice(0, maxToShowPresta)
+            .map(function (fv) {
+              var key = "prestations:::" + fv.name;
+              var isSelected = selectedFacetTags.has(key);
+              return (
+                '<div class="directory_category_tag_wrapper ' +
+                (isSelected ? "is-selected" : "") +
+                '" data-facet-name="prestations" data-facet-value="' +
+                fv.name +
+                '">' +
+                fv.name +
+                "</div>"
+              );
+            })
+            .join("");
+
+          prestaFilterWrapper.innerHTML = prestaListHtml;
+
           var morePrestaBtn = document.getElementById("more-presta");
           if (morePrestaBtn) {
             morePrestaBtn.textContent = prestaExpanded
               ? "En voir moins"
               : "Voir tous les services";
           }
-          
+
           // header "lessPrest" (chevron dans le bloc mini)
           var lessPrestBtn = document.getElementById("lessPrest");
           if (lessPrestBtn) {
