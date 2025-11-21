@@ -562,6 +562,16 @@ if (typeof window.__toggleTypeCTAs === "function") {
               ? "En voir moins"
               : "Voir toutes les spécialités";
           }
+          // idem pour le header "lessSpe" (icône chevron)
+          var lessSpeBtn = document.getElementById("lessSpe");
+          if (lessSpeBtn) {
+            var chevron = lessSpeBtn.querySelector(".directory_chevron_icon");
+            if (chevron) {
+              chevron.style.transition = "transform 0.2s ease";
+              chevron.style.transform = speExpanded ? "rotate(180deg)" : "rotate(0deg)";
+            }
+          }
+
         }
 
         // PRESTATIONS ---------------------------------------------------------
@@ -2199,31 +2209,41 @@ async function fetchAndRenderMoreBlocks() {
 
     function setupSpePrestaBlockClicks() {
       var speWrapper = document.getElementById("spe_filtre");
-      var moreSpe = document.getElementById("more-spe");
-      if (speWrapper) {
-        speWrapper.addEventListener("click", function (e) {
-          var tag = e.target.closest(".directory_category_tag_wrapper");
-          if (!tag || !searchInstance || !searchInstance.helper) return;
-          var facetName = tag.getAttribute("data-facet-name");
-          var facetValue = tag.getAttribute("data-facet-value");
-          var key = facetName + ":::" + facetValue;
-          var helper = searchInstance.helper;
-          var isSelected = selectedFacetTags.has(key);
-          if (isSelected) {
-            selectedFacetTags.delete(key);
-            helper.removeFacetRefinement(facetName, facetValue).search();
-          } else {
-            selectedFacetTags.add(key);
-            helper.addFacetRefinement(facetName, facetValue).search();
-          }
-        });
-      }
-      if (moreSpe) {
-        moreSpe.addEventListener("click", function () {
-          speExpanded = !speExpanded;
-          if (searchInstance) searchInstance.refresh();
-        });
-      }
+var moreSpe = document.getElementById("more-spe");
+var lessSpe = document.getElementById("lessSpe");
+
+if (speWrapper) {
+  speWrapper.addEventListener("click", function (e) {
+    var tag = e.target.closest(".directory_category_tag_wrapper");
+    if (!tag || !searchInstance || !searchInstance.helper) return;
+    var facetName = tag.getAttribute("data-facet-name");
+    var facetValue = tag.getAttribute("data-facet-value");
+    var key = facetName + ":::" + facetValue;
+    var helper = searchInstance.helper;
+    var isSelected = selectedFacetTags.has(key);
+    if (isSelected) {
+      selectedFacetTags.delete(key);
+      helper.removeFacetRefinement(facetName, facetValue).search();
+    } else {
+      selectedFacetTags.add(key);
+      helper.addFacetRefinement(facetName, facetValue).search();
+    }
+  });
+}
+
+// petite fonction commune pour ouvrir/fermer la liste
+function toggleSpeExpanded() {
+  speExpanded = !speExpanded;
+  if (searchInstance) searchInstance.refresh();
+}
+
+if (moreSpe) {
+  moreSpe.addEventListener("click", toggleSpeExpanded);
+}
+if (lessSpe) {
+  lessSpe.addEventListener("click", toggleSpeExpanded);
+}
+
 
       var prestaWrapper = document.getElementById("presta_filtre");
       var morePresta = document.getElementById("more-presta");
