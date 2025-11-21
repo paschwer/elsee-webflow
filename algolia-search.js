@@ -613,6 +613,12 @@ if (typeof window.__toggleTypeCTAs === "function") {
             .join("");
 
           prestaFilterWrapper.innerHTML = prestaListHtml;
+            var morePrestaBtn = document.getElementById("more-presta");
+            if (morePrestaBtn) {
+              morePrestaBtn.textContent = prestaExpanded
+                ? "En voir moins"
+                : "Voir tous les services";
+            }
 
           var lessPrestBtn = document.getElementById("lessPrest");
           if (lessPrestBtn) {
@@ -621,6 +627,7 @@ if (typeof window.__toggleTypeCTAs === "function") {
               chevronPresta.style.transition = "transform 0.2s ease";
               chevronPresta.style.transform = prestaExpanded ? "rotate(180deg)" : "rotate(0deg)";
             }
+          }
           }
 
 
@@ -703,6 +710,12 @@ if (typeof window.__toggleTypeCTAs === "function") {
             .join("");
 
           jobFilterWrapper.innerHTML = jobListHtml;
+              var moreJobBtn = document.getElementById("more-job");
+              if (moreJobBtn) {
+                moreJobBtn.textContent = jobExpanded
+                  ? "En voir moins"
+                  : "Voir tous les métiers";
+              }
 
           var lessJobBtn = document.getElementById("lessJob");
           if (lessJobBtn) {
