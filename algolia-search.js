@@ -2357,7 +2357,7 @@ async function fetchAndRenderMoreBlocks() {
       if (searchInstance && searchInstance.helper) {
         var helper = searchInstance.helper;
         helper.setQueryParameter("aroundLatLng", lat + "," + lng);
-        helper.setQueryParameter("aroundRadius", 100000);
+        helper.setQueryParameter("aroundRadius", 50000);
         helper.search();
       }
       var mapsInput = document.getElementById("maps_input");
