@@ -69,11 +69,14 @@ window.addEventListener("DOMContentLoaded", function () {
   var userFilters = buildFiltersStringFromJobsAndBooleans();
   var finalFilters = composeFilters(userFilters);
 
-  helper.setQueryParameter("filters", finalFilters);
+  var prevFilters = helper.state.filters || undefined;
+  if (prevFilters !== finalFilters) {
+    helper.setQueryParameter("filters", finalFilters);
+  }
 
-  // Ne pas toucher à la page
   helper.search();
 }
+
 
 
 });
