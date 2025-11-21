@@ -52,31 +52,48 @@ window.addEventListener("DOMContentLoaded", function () {
   indexName: ALGOLIA_INDEX_NAME,
   searchClient: searchClient,
   searchFunction: function (helper) {
-    // on conserve la page courante (show-more)
-    var currentPage =
-      typeof helper.state.page === "number" ? helper.state.page : 0;
+  console.log("[SEARCH FN] before", {
+    page: helper.state.page,
+    query: helper.state.query,
+    filtersBefore: helper.state.filters,
+    selectedFacetTags: Array.from(selectedFacetTags),
+    selectedJobTags: selectedJobTags.slice(),
+    isNetworkSelected,
+    isRemoteSelected,
+    isAtHomeSelected,
+    currentGeoFilter
+  });
 
-    var query = (helper.state.query || "").trim();
+  var currentPage =
+    typeof helper.state.page === "number" ? helper.state.page : 0;
 
-    var userHasFilters =
-      selectedFacetTags.size > 0 ||
-      selectedJobTags.length > 0 ||
-      isNetworkSelected ||
-      isRemoteSelected ||
-      isAtHomeSelected ||
-      currentGeoFilter;
+  var query = (helper.state.query || "").trim();
 
-    if (query !== "" || userHasFilters) {
-      hasUserLaunchedSearch = true;
-    }
+  var userHasFilters =
+    selectedFacetTags.size > 0 ||
+    selectedJobTags.length > 0 ||
+    isNetworkSelected ||
+    isRemoteSelected ||
+    isAtHomeSelected ||
+    currentGeoFilter;
 
-    var userFilters = buildFiltersStringFromJobsAndBooleans();
-    var finalFilters = composeFilters(userFilters);
-
-    helper.setQueryParameter("filters", finalFilters);
-    helper.setPage(currentPage);
-    helper.search();
+  if (query !== "" || userHasFilters) {
+    hasUserLaunchedSearch = true;
   }
+
+  var userFilters = buildFiltersStringFromJobsAndBooleans();
+  var finalFilters = composeFilters(userFilters);
+
+  console.log("[SEARCH FN] after compose", {
+    currentPage,
+    finalFilters
+  });
+
+  helper.setQueryParameter("filters", finalFilters);
+  helper.setPage(currentPage);
+  helper.search();
+}
+
 });
 
 
