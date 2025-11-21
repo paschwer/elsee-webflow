@@ -614,13 +614,15 @@ if (typeof window.__toggleTypeCTAs === "function") {
 
           prestaFilterWrapper.innerHTML = prestaListHtml;
 
-          var morePrestaBtn = document.getElementById("more-presta");
-          if (morePrestaBtn) {
-            morePrestaBtn.textContent = prestaExpanded
-              ? "En voir moins"
-              : "Voir tous les services";
+          var lessPrestBtn = document.getElementById("lessPrest");
+          if (lessPrestBtn) {
+            var chevronPresta = lessPrestBtn.querySelector(".directory_chevron_icon");
+            if (chevronPresta) {
+              chevronPresta.style.transition = "transform 0.2s ease";
+              chevronPresta.style.transform = prestaExpanded ? "rotate(180deg)" : "rotate(0deg)";
+            }
           }
-        }
+
 
         // MÉTIERS --------------------------------------------------------------
         if (jobFilterWrapper) {
@@ -702,13 +704,15 @@ if (typeof window.__toggleTypeCTAs === "function") {
 
           jobFilterWrapper.innerHTML = jobListHtml;
 
-          var moreJobBtn = document.getElementById("more-job");
-          if (moreJobBtn) {
-            moreJobBtn.textContent = jobExpanded
-              ? "En voir moins"
-              : "Voir tous les métiers";
+          var lessJobBtn = document.getElementById("lessJob");
+          if (lessJobBtn) {
+            var chevronJob = lessJobBtn.querySelector(".directory_chevron_icon");
+            if (chevronJob) {
+              chevronJob.style.transition = "transform 0.2s ease";
+              chevronJob.style.transform = jobExpanded ? "rotate(180deg)" : "rotate(0deg)";
+            }
           }
-        }
+
 
         // BOOLÉENS -------------------------------------------------------------
         if (labelFilterWrapper) {
@@ -2208,105 +2212,119 @@ async function fetchAndRenderMoreBlocks() {
     }
 
     function setupSpePrestaBlockClicks() {
-      var speWrapper = document.getElementById("spe_filtre");
-var moreSpe = document.getElementById("more-spe");
-var lessSpe = document.getElementById("lessSpe");
+  var speWrapper = document.getElementById("spe_filtre");
+  var moreSpe = document.getElementById("more-spe");
+  var lessSpe = document.getElementById("lessSpe");
 
-if (speWrapper) {
-  speWrapper.addEventListener("click", function (e) {
-    var tag = e.target.closest(".directory_category_tag_wrapper");
-    if (!tag || !searchInstance || !searchInstance.helper) return;
-    var facetName = tag.getAttribute("data-facet-name");
-    var facetValue = tag.getAttribute("data-facet-value");
-    var key = facetName + ":::" + facetValue;
-    var helper = searchInstance.helper;
-    var isSelected = selectedFacetTags.has(key);
-    if (isSelected) {
-      selectedFacetTags.delete(key);
-      helper.removeFacetRefinement(facetName, facetValue).search();
-    } else {
-      selectedFacetTags.add(key);
-      helper.addFacetRefinement(facetName, facetValue).search();
-    }
-  });
-}
-
-// petite fonction commune pour ouvrir/fermer la liste
-function toggleSpeExpanded() {
-  speExpanded = !speExpanded;
-  if (searchInstance) searchInstance.refresh();
-}
-
-if (moreSpe) {
-  moreSpe.addEventListener("click", toggleSpeExpanded);
-}
-if (lessSpe) {
-  lessSpe.addEventListener("click", toggleSpeExpanded);
-}
-
-
-      var prestaWrapper = document.getElementById("presta_filtre");
-      var morePresta = document.getElementById("more-presta");
-      if (prestaWrapper) {
-        prestaWrapper.addEventListener("click", function (e) {
-          var tag = e.target.closest(".directory_category_tag_wrapper");
-          if (!tag || !searchInstance || !searchInstance.helper) return;
-          var facetName = tag.getAttribute("data-facet-name");
-          var facetValue = tag.getAttribute("data-facet-value");
-          var key = facetName + ":::" + facetValue;
-          var helper = searchInstance.helper;
-          var isSelected = selectedFacetTags.has(key);
-          if (isSelected) {
-            selectedFacetTags.delete(key);
-            helper.removeFacetRefinement(facetName, facetValue).search();
-          } else {
-            selectedFacetTags.add(key);
-            helper.addFacetRefinement(facetName, facetValue).search();
-          }
-        });
+  if (speWrapper) {
+    speWrapper.addEventListener("click", function (e) {
+      var tag = e.target.closest(".directory_category_tag_wrapper");
+      if (!tag || !searchInstance || !searchInstance.helper) return;
+      var facetName = tag.getAttribute("data-facet-name");
+      var facetValue = tag.getAttribute("data-facet-value");
+      var key = facetName + ":::" + facetValue;
+      var helper = searchInstance.helper;
+      var isSelected = selectedFacetTags.has(key);
+      if (isSelected) {
+        selectedFacetTags.delete(key);
+        helper.removeFacetRefinement(facetName, facetValue).search();
+      } else {
+        selectedFacetTags.add(key);
+        helper.addFacetRefinement(facetName, facetValue).search();
       }
-      if (morePresta) {
-        morePresta.addEventListener("click", function () {
-          prestaExpanded = !prestaExpanded;
-          if (searchInstance) searchInstance.refresh();
-        });
+    });
+  }
+
+  function toggleSpeExpanded() {
+    speExpanded = !speExpanded;
+    if (searchInstance) searchInstance.refresh();
+  }
+
+  if (moreSpe) {
+    moreSpe.addEventListener("click", toggleSpeExpanded);
+  }
+  if (lessSpe) {
+    lessSpe.addEventListener("click", toggleSpeExpanded);
+  }
+
+  // -------- PRESTATIONS --------
+  var prestaWrapper = document.getElementById("presta_filtre");
+  var morePresta = document.getElementById("more-presta");
+  var lessPrest = document.getElementById("lessPrest");
+
+  if (prestaWrapper) {
+    prestaWrapper.addEventListener("click", function (e) {
+      var tag = e.target.closest(".directory_category_tag_wrapper");
+      if (!tag || !searchInstance || !searchInstance.helper) return;
+      var facetName = tag.getAttribute("data-facet-name");
+      var facetValue = tag.getAttribute("data-facet-value");
+      var key = facetName + ":::" + facetValue;
+      var helper = searchInstance.helper;
+      var isSelected = selectedFacetTags.has(key);
+      if (isSelected) {
+        selectedFacetTags.delete(key);
+        helper.removeFacetRefinement(facetName, facetValue).search();
+      } else {
+        selectedFacetTags.add(key);
+        helper.addFacetRefinement(facetName, facetValue).search();
       }
-    }
+    });
+  }
+
+  function togglePrestaExpanded() {
+    prestaExpanded = !prestaExpanded;
+    if (searchInstance) searchInstance.refresh();
+  }
+
+  if (morePresta) {
+    morePresta.addEventListener("click", togglePrestaExpanded);
+  }
+  if (lessPrest) {
+    lessPrest.addEventListener("click", togglePrestaExpanded);
+  }
+}
 
     function setupJobBlockClicks() {
-      var jobWrapper = document.getElementById("job_filtre");
-      var moreJob = document.getElementById("more-job");
+  var jobWrapper = document.getElementById("job_filtre");
+  var moreJob = document.getElementById("more-job");
+  var lessJob = document.getElementById("lessJob");
 
-      if (jobWrapper) {
-        jobWrapper.addEventListener("click", function (e) {
-          var tag = e.target.closest(".directory_category_tag_wrapper");
-          if (!tag || !searchInstance || !searchInstance.helper) return;
-          var value = (tag.getAttribute("data-facet-value") || "").trim();
-          var helper = searchInstance.helper;
-          var key = "jobs:::" + value;
-          var idx = selectedJobTags.indexOf(value);
+  if (jobWrapper) {
+    jobWrapper.addEventListener("click", function (e) {
+      var tag = e.target.closest(".directory_category_tag_wrapper");
+      if (!tag || !searchInstance || !searchInstance.helper) return;
+      var value = (tag.getAttribute("data-facet-value") || "").trim();
+      var helper = searchInstance.helper;
+      var key = "jobs:::" + value;
+      var idx = selectedJobTags.indexOf(value);
 
-          if (idx > -1) {
-            selectedJobTags.splice(idx, 1);
-            selectedFacetTags.delete(key);
-          } else {
-            selectedJobTags.push(value);
-            selectedFacetTags.add(key);
-          }
-
-          var filtersStr = buildFiltersStringFromJobsAndBooleans();
-          helper.setQueryParameter("filters", filtersStr);
-          helper.search();
-        });
+      if (idx > -1) {
+        selectedJobTags.splice(idx, 1);
+        selectedFacetTags.delete(key);
+      } else {
+        selectedJobTags.push(value);
+        selectedFacetTags.add(key);
       }
 
-      if (moreJob) {
-        moreJob.addEventListener("click", function () {
-          jobExpanded = !jobExpanded;
-          if (searchInstance) searchInstance.refresh();
-        });
-      }
-    }
+      var filtersStr = buildFiltersStringFromJobsAndBooleans();
+      helper.setQueryParameter("filters", filtersStr);
+      helper.search();
+    });
+  }
+
+  function toggleJobExpanded() {
+    jobExpanded = !jobExpanded;
+    if (searchInstance) searchInstance.refresh();
+  }
+
+  if (moreJob) {
+    moreJob.addEventListener("click", toggleJobExpanded);
+  }
+  if (lessJob) {
+    lessJob.addEventListener("click", toggleJobExpanded);
+  }
+}
+
 
     // 13. PARAMS URL ----------------------------------------------------------
     function applyGeoFilterFromMaps(lat, lng, label) {
