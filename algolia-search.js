@@ -1787,20 +1787,27 @@ async function fetchAndRenderMoreBlocks() {
 
     // 10. CLIC GLOBAL SHOW MORE ----------------------------------------------
     document.addEventListener("click", function (e) {
-      var btn = e.target.closest(".directory_show_more_button");
-      if (!btn) return;
+  var btn = e.target.closest(".directory_show_more_button");
+  if (!btn) return;
 
-      var inf =
-        searchInstance &&
-        searchInstance.renderState &&
-        searchInstance.renderState[ALGOLIA_INDEX_NAME] &&
-        searchInstance.renderState[ALGOLIA_INDEX_NAME].infiniteHits;
+  console.log("[DEBUG SHOW MORE] click", {
+    renderState: searchInstance && searchInstance.renderState
+  });
 
-      if (inf && typeof inf.showMore === "function") {
-        e.preventDefault();
-        inf.showMore();
-      }
-    });
+  var inf =
+    searchInstance &&
+    searchInstance.renderState &&
+    searchInstance.renderState[ALGOLIA_INDEX_NAME] &&
+    searchInstance.renderState[ALGOLIA_INDEX_NAME].infiniteHits;
+
+  if (inf && typeof inf.showMore === "function") {
+    e.preventDefault();
+    inf.showMore();
+  } else {
+    console.warn("[DEBUG SHOW MORE] infiniteHits introuvable");
+  }
+});
+
     document.addEventListener(
   "click",
   function (e) {
