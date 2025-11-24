@@ -415,18 +415,20 @@ window.addEventListener("DOMContentLoaded", function () {
       if (!searchInstance || !searchInstance.helper) return;
       var helper = searchInstance.helper;
 
-      var parts = (value || "")
-        .split(",")
-        .map(function (p) {
-          return p.trim();
-        })
-        .filter(Boolean);
+      var rawValue = value || "";
+      var normalizedInput = normalizeTokenLabel(rawValue);
 
-      var normalizedParts = parts.map(normalizeTokenLabel);
-      var normalizedSet = new Set(normalizedParts);
-
+      // Garder un token tant que son libellé (normalisé) est présent dans la saisie.
+      var tokensToKeep = new Set();
       currentSearchTokens.forEach(function (token) {
-        if (normalizedSet.has(token.normalized)) return;
+        if (normalizedInput.indexOf(token.normalized) !== -1) {
+          tokensToKeep.add(token.key);
+        }
+      });
+
+      // Supprime uniquement les tokens disparus du texte.
+      currentSearchTokens.forEach(function (token) {
+        if (tokensToKeep.has(token.key)) return;
 
         if (token.type === "disjunctive") {
           selectedFacetTags.delete(token.key);
@@ -450,17 +452,30 @@ window.addEventListener("DOMContentLoaded", function () {
         }
       });
 
-      var unmatchedParts = [];
-      normalizedParts.forEach(function (normLabel, idx) {
-        var exists = currentSearchTokens.some(function (tok) {
-          return tok.normalized === normLabel;
-        });
-        if (!exists) {
-          unmatchedParts.push(parts[idx]);
-        }
+      // Retire des parties de texte les labels déjà gérés par les tokens conservés.
+      var residualValue = rawValue;
+      currentSearchTokens.forEach(function (token) {
+        if (!tokensToKeep.has(token.key)) return;
+        var escaped = token.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        var regex = new RegExp(escaped, "gi");
+        residualValue = residualValue.replace(regex, "");
       });
 
-      var queryStr = unmatchedParts.join(", ").trim();
+      var parts = residualValue
+        .split(",")
+        .map(function (p) {
+          return p.trim();
+        })
+        .filter(Boolean);
+
+      var queryParts = parts.filter(function (part) {
+        var norm = normalizeTokenLabel(part);
+        return !currentSearchTokens.some(function (tok) {
+          return tokensToKeep.has(tok.key) && tok.normalized === norm;
+        });
+      });
+
+      var queryStr = queryParts.join(", ").trim();
       helper.setQuery(queryStr);
 
       var filtersStr = buildFiltersStringFromJobsAndBooleans();
