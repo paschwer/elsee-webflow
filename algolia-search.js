@@ -30,13 +30,7 @@ window.addEventListener("DOMContentLoaded", function () {
   var mainHitHrefSet = new Set();
   var mainHitPathSet = new Set();
   var mainHitOdooSet = new Set();
-  var urlParamsApplied = false;
-  var currentSearchTokens = [];
-  var isSyncingSearchInput = false;
-  var searchInputEl = null;
-  var mainSearchPlaceholder = window.matchMedia("(max-width: 767px)").matches
-    ? "Votre besoin..."
-    : "Écrivez ici tout ce qui concerne vos besoins...";
+  var urlParamsApplied = false; 
 
 
 
@@ -100,20 +94,6 @@ window.addEventListener("DOMContentLoaded", function () {
       if (!v) return [];
       if (Array.isArray(v)) return v;
       return [v];
-    }
-
-    function capitalizeFirst(str) {
-      if (!str) return "";
-      return str.charAt(0).toUpperCase() + str.slice(1);
-    }
-
-    function normalizeTokenLabel(str) {
-      return (str || "")
-        .toString()
-        .trim()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
     }
 
 
@@ -255,232 +235,6 @@ window.addEventListener("DOMContentLoaded", function () {
 
       var finalStr = parts.join(" AND ");
       return finalStr.length ? finalStr : undefined;
-    }
-
-    function createToken(label, meta) {
-      var display = capitalizeFirst(label || "");
-      return Object.assign({}, meta, {
-        label: display,
-        normalized: normalizeTokenLabel(label)
-      });
-    }
-
-    function buildSearchTokensFromState() {
-      if (!searchInstance || !searchInstance.helper) return [];
-      var helperState = searchInstance.helper.state || {};
-      var tokens = [];
-
-      var queryStr = (helperState.query || "").trim();
-      if (queryStr) {
-        tokens.push(
-          createToken(queryStr, {
-            type: "query",
-            key: "__query__"
-          })
-        );
-      }
-
-      var facetRef = helperState.facetsRefinements || {};
-      var disjRef = helperState.disjunctiveFacetsRefinements || {};
-
-      var typeRef =
-        (disjRef.type && disjRef.type.length ? disjRef.type : facetRef.type) ||
-        [];
-      var speRef =
-        (disjRef.specialities && disjRef.specialities.length
-          ? disjRef.specialities
-          : facetRef.specialities) || [];
-      var prestaRef =
-        (facetRef.prestations && facetRef.prestations.length
-          ? facetRef.prestations
-          : []) || [];
-      var reimbRef =
-        (disjRef.reimbursment_percentage &&
-          disjRef.reimbursment_percentage.length
-          ? disjRef.reimbursment_percentage
-          : []) || [];
-
-      typeRef.forEach(function (t) {
-        tokens.push(
-          createToken(t, {
-            type: "disjunctive",
-            facetName: "type",
-            facetValue: t,
-            key: "type:::" + t
-          })
-        );
-      });
-
-      speRef.forEach(function (s) {
-        tokens.push(
-          createToken(s, {
-            type: "facet",
-            facetName: "specialities",
-            facetValue: s,
-            key: "specialities:::" + s
-          })
-        );
-      });
-
-      prestaRef.forEach(function (p) {
-        tokens.push(
-          createToken(p, {
-            type: "facet",
-            facetName: "prestations",
-            facetValue: p,
-            key: "prestations:::" + p
-          })
-        );
-      });
-
-      reimbRef.forEach(function (r) {
-        var lbl = r + "%";
-        tokens.push(
-          createToken(lbl, {
-            type: "disjunctive",
-            facetName: "reimbursment_percentage",
-            facetValue: r,
-            key: "reimbursment_percentage:::" + r
-          })
-        );
-      });
-
-      selectedJobTags.forEach(function (job) {
-        tokens.push(
-          createToken(job, {
-            type: "job",
-            facetName: "jobs",
-            facetValue: job,
-            key: "jobs:::" + job
-          })
-        );
-      });
-
-      if (isNetworkSelected) {
-        tokens.push(
-          createToken("Membre réseau elsee", {
-            type: "boolean",
-            flag: "network",
-            key: "network:::true"
-          })
-        );
-      }
-      if (isRemoteSelected) {
-        tokens.push(
-          createToken("En visio", {
-            type: "boolean",
-            flag: "remote",
-            key: "remote:::true"
-          })
-        );
-      }
-      if (isAtHomeSelected) {
-        tokens.push(
-          createToken("travaille à domicile", {
-            type: "boolean",
-            flag: "athome",
-            key: "athome:::true"
-          })
-        );
-      }
-
-      return tokens;
-    }
-
-    function syncSearchInputFromState() {
-      if (!searchInstance || !searchInstance.helper) return;
-
-      if (!searchInputEl) {
-        searchInputEl = document.querySelector(".directory_search_text");
-      }
-      if (!searchInputEl) return;
-
-      currentSearchTokens = buildSearchTokensFromState();
-      var str = currentSearchTokens
-        .map(function (t) {
-          return t.label;
-        })
-        .join(", ");
-
-      if (searchInputEl.value !== str) {
-        isSyncingSearchInput = true;
-        searchInputEl.value = str;
-        setTimeout(function () {
-          isSyncingSearchInput = false;
-        }, 0);
-      }
-    }
-
-    function applyInputTokensToFilters(value) {
-      if (!searchInstance || !searchInstance.helper) return;
-      var helper = searchInstance.helper;
-
-      var rawValue = value || "";
-      var normalizedInput = normalizeTokenLabel(rawValue);
-
-      // Garder un token tant que son libellé (normalisé) est présent dans la saisie.
-      var tokensToKeep = new Set();
-      currentSearchTokens.forEach(function (token) {
-        if (normalizedInput.indexOf(token.normalized) !== -1) {
-          tokensToKeep.add(token.key);
-        }
-      });
-
-      // Supprime uniquement les tokens disparus du texte.
-      currentSearchTokens.forEach(function (token) {
-        if (tokensToKeep.has(token.key)) return;
-
-        if (token.type === "disjunctive") {
-          selectedFacetTags.delete(token.key);
-          helper.removeDisjunctiveFacetRefinement(
-            token.facetName,
-            token.facetValue
-          );
-        } else if (token.type === "facet") {
-          selectedFacetTags.delete(token.key);
-          helper.removeFacetRefinement(token.facetName, token.facetValue);
-        } else if (token.type === "job") {
-          selectedFacetTags.delete(token.key);
-          var idx = selectedJobTags.indexOf(token.facetValue);
-          if (idx > -1) selectedJobTags.splice(idx, 1);
-        } else if (token.type === "boolean") {
-          if (token.flag === "network") isNetworkSelected = false;
-          if (token.flag === "remote") isRemoteSelected = false;
-          if (token.flag === "athome") isAtHomeSelected = false;
-        } else if (token.type === "query") {
-          helper.setQuery("");
-        }
-      });
-
-      // Retire des parties de texte les labels déjà gérés par les tokens conservés.
-      var residualValue = rawValue;
-      currentSearchTokens.forEach(function (token) {
-        if (!tokensToKeep.has(token.key)) return;
-        var escaped = token.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        var regex = new RegExp(escaped, "gi");
-        residualValue = residualValue.replace(regex, "");
-      });
-
-      var parts = residualValue
-        .split(",")
-        .map(function (p) {
-          return p.trim();
-        })
-        .filter(Boolean);
-
-      var queryParts = parts.filter(function (part) {
-        var norm = normalizeTokenLabel(part);
-        return !currentSearchTokens.some(function (tok) {
-          return tokensToKeep.has(tok.key) && tok.normalized === norm;
-        });
-      });
-
-      var queryStr = queryParts.join(", ").trim();
-      helper.setQuery(queryStr);
-
-      var filtersStr = buildFiltersStringFromJobsAndBooleans();
-      helper.setQueryParameter("filters", filtersStr);
-      helper.search();
     }
 
     // filtre de visibilité commun
@@ -1066,6 +820,13 @@ if (typeof window.__toggleTypeCTAs === "function") {
 
           var html = "";
           
+          var isMobile = window.matchMedia("(max-width: 767px)").matches;
+          
+          var mainSearchPlaceholder = isMobile
+            ? "Votre besoin..."
+            : "Écrivez ici tout ce qui concerne vos besoins...";
+
+
           // tag virtuel <50%
           if (hasBelow50) {
             var virtualKey = "reimbursment_percentage:::lt50";
@@ -2022,8 +1783,6 @@ async function fetchAndRenderMoreBlocks() {
 
   // 2) Rendu normal
   renderClearButton();
-  ensureSearchInputListener();
-  syncSearchInputFromState();
 
   if (search.helper && search.helper.state) {
     updateUrlFromState(search.helper.state);
@@ -2353,23 +2112,6 @@ async function fetchAndRenderMoreBlocks() {
         hasQuery || hasFacets || hasGeo || hasJobs || hasBools
           ? "flex"
           : "none";
-    }
-
-    function ensureSearchInputListener() {
-      if (!searchInputEl) {
-        searchInputEl = document.querySelector(".directory_search_text");
-      }
-      if (!searchInputEl || searchInputEl.__tokensListenerAttached) return;
-
-      searchInputEl.__tokensListenerAttached = true;
-
-      var handler = function (e) {
-        if (isSyncingSearchInput) return;
-        applyInputTokensToFilters(e.target.value);
-      };
-
-      searchInputEl.addEventListener("input", handler);
-      searchInputEl.addEventListener("change", handler);
     }
 
     var clearBtnInit = document.getElementById("clear_button");
