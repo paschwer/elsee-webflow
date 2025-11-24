@@ -819,13 +819,6 @@ if (typeof window.__toggleTypeCTAs === "function") {
           });
 
           var html = "";
-          
-          var isMobile = window.matchMedia("(max-width: 767px)").matches;
-          
-          var mainSearchPlaceholder = isMobile
-            ? "Votre besoin..."
-            : "Écrivez ici tout ce qui concerne vos besoins...";
-
 
           // tag virtuel <50%
           if (hasBelow50) {
@@ -892,14 +885,13 @@ if (typeof window.__toggleTypeCTAs === "function") {
   ]
       }),
       instantsearch.widgets.searchBox({
-  container: "#searchbox",
-  placeholder: mainSearchPlaceholder,
-  cssClasses: {
-    root: "directory_search_field_container",
-    input: "directory_search_text"
-  }
-}),
-
+        container: "#searchbox",
+        placeholder: "Écrivez ici tout ce qui concerne vos besoins...",
+        cssClasses: {
+          root: "directory_search_field_container",
+          input: "directory_search_text"
+        }
+      }),
       instantsearch.widgets.stats({
         container: "#search_count",
         templates: {
@@ -2365,7 +2357,7 @@ async function fetchAndRenderMoreBlocks() {
       if (searchInstance && searchInstance.helper) {
         var helper = searchInstance.helper;
         helper.setQueryParameter("aroundLatLng", lat + "," + lng);
-        helper.setQueryParameter("aroundRadius", 50000);
+        helper.setQueryParameter("aroundRadius", 100000);
         helper.search();
       }
       var mapsInput = document.getElementById("maps_input");
