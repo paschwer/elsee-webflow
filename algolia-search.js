@@ -34,6 +34,9 @@ window.addEventListener("DOMContentLoaded", function () {
   var currentSearchTokens = [];
   var isSyncingSearchInput = false;
   var searchInputEl = null;
+  var mainSearchPlaceholder = window.matchMedia("(max-width: 767px)").matches
+    ? "Votre besoin..."
+    : "Écrivez ici tout ce qui concerne vos besoins...";
 
 
 
@@ -1048,13 +1051,6 @@ if (typeof window.__toggleTypeCTAs === "function") {
 
           var html = "";
           
-          var isMobile = window.matchMedia("(max-width: 767px)").matches;
-          
-          var mainSearchPlaceholder = isMobile
-            ? "Votre besoin..."
-            : "Écrivez ici tout ce qui concerne vos besoins...";
-
-
           // tag virtuel <50%
           if (hasBelow50) {
             var virtualKey = "reimbursment_percentage:::lt50";
