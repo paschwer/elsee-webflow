@@ -96,6 +96,14 @@ window.addEventListener("DOMContentLoaded", function () {
       return [v];
     }
 
+    function isMobileDevice() {
+      if (typeof window === "undefined") return false;
+      if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
+        return true;
+      }
+      return (window.innerWidth || 0) <= 767;
+    }
+
 
     function isTherapeutes(hit) {
       var t = (hit.type || "").trim().toLowerCase();
@@ -886,7 +894,9 @@ if (typeof window.__toggleTypeCTAs === "function") {
       }),
       instantsearch.widgets.searchBox({
         container: "#searchbox",
-        placeholder: "Écrivez ici tout ce qui concerne vos besoins...",
+        placeholder: isMobileDevice()
+          ? "Recherchez ici ..."
+          : "Écrivez ici tout ce qui concerne vos besoins...",
         cssClasses: {
           root: "directory_search_field_container",
           input: "directory_search_text"
