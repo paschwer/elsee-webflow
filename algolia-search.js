@@ -96,6 +96,60 @@ window.addEventListener("DOMContentLoaded", function () {
       return [v];
     }
 
+    function haversineDistanceMeters(origin, target) {
+      if (
+        !origin ||
+        typeof origin.lat !== "number" ||
+        typeof origin.lng !== "number" ||
+        !target ||
+        typeof target.lat !== "number" ||
+        typeof target.lng !== "number"
+      ) {
+        return null;
+      }
+
+      var R = 6371000; // rayon terrestre moyen en mètres
+      var dLat = ((target.lat - origin.lat) * Math.PI) / 180;
+      var dLon = ((target.lng - origin.lng) * Math.PI) / 180;
+      var lat1 = (origin.lat * Math.PI) / 180;
+      var lat2 = (target.lat * Math.PI) / 180;
+
+      var a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1) * Math.cos(lat2) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c;
+    }
+
+    function getHitGeoDistance(hit) {
+      if (!hit || !currentGeoFilter || !currentGeoFilter.lat || !currentGeoFilter.lng) {
+        return null;
+      }
+
+      if (
+        hit._rankingInfo &&
+        hit._rankingInfo.matchedGeoLocation &&
+        typeof hit._rankingInfo.matchedGeoLocation.distance === "number"
+      ) {
+        return hit._rankingInfo.matchedGeoLocation.distance;
+      }
+
+      if (hit._rankingInfo && typeof hit._rankingInfo.geoDistance === "number") {
+        return hit._rankingInfo.geoDistance;
+      }
+
+      if (hit._geoloc && typeof hit._geoloc.lat === "number" && typeof hit._geoloc.lng === "number") {
+        return haversineDistanceMeters(
+          { lat: currentGeoFilter.lat, lng: currentGeoFilter.lng },
+          hit._geoloc
+        );
+      }
+
+      return null;
+    }
+
     function isMobileDevice() {
       if (typeof window === "undefined") return false;
       if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
@@ -870,10 +924,11 @@ if (typeof window.__toggleTypeCTAs === "function") {
         facets: ["specialities", "prestations", "mainjob", "jobs"],
         disjunctiveFacets: ["type", "reimbursment_percentage"],
         hitsPerPage: 48,
-  attributesToRetrieve: [
-    "name",
-    "url",
-    "photo_url",
+        getRankingInfo: true,
+        attributesToRetrieve: [
+          "name",
+          "url",
+          "photo_url",
     "is_elsee_network",
     "is_remote",
     "is_at_home",
@@ -925,6 +980,12 @@ if (typeof window.__toggleTypeCTAs === "function") {
     query = (searchInstance.helper.state.query || "").trim().toLowerCase();
   }
 
+  var hasGeoSearch = !!(
+    currentGeoFilter &&
+    typeof currentGeoFilter.lat === "number" &&
+    typeof currentGeoFilter.lng === "number"
+  );
+
   // === MAJ de l'ensemble des odoo_id du bloc principal ===
   mainHitOdooSet.clear();
   items.forEach(function (hit) {
@@ -938,6 +999,8 @@ if (typeof window.__toggleTypeCTAs === "function") {
   items.forEach(function (hit) {
     var name = (hit.name || "").toLowerCase();
     var score = 0;
+
+    hit.__geoDistance = getHitGeoDistance(hit);
 
     if (query) {
       if (name === query) {
@@ -956,6 +1019,14 @@ if (typeof window.__toggleTypeCTAs === "function") {
   });
 
   return items.slice().sort(function (a, b) {
+    if (hasGeoSearch) {
+      var distA = typeof a.__geoDistance === "number" ? a.__geoDistance : Infinity;
+      var distB = typeof b.__geoDistance === "number" ? b.__geoDistance : Infinity;
+      if (distA !== distB) {
+        return distA - distB;
+      }
+    }
+
     if ((b.__localScore || 0) !== (a.__localScore || 0)) {
       return (b.__localScore || 0) - (a.__localScore || 0);
     }
@@ -1372,9 +1443,15 @@ function buildCardHTML(hit) {
 // === Tri identique à transformItems principal ===
 function sortHitsLikeMain(items, query) {
   var q = (query || "").trim().toLowerCase();
+  var hasGeoSearch = !!(
+    currentGeoFilter &&
+    typeof currentGeoFilter.lat === "number" &&
+    typeof currentGeoFilter.lng === "number"
+  );
   items.forEach(function (hit) {
     var name = (hit.name || "").toLowerCase();
     var score = 0;
+    hit.__geoDistance = getHitGeoDistance(hit);
     if (q) {
       if (name === q) score = 3;
       else if (name.indexOf(q) === 0) score = 2;
@@ -1385,6 +1462,14 @@ function sortHitsLikeMain(items, query) {
   });
 
   return items.slice().sort(function (a, b) {
+    if (hasGeoSearch) {
+      var distA = typeof a.__geoDistance === "number" ? a.__geoDistance : Infinity;
+      var distB = typeof b.__geoDistance === "number" ? b.__geoDistance : Infinity;
+      if (distA !== distB) {
+        return distA - distB;
+      }
+    }
+
     if ((b.__localScore || 0) !== (a.__localScore || 0)) {
       return (b.__localScore || 0) - (a.__localScore || 0);
     }
