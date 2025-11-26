@@ -96,6 +96,68 @@ window.addEventListener("DOMContentLoaded", function () {
       return [v];
     }
 
+    function haversineDistanceMeters(origin, target) {
+      if (
+        !origin ||
+        typeof origin.lat !== "number" ||
+        typeof origin.lng !== "number" ||
+        !target ||
+        typeof target.lat !== "number" ||
+        typeof target.lng !== "number"
+      ) {
+        return null;
+      }
+
+      var R = 6371000; // rayon terrestre moyen en mètres
+      var dLat = ((target.lat - origin.lat) * Math.PI) / 180;
+      var dLon = ((target.lng - origin.lng) * Math.PI) / 180;
+      var lat1 = (origin.lat * Math.PI) / 180;
+      var lat2 = (target.lat * Math.PI) / 180;
+
+      var a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1) * Math.cos(lat2) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c;
+    }
+
+    function getHitGeoDistance(hit) {
+      if (!hit || !currentGeoFilter || !currentGeoFilter.lat || !currentGeoFilter.lng) {
+        return null;
+      }
+
+      if (
+        hit._rankingInfo &&
+        hit._rankingInfo.matchedGeoLocation &&
+        typeof hit._rankingInfo.matchedGeoLocation.distance === "number"
+      ) {
+        return hit._rankingInfo.matchedGeoLocation.distance;
+      }
+
+      if (hit._rankingInfo && typeof hit._rankingInfo.geoDistance === "number") {
+        return hit._rankingInfo.geoDistance;
+      }
+
+      if (hit._geoloc && typeof hit._geoloc.lat === "number" && typeof hit._geoloc.lng === "number") {
+        return haversineDistanceMeters(
+          { lat: currentGeoFilter.lat, lng: currentGeoFilter.lng },
+          hit._geoloc
+        );
+      }
+
+      return null;
+    }
+
+    function isMobileDevice() {
+      if (typeof window === "undefined") return false;
+      if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
+        return true;
+      }
+      return (window.innerWidth || 0) <= 767;
+    }
+
 
     function isTherapeutes(hit) {
       var t = (hit.type || "").trim().toLowerCase();
@@ -862,10 +924,11 @@ if (typeof window.__toggleTypeCTAs === "function") {
         facets: ["specialities", "prestations", "mainjob", "jobs"],
         disjunctiveFacets: ["type", "reimbursment_percentage"],
         hitsPerPage: 48,
-  attributesToRetrieve: [
-    "name",
-    "url",
-    "photo_url",
+        getRankingInfo: true,
+        attributesToRetrieve: [
+          "name",
+          "url",
+          "photo_url",
     "is_elsee_network",
     "is_remote",
     "is_at_home",
@@ -886,7 +949,9 @@ if (typeof window.__toggleTypeCTAs === "function") {
       }),
       instantsearch.widgets.searchBox({
         container: "#searchbox",
-        placeholder: "Écrivez ici tout ce qui concerne vos besoins...",
+        placeholder: isMobileDevice()
+          ? "Recherchez ici ..."
+          : "Écrivez ici tout ce qui concerne vos besoins...",
         cssClasses: {
           root: "directory_search_field_container",
           input: "directory_search_text"
@@ -915,6 +980,12 @@ if (typeof window.__toggleTypeCTAs === "function") {
     query = (searchInstance.helper.state.query || "").trim().toLowerCase();
   }
 
+  var hasGeoSearch = !!(
+    currentGeoFilter &&
+    typeof currentGeoFilter.lat === "number" &&
+    typeof currentGeoFilter.lng === "number"
+  );
+
   // === MAJ de l'ensemble des odoo_id du bloc principal ===
   mainHitOdooSet.clear();
   items.forEach(function (hit) {
@@ -928,6 +999,8 @@ if (typeof window.__toggleTypeCTAs === "function") {
   items.forEach(function (hit) {
     var name = (hit.name || "").toLowerCase();
     var score = 0;
+
+    hit.__geoDistance = getHitGeoDistance(hit);
 
     if (query) {
       if (name === query) {
@@ -946,6 +1019,14 @@ if (typeof window.__toggleTypeCTAs === "function") {
   });
 
   return items.slice().sort(function (a, b) {
+    if (hasGeoSearch) {
+      var distA = typeof a.__geoDistance === "number" ? a.__geoDistance : Infinity;
+      var distB = typeof b.__geoDistance === "number" ? b.__geoDistance : Infinity;
+      if (distA !== distB) {
+        return distA - distB;
+      }
+    }
+
     if ((b.__localScore || 0) !== (a.__localScore || 0)) {
       return (b.__localScore || 0) - (a.__localScore || 0);
     }
@@ -1362,9 +1443,15 @@ function buildCardHTML(hit) {
 // === Tri identique à transformItems principal ===
 function sortHitsLikeMain(items, query) {
   var q = (query || "").trim().toLowerCase();
+  var hasGeoSearch = !!(
+    currentGeoFilter &&
+    typeof currentGeoFilter.lat === "number" &&
+    typeof currentGeoFilter.lng === "number"
+  );
   items.forEach(function (hit) {
     var name = (hit.name || "").toLowerCase();
     var score = 0;
+    hit.__geoDistance = getHitGeoDistance(hit);
     if (q) {
       if (name === q) score = 3;
       else if (name.indexOf(q) === 0) score = 2;
@@ -1375,6 +1462,14 @@ function sortHitsLikeMain(items, query) {
   });
 
   return items.slice().sort(function (a, b) {
+    if (hasGeoSearch) {
+      var distA = typeof a.__geoDistance === "number" ? a.__geoDistance : Infinity;
+      var distB = typeof b.__geoDistance === "number" ? b.__geoDistance : Infinity;
+      if (distA !== distB) {
+        return distA - distB;
+      }
+    }
+
     if ((b.__localScore || 0) !== (a.__localScore || 0)) {
       return (b.__localScore || 0) - (a.__localScore || 0);
     }
@@ -1775,6 +1870,7 @@ async function fetchAndRenderMoreBlocks() {
 
   // 2) Rendu normal
   renderClearButton();
+  renderCurrentSearchList();
 
   if (search.helper && search.helper.state) {
     updateUrlFromState(search.helper.state);
@@ -1884,6 +1980,7 @@ async function fetchAndRenderMoreBlocks() {
     // 11. AUTRES LISTENERS ----------------------------------------------------
     setupSearchDropdown();
     setupSuggestionClicks();
+    setupCurrentSearchListListeners();
     setupTypeBlockClicks();
     setupSpePrestaBlockClicks();
     setupJobBlockClicks();
@@ -2140,6 +2237,188 @@ async function fetchAndRenderMoreBlocks() {
         }
 
         helper.search();
+      });
+    }
+
+    function formatPercentageLabel(value) {
+      if (value === "lt50") return "<50%";
+      var clean = (value || "").toString().trim();
+      if (!clean) return "";
+      return clean.endsWith("%") ? clean : clean + "%";
+    }
+
+    function renderCurrentSearchList() {
+      var container = document.getElementById("currentList");
+      if (!container) return;
+
+      var tags = [];
+      var seen = new Set();
+
+      function addTag(tag) {
+        var uniqueKey = tag.key || tag.facetName + ":::" + (tag.value || tag.label || "");
+        if (!uniqueKey || seen.has(uniqueKey)) return;
+        seen.add(uniqueKey);
+        tags.push(tag);
+      }
+
+      selectedFacetTags.forEach(function (key) {
+        var parts = key.split(":::");
+        var facetName = parts[0];
+        var facetValue = parts.slice(1).join(":::");
+        if (!facetName || facetValue === undefined) return;
+
+        var normFacet = (facetName || "").toLowerCase();
+        if (normFacet === "geo" || normFacet === "geo_search" || normFacet === "show_home" || normFacet === "show_search") {
+          return;
+        }
+
+        var label = facetName === "reimbursment_percentage"
+          ? formatPercentageLabel(facetValue)
+          : facetValue;
+
+        addTag({
+          key: key,
+          facetName: facetName,
+          value: facetValue,
+          label: label,
+          type: facetName === "reimbursment_percentage" ? "reimb" : "facet"
+        });
+      });
+
+      (selectedJobTags || []).forEach(function (job) {
+        if (!job) return;
+        addTag({
+          key: "jobs:::" + job,
+          facetName: "jobs",
+          value: job,
+          label: job,
+          type: "job"
+        });
+      });
+
+      if (isNetworkSelected) {
+        addTag({
+          key: "bool:::network",
+          facetName: "network",
+          value: "true",
+          label: "Membre réseau elsee",
+          type: "boolean"
+        });
+      }
+
+      if (isRemoteSelected) {
+        addTag({
+          key: "bool:::remote",
+          facetName: "remote",
+          value: "true",
+          label: "En visio",
+          type: "boolean"
+        });
+      }
+
+      if (isAtHomeSelected) {
+        addTag({
+          key: "bool:::athome",
+          facetName: "athome",
+          value: "true",
+          label: "travaille à domicile",
+          type: "boolean"
+        });
+      }
+
+      if (!tags.length) {
+        container.innerHTML = "";
+        container.style.display = "none";
+        return;
+      }
+
+      container.innerHTML = "";
+      container.style.display = "flex";
+
+      tags.forEach(function (tag) {
+        var tagEl = document.createElement("div");
+        tagEl.className = "directory_current_selected_tag";
+        tagEl.setAttribute("data-tag-type", tag.type || "facet");
+        if (tag.facetName) tagEl.setAttribute("data-facet-name", tag.facetName);
+        if (tag.value !== undefined) tagEl.setAttribute("data-facet-value", tag.value);
+        if (tag.key) tagEl.setAttribute("data-tag-key", tag.key);
+
+        var labelSpan = document.createElement("span");
+        labelSpan.textContent = tag.label;
+
+        var clearBtn = document.createElement("span");
+        clearBtn.className = "clear_tag_button";
+        clearBtn.textContent = "x";
+
+        tagEl.appendChild(labelSpan);
+        tagEl.appendChild(clearBtn);
+        container.appendChild(tagEl);
+      });
+    }
+
+    function clearTagSelection(tagEl) {
+      if (!tagEl || !searchInstance || !searchInstance.helper) return;
+
+      var helper = searchInstance.helper;
+      var tagType = tagEl.getAttribute("data-tag-type") || "facet";
+      var facetName = tagEl.getAttribute("data-facet-name") || "";
+      var facetValue = tagEl.getAttribute("data-facet-value") || "";
+      var key = tagEl.getAttribute("data-tag-key") || facetName + ":::" + facetValue;
+
+      if (tagType === "boolean") {
+        if (facetName === "network") isNetworkSelected = false;
+        if (facetName === "remote") isRemoteSelected = false;
+        if (facetName === "athome") isAtHomeSelected = false;
+
+        var filtersStr = buildFiltersStringFromJobsAndBooleans();
+        helper.setQueryParameter("filters", filtersStr);
+        helper.search();
+        return;
+      }
+
+      if (facetName === "jobs") {
+        var idx = selectedJobTags.indexOf(facetValue);
+        if (idx > -1) selectedJobTags.splice(idx, 1);
+        selectedFacetTags.delete(key);
+        var filtersStr = buildFiltersStringFromJobsAndBooleans();
+        helper.setQueryParameter("filters", filtersStr);
+        helper.search();
+        return;
+      }
+
+      if (facetName === "reimbursment_percentage") {
+        selectedFacetTags.delete(key);
+        if (facetValue === "lt50") {
+          discountRawValues.forEach(function (val) {
+            if (Number(val) < 50) {
+              helper.removeDisjunctiveFacetRefinement("reimbursment_percentage", val);
+            }
+          });
+        } else {
+          helper.removeDisjunctiveFacetRefinement("reimbursment_percentage", facetValue);
+        }
+        helper.search();
+        return;
+      }
+
+      selectedFacetTags.delete(key);
+      if (facetName === "type") {
+        helper.removeDisjunctiveFacetRefinement(facetName, facetValue);
+      } else {
+        helper.removeFacetRefinement(facetName, facetValue);
+      }
+      helper.search();
+    }
+
+    function setupCurrentSearchListListeners() {
+      var container = document.getElementById("currentList");
+      if (!container) return;
+
+      container.addEventListener("click", function (e) {
+        var btn = e.target.closest(".clear_tag_button");
+        if (!btn) return;
+        var tagEl = btn.closest(".directory_current_selected_tag");
+        clearTagSelection(tagEl);
       });
     }
 
