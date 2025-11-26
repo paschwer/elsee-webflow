@@ -913,6 +913,11 @@ if (typeof window.__toggleTypeCTAs === "function") {
           });
           var hasAbove80 = above80Values.length > 0;
 
+          var above80Values = filtered.filter(function (item) {
+            return Number(item.name) > 80;
+          });
+          var hasAbove80 = above80Values.length > 0;
+
           var html = "";
 
           // tag virtuel <50%
@@ -2251,6 +2256,55 @@ async function fetchAndRenderMoreBlocks() {
             selectedFacetTags.add(virtualHighKey);
             discountRawValues.forEach(function (val) {
               if (Number(val) >= 80) {
+                helper.addDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
+              }
+            });
+          }
+
+          helper.search();
+          return;
+        }
+
+        // cas spécial: tag virtuel ">80%"
+        if (facetValue === "gt80") {
+          var virtualHighKey = "reimbursment_percentage:::gt80";
+          var keysToRemove = [];
+
+          selectedFacetTags.forEach(function (k) {
+            var parts = k.split(":::");
+            if (parts[0] !== "reimbursment_percentage") return;
+            var numeric = Number(parts[1]);
+            if (!isNaN(numeric) && numeric > 80) {
+              keysToRemove.push(k);
+            }
+          });
+
+          var isSelectedHigh = selectedFacetTags.has(virtualHighKey) || keysToRemove.length > 0;
+
+          if (isSelectedHigh) {
+            selectedFacetTags.delete(virtualHighKey);
+            keysToRemove.forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
+            discountRawValues.forEach(function (val) {
+              if (Number(val) > 80) {
+                helper.removeDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
+              }
+            });
+          } else {
+            selectedFacetTags.delete(virtualHighKey);
+            keysToRemove.forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
+            selectedFacetTags.add(virtualHighKey);
+            discountRawValues.forEach(function (val) {
+              if (Number(val) > 80) {
                 helper.addDisjunctiveFacetRefinement(
                   "reimbursment_percentage",
                   val
