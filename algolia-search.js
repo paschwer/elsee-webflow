@@ -852,6 +852,20 @@ if (typeof window.__toggleTypeCTAs === "function") {
             reimburseFacetValues = [];
           }
 
+          function hasSelectedReimbAbove(threshold) {
+            var thresholdNumber = Number(threshold);
+            var found = false;
+            selectedFacetTags.forEach(function (key) {
+              var parts = key.split(":::");
+              if (parts[0] !== "reimbursment_percentage") return;
+              var numeric = Number(parts[1]);
+              if (!isNaN(numeric) && numeric > thresholdNumber) {
+                found = true;
+              }
+            });
+            return found;
+          }
+
           // on nettoie / trie
           var filtered = reimburseFacetValues
             .filter(function (fv) {
@@ -880,6 +894,11 @@ if (typeof window.__toggleTypeCTAs === "function") {
             return Number(item.name) < 50;
           });
 
+          var above80Values = filtered.filter(function (item) {
+            return Number(item.name) > 80;
+          });
+          var hasAbove80 = above80Values.length > 0;
+
           var html = "";
 
           // tag virtuel <50%
@@ -893,10 +912,11 @@ if (typeof window.__toggleTypeCTAs === "function") {
               "<div>&lt;50%</div></div>";
           }
 
-          // valeurs réelles mais seulement >= 50
+          // valeurs réelles entre 50 et 80 inclus
           html += filtered
             .filter(function (item) {
-              return Number(item.name) >= 50;
+              var num = Number(item.name);
+              return num >= 50 && num <= 80;
             })
             .map(function (item) {
               var key = "reimbursment_percentage:::" + item.name;
@@ -912,6 +932,19 @@ if (typeof window.__toggleTypeCTAs === "function") {
               );
             })
             .join("");
+
+          if (hasAbove80) {
+            var virtualHighKey = "reimbursment_percentage:::gt80";
+            var isSelectedHigh =
+              selectedFacetTags.has(virtualHighKey) ||
+              hasSelectedReimbAbove(80);
+
+            html +=
+              '<div class="directory_category_tag_wrapper ' +
+              (isSelectedHigh ? "is-selected" : "") +
+              '" data-facet-name="reimbursment_percentage" data-facet-value="gt80">' +
+              "<div>+ de 80 %</div></div>";
+          }
 
           discountFilterWrapper.innerHTML = html;
         }
@@ -2146,6 +2179,55 @@ async function fetchAndRenderMoreBlocks() {
           return;
         }
 
+        // cas spécial: tag virtuel ">80%"
+        if (facetValue === "gt80") {
+          var virtualHighKey = "reimbursment_percentage:::gt80";
+          var keysToRemove = [];
+
+          selectedFacetTags.forEach(function (k) {
+            var parts = k.split(":::");
+            if (parts[0] !== "reimbursment_percentage") return;
+            var numeric = Number(parts[1]);
+            if (!isNaN(numeric) && numeric > 80) {
+              keysToRemove.push(k);
+            }
+          });
+
+          var isSelectedHigh = selectedFacetTags.has(virtualHighKey) || keysToRemove.length > 0;
+
+          if (isSelectedHigh) {
+            selectedFacetTags.delete(virtualHighKey);
+            keysToRemove.forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
+            discountRawValues.forEach(function (val) {
+              if (Number(val) > 80) {
+                helper.removeDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
+              }
+            });
+          } else {
+            selectedFacetTags.delete(virtualHighKey);
+            keysToRemove.forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
+            selectedFacetTags.add(virtualHighKey);
+            discountRawValues.forEach(function (val) {
+              if (Number(val) > 80) {
+                helper.addDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
+              }
+            });
+          }
+
+          helper.search();
+          return;
+        }
+
         // cas normal (valeur réelle >= 50)
         var key = facetName + ":::" + facetValue;
         var isSelected = selectedFacetTags.has(key);
@@ -2242,6 +2324,7 @@ async function fetchAndRenderMoreBlocks() {
 
     function formatPercentageLabel(value) {
       if (value === "lt50") return "<50%";
+      if (value === "gt80") return "+ de 80 %";
       var clean = (value || "").toString().trim();
       if (!clean) return "";
       return clean.endsWith("%") ? clean : clean + "%";
@@ -2261,6 +2344,9 @@ async function fetchAndRenderMoreBlocks() {
         tags.push(tag);
       }
 
+      var hasAbove80Selection = selectedFacetTags.has(
+        "reimbursment_percentage:::gt80"
+      );
       selectedFacetTags.forEach(function (key) {
         var parts = key.split(":::");
         var facetName = parts[0];
@@ -2270,6 +2356,30 @@ async function fetchAndRenderMoreBlocks() {
         var normFacet = (facetName || "").toLowerCase();
         if (normFacet === "geo" || normFacet === "geo_search" || normFacet === "show_home" || normFacet === "show_search") {
           return;
+        }
+
+        if (facetName === "reimbursment_percentage") {
+          var numVal = Number(facetValue);
+          if (!hasAbove80Selection && !isNaN(numVal) && numVal > 80) {
+            hasAbove80Selection = true;
+          }
+
+          if (facetValue === "gt80") {
+            if (!seen.has("reimbursment_percentage:::gt80")) {
+              addTag({
+                key: "reimbursment_percentage:::gt80",
+                facetName: "reimbursment_percentage",
+                value: "gt80",
+                label: formatPercentageLabel("gt80"),
+                type: "reimb"
+              });
+            }
+            return;
+          }
+
+          if (!isNaN(numVal) && numVal > 80) {
+            return;
+          }
         }
 
         var label = facetName === "reimbursment_percentage"
@@ -2284,6 +2394,16 @@ async function fetchAndRenderMoreBlocks() {
           type: facetName === "reimbursment_percentage" ? "reimb" : "facet"
         });
       });
+
+      if (hasAbove80Selection && !seen.has("reimbursment_percentage:::gt80")) {
+        addTag({
+          key: "reimbursment_percentage:::gt80",
+          facetName: "reimbursment_percentage",
+          value: "gt80",
+          label: formatPercentageLabel("gt80"),
+          type: "reimb"
+        });
+      }
 
       (selectedJobTags || []).forEach(function (job) {
         if (!job) return;
@@ -2391,6 +2511,24 @@ async function fetchAndRenderMoreBlocks() {
         if (facetValue === "lt50") {
           discountRawValues.forEach(function (val) {
             if (Number(val) < 50) {
+              helper.removeDisjunctiveFacetRefinement("reimbursment_percentage", val);
+            }
+          });
+        } else if (facetValue === "gt80") {
+          var keysToDelete = [];
+          selectedFacetTags.forEach(function (k) {
+            var parts = k.split(":::");
+            if (parts[0] !== "reimbursment_percentage") return;
+            var numeric = Number(parts[1]);
+            if (!isNaN(numeric) && numeric > 80) {
+              keysToDelete.push(k);
+            }
+          });
+          keysToDelete.forEach(function (k) {
+            selectedFacetTags.delete(k);
+          });
+          discountRawValues.forEach(function (val) {
+            if (Number(val) > 80) {
               helper.removeDisjunctiveFacetRefinement("reimbursment_percentage", val);
             }
           });
