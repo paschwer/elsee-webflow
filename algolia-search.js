@@ -96,6 +96,68 @@ window.addEventListener("DOMContentLoaded", function () {
       return [v];
     }
 
+    function haversineDistanceMeters(origin, target) {
+      if (
+        !origin ||
+        typeof origin.lat !== "number" ||
+        typeof origin.lng !== "number" ||
+        !target ||
+        typeof target.lat !== "number" ||
+        typeof target.lng !== "number"
+      ) {
+        return null;
+      }
+
+      var R = 6371000; // rayon terrestre moyen en mètres
+      var dLat = ((target.lat - origin.lat) * Math.PI) / 180;
+      var dLon = ((target.lng - origin.lng) * Math.PI) / 180;
+      var lat1 = (origin.lat * Math.PI) / 180;
+      var lat2 = (target.lat * Math.PI) / 180;
+
+      var a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1) * Math.cos(lat2) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c;
+    }
+
+    function getHitGeoDistance(hit) {
+      if (!hit || !currentGeoFilter || !currentGeoFilter.lat || !currentGeoFilter.lng) {
+        return null;
+      }
+
+      if (
+        hit._rankingInfo &&
+        hit._rankingInfo.matchedGeoLocation &&
+        typeof hit._rankingInfo.matchedGeoLocation.distance === "number"
+      ) {
+        return hit._rankingInfo.matchedGeoLocation.distance;
+      }
+
+      if (hit._rankingInfo && typeof hit._rankingInfo.geoDistance === "number") {
+        return hit._rankingInfo.geoDistance;
+      }
+
+      if (hit._geoloc && typeof hit._geoloc.lat === "number" && typeof hit._geoloc.lng === "number") {
+        return haversineDistanceMeters(
+          { lat: currentGeoFilter.lat, lng: currentGeoFilter.lng },
+          hit._geoloc
+        );
+      }
+
+      return null;
+    }
+
+    function isMobileDevice() {
+      if (typeof window === "undefined") return false;
+      if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
+        return true;
+      }
+      return (window.innerWidth || 0) <= 767;
+    }
+
 
     function isTherapeutes(hit) {
       var t = (hit.type || "").trim().toLowerCase();
@@ -790,6 +852,34 @@ if (typeof window.__toggleTypeCTAs === "function") {
             reimburseFacetValues = [];
           }
 
+          function hasSelectedReimbAtLeast(threshold) {
+            var thresholdNumber = Number(threshold);
+            var found = false;
+            selectedFacetTags.forEach(function (key) {
+              var parts = key.split(":::");
+              if (parts[0] !== "reimbursment_percentage") return;
+              var numeric = Number(parts[1]);
+              if (!isNaN(numeric) && numeric >= thresholdNumber) {
+                found = true;
+              }
+            });
+            return found;
+          }
+
+          function hasSelectedReimbAtMost(threshold) {
+            var thresholdNumber = Number(threshold);
+            var found = false;
+            selectedFacetTags.forEach(function (key) {
+              var parts = key.split(":::");
+              if (parts[0] !== "reimbursment_percentage") return;
+              var numeric = Number(parts[1]);
+              if (!isNaN(numeric) && numeric <= thresholdNumber) {
+                found = true;
+              }
+            });
+            return found;
+          }
+
           // on nettoie / trie
           var filtered = reimburseFacetValues
             .filter(function (fv) {
@@ -813,28 +903,36 @@ if (typeof window.__toggleTypeCTAs === "function") {
             return item.name;
           });
 
-          // au moins une valeur < 50 ?
-          var hasBelow50 = filtered.some(function (item) {
-            return Number(item.name) < 50;
+          // au moins une valeur <= 50 ?
+          var hasAtMost50 = filtered.some(function (item) {
+            return Number(item.name) <= 50;
           });
+
+          var above80Values = filtered.filter(function (item) {
+            return Number(item.name) >= 80;
+          });
+          var hasAbove80 = above80Values.length > 0;
 
           var html = "";
 
           // tag virtuel <50%
-          if (hasBelow50) {
+          if (hasAtMost50) {
             var virtualKey = "reimbursment_percentage:::lt50";
-            var isSelectedVirtual = selectedFacetTags.has(virtualKey);
+            var isSelectedVirtual =
+              selectedFacetTags.has(virtualKey) ||
+              hasSelectedReimbAtMost(50);
             html +=
               '<div class="directory_category_tag_wrapper ' +
               (isSelectedVirtual ? "is-selected" : "") +
               '" data-facet-name="reimbursment_percentage" data-facet-value="lt50">' +
-              "<div>&lt;50%</div></div>";
+              "<div>- de 50 %</div></div>";
           }
 
-          // valeurs réelles mais seulement >= 50
+          // valeurs réelles entre 50 et 80 exclusives (51 à 79)
           html += filtered
             .filter(function (item) {
-              return Number(item.name) >= 50;
+              var num = Number(item.name);
+              return num > 50 && num < 80;
             })
             .map(function (item) {
               var key = "reimbursment_percentage:::" + item.name;
@@ -851,6 +949,19 @@ if (typeof window.__toggleTypeCTAs === "function") {
             })
             .join("");
 
+          if (hasAbove80) {
+            var virtualHighKey = "reimbursment_percentage:::gt80";
+            var isSelectedHigh =
+              selectedFacetTags.has(virtualHighKey) ||
+              hasSelectedReimbAtLeast(80);
+
+            html +=
+              '<div class="directory_category_tag_wrapper ' +
+              (isSelectedHigh ? "is-selected" : "") +
+              '" data-facet-name="reimbursment_percentage" data-facet-value="gt80">' +
+              "<div>+ de 80 %</div></div>";
+          }
+
           discountFilterWrapper.innerHTML = html;
         }
       }
@@ -862,10 +973,12 @@ if (typeof window.__toggleTypeCTAs === "function") {
         facets: ["specialities", "prestations", "mainjob", "jobs"],
         disjunctiveFacets: ["type", "reimbursment_percentage"],
         hitsPerPage: 48,
-  attributesToRetrieve: [
-    "name",
-    "url",
-    "photo_url",
+        getRankingInfo: true,
+        attributesToRetrieve: [
+          "name",
+          "name_search",
+          "url",
+          "photo_url",
     "is_elsee_network",
     "is_remote",
     "is_at_home",
@@ -886,7 +999,9 @@ if (typeof window.__toggleTypeCTAs === "function") {
       }),
       instantsearch.widgets.searchBox({
         container: "#searchbox",
-        placeholder: "Écrivez ici tout ce qui concerne vos besoins...",
+        placeholder: isMobileDevice()
+          ? "Recherchez ici ..."
+          : "Écrivez ici tout ce qui concerne vos besoins...",
         cssClasses: {
           root: "directory_search_field_container",
           input: "directory_search_text"
@@ -915,6 +1030,13 @@ if (typeof window.__toggleTypeCTAs === "function") {
     query = (searchInstance.helper.state.query || "").trim().toLowerCase();
   }
 
+  var hasGeoSearch = !!(
+    currentGeoFilter &&
+    typeof currentGeoFilter.lat === "number" &&
+    typeof currentGeoFilter.lng === "number"
+  );
+  var hasQuery = query.length > 0;
+
   // === MAJ de l'ensemble des odoo_id du bloc principal ===
   mainHitOdooSet.clear();
   items.forEach(function (hit) {
@@ -926,15 +1048,18 @@ if (typeof window.__toggleTypeCTAs === "function") {
 
   // scoring local / tri
   items.forEach(function (hit) {
-    var name = (hit.name || "").toLowerCase();
+    var nameForSearch =
+      (hit.name_search || hit.name || "").toString().toLowerCase();
     var score = 0;
 
+    hit.__geoDistance = getHitGeoDistance(hit);
+
     if (query) {
-      if (name === query) {
+      if (nameForSearch === query) {
         score = 3;
-      } else if (name.indexOf(query) === 0) {
+      } else if (nameForSearch.indexOf(query) === 0) {
         score = 2;
-      } else if (name.indexOf(query) !== -1) {
+      } else if (nameForSearch.indexOf(query) !== -1) {
         score = 1;
       }
     }
@@ -946,7 +1071,22 @@ if (typeof window.__toggleTypeCTAs === "function") {
   });
 
   return items.slice().sort(function (a, b) {
-    if ((b.__localScore || 0) !== (a.__localScore || 0)) {
+    if (hasQuery) {
+      var localDiff = (b.__localScore || 0) - (a.__localScore || 0);
+      if (localDiff !== 0) {
+        return localDiff;
+      }
+    }
+
+    if (hasGeoSearch) {
+      var distA = typeof a.__geoDistance === "number" ? a.__geoDistance : Infinity;
+      var distB = typeof b.__geoDistance === "number" ? b.__geoDistance : Infinity;
+      if (distA !== distB) {
+        return distA - distB;
+      }
+    }
+
+    if (!hasQuery && (b.__localScore || 0) !== (a.__localScore || 0)) {
       return (b.__localScore || 0) - (a.__localScore || 0);
     }
     if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
@@ -955,8 +1095,8 @@ if (typeof window.__toggleTypeCTAs === "function") {
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameA = (a.name || "").toLowerCase();
-    var nameB = (b.name || "").toLowerCase();
+    var nameA = (a.name_search || a.name || "").toString().toLowerCase();
+    var nameB = (b.name_search || b.name || "").toString().toLowerCase();
     if (nameA < nameB) return -1;
     if (nameA > nameB) return 1;
     return 0;
@@ -1362,20 +1502,43 @@ function buildCardHTML(hit) {
 // === Tri identique à transformItems principal ===
 function sortHitsLikeMain(items, query) {
   var q = (query || "").trim().toLowerCase();
+  var hasGeoSearch = !!(
+    currentGeoFilter &&
+    typeof currentGeoFilter.lat === "number" &&
+    typeof currentGeoFilter.lng === "number"
+  );
+  var hasQuery = q.length > 0;
   items.forEach(function (hit) {
-    var name = (hit.name || "").toLowerCase();
+    var nameForSearch =
+      (hit.name_search || hit.name || "").toString().toLowerCase();
     var score = 0;
+    hit.__geoDistance = getHitGeoDistance(hit);
     if (q) {
-      if (name === q) score = 3;
-      else if (name.indexOf(q) === 0) score = 2;
-      else if (name.indexOf(q) !== -1) score = 1;
+      if (nameForSearch === q) score = 3;
+      else if (nameForSearch.indexOf(q) === 0) score = 2;
+      else if (nameForSearch.indexOf(q) !== -1) score = 1;
     }
     hit.__localScore = score;
     hit.__networkBonus = hit.is_elsee_network ? 1 : 0;
   });
 
   return items.slice().sort(function (a, b) {
-    if ((b.__localScore || 0) !== (a.__localScore || 0)) {
+    if (hasQuery) {
+      var localDiff = (b.__localScore || 0) - (a.__localScore || 0);
+      if (localDiff !== 0) {
+        return localDiff;
+      }
+    }
+
+    if (hasGeoSearch) {
+      var distA = typeof a.__geoDistance === "number" ? a.__geoDistance : Infinity;
+      var distB = typeof b.__geoDistance === "number" ? b.__geoDistance : Infinity;
+      if (distA !== distB) {
+        return distA - distB;
+      }
+    }
+
+    if (!hasQuery && (b.__localScore || 0) !== (a.__localScore || 0)) {
       return (b.__localScore || 0) - (a.__localScore || 0);
     }
     if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
@@ -1384,8 +1547,8 @@ function sortHitsLikeMain(items, query) {
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameA = (a.name || "").toLowerCase();
-    var nameB = (b.name || "").toLowerCase();
+    var nameA = (a.name_search || a.name || "").toString().toLowerCase();
+    var nameB = (b.name_search || b.name || "").toString().toLowerCase();
     if (nameA < nameB) return -1;
     if (nameA > nameB) return 1;
     return 0;
@@ -1775,6 +1938,7 @@ async function fetchAndRenderMoreBlocks() {
 
   // 2) Rendu normal
   renderClearButton();
+  renderCurrentSearchList();
 
   if (search.helper && search.helper.state) {
     updateUrlFromState(search.helper.state);
@@ -1884,6 +2048,7 @@ async function fetchAndRenderMoreBlocks() {
     // 11. AUTRES LISTENERS ----------------------------------------------------
     setupSearchDropdown();
     setupSuggestionClicks();
+    setupCurrentSearchListListeners();
     setupTypeBlockClicks();
     setupSpePrestaBlockClicks();
     setupJobBlockClicks();
@@ -2018,15 +2183,30 @@ async function fetchAndRenderMoreBlocks() {
         var facetValue = tag.getAttribute("data-facet-value");
         var helper = searchInstance.helper;
 
-        // cas spécial: tag virtuel "<50%"
+        // cas spécial: tag virtuel "<=50%"
         if (facetValue === "lt50") {
           var virtualKey = "reimbursment_percentage:::lt50";
-          var isSelectedVirtual = selectedFacetTags.has(virtualKey);
+          var keysToRemoveBelow = [];
+
+          selectedFacetTags.forEach(function (k) {
+            var parts = k.split(":::");
+            if (parts[0] !== "reimbursment_percentage") return;
+            var numeric = Number(parts[1]);
+            if (!isNaN(numeric) && numeric <= 50) {
+              keysToRemoveBelow.push(k);
+            }
+          });
+
+          var isSelectedVirtual =
+            selectedFacetTags.has(virtualKey) || keysToRemoveBelow.length > 0;
 
           if (isSelectedVirtual) {
             selectedFacetTags.delete(virtualKey);
+            keysToRemoveBelow.forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
             discountRawValues.forEach(function (val) {
-              if (Number(val) < 50) {
+              if (Number(val) <= 50) {
                 helper.removeDisjunctiveFacetRefinement(
                   "reimbursment_percentage",
                   val
@@ -2034,9 +2214,62 @@ async function fetchAndRenderMoreBlocks() {
               }
             });
           } else {
+            selectedFacetTags.delete(virtualKey);
+            keysToRemoveBelow.forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
             selectedFacetTags.add(virtualKey);
             discountRawValues.forEach(function (val) {
-              if (Number(val) < 50) {
+              if (Number(val) <= 50) {
+                helper.addDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
+              }
+            });
+          }
+
+          helper.search();
+          return;
+        }
+
+        // cas spécial: tag virtuel ">=80%"
+        if (facetValue === "gt80") {
+          var virtualHighKey = "reimbursment_percentage:::gt80";
+          var keysToRemove = [];
+
+          selectedFacetTags.forEach(function (k) {
+            var parts = k.split(":::");
+            if (parts[0] !== "reimbursment_percentage") return;
+            var numeric = Number(parts[1]);
+            if (!isNaN(numeric) && numeric >= 80) {
+              keysToRemove.push(k);
+            }
+          });
+
+          var isSelectedHigh = selectedFacetTags.has(virtualHighKey) || keysToRemove.length > 0;
+
+          if (isSelectedHigh) {
+            selectedFacetTags.delete(virtualHighKey);
+            keysToRemove.forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
+            discountRawValues.forEach(function (val) {
+              if (Number(val) >= 80) {
+                helper.removeDisjunctiveFacetRefinement(
+                  "reimbursment_percentage",
+                  val
+                );
+              }
+            });
+          } else {
+            selectedFacetTags.delete(virtualHighKey);
+            keysToRemove.forEach(function (k) {
+              selectedFacetTags.delete(k);
+            });
+            selectedFacetTags.add(virtualHighKey);
+            discountRawValues.forEach(function (val) {
+              if (Number(val) >= 80) {
                 helper.addDisjunctiveFacetRefinement(
                   "reimbursment_percentage",
                   val
@@ -2140,6 +2373,285 @@ async function fetchAndRenderMoreBlocks() {
         }
 
         helper.search();
+      });
+    }
+
+    function formatPercentageLabel(value) {
+      if (value === "lt50") return "- de 50 %";
+      if (value === "gt80") return "+ de 80 %";
+      var clean = (value || "").toString().trim();
+      if (!clean) return "";
+      return clean.endsWith("%") ? clean : clean + "%";
+    }
+
+    function renderCurrentSearchList() {
+      var container = document.getElementById("currentList");
+      if (!container) return;
+
+      var tags = [];
+      var seen = new Set();
+
+      function addTag(tag) {
+        var uniqueKey = tag.key || tag.facetName + ":::" + (tag.value || tag.label || "");
+        if (!uniqueKey || seen.has(uniqueKey)) return;
+        seen.add(uniqueKey);
+        tags.push(tag);
+      }
+
+      var hasAbove80Selection = selectedFacetTags.has(
+        "reimbursment_percentage:::gt80"
+      );
+      var hasBelow50Selection = selectedFacetTags.has(
+        "reimbursment_percentage:::lt50"
+      );
+      selectedFacetTags.forEach(function (key) {
+        var parts = key.split(":::");
+        var facetName = parts[0];
+        var facetValue = parts.slice(1).join(":::");
+        if (!facetName || facetValue === undefined) return;
+
+        var normFacet = (facetName || "").toLowerCase();
+        if (normFacet === "geo" || normFacet === "geo_search" || normFacet === "show_home" || normFacet === "show_search") {
+          return;
+        }
+
+        if (facetName === "reimbursment_percentage") {
+          var numVal = Number(facetValue);
+          if (!hasAbove80Selection && !isNaN(numVal) && numVal >= 80) {
+            hasAbove80Selection = true;
+          }
+          if (!hasBelow50Selection && !isNaN(numVal) && numVal <= 50) {
+            hasBelow50Selection = true;
+          }
+
+          if (facetValue === "gt80") {
+            if (!seen.has("reimbursment_percentage:::gt80")) {
+              addTag({
+                key: "reimbursment_percentage:::gt80",
+                facetName: "reimbursment_percentage",
+                value: "gt80",
+                label: formatPercentageLabel("gt80"),
+                type: "reimb"
+              });
+            }
+            return;
+          }
+
+          if (facetValue === "lt50") {
+            if (!seen.has("reimbursment_percentage:::lt50")) {
+              addTag({
+                key: "reimbursment_percentage:::lt50",
+                facetName: "reimbursment_percentage",
+                value: "lt50",
+                label: formatPercentageLabel("lt50"),
+                type: "reimb"
+              });
+            }
+            return;
+          }
+
+          if (!isNaN(numVal) && (numVal >= 80 || numVal <= 50)) {
+            return;
+          }
+        }
+
+        var label = facetName === "reimbursment_percentage"
+          ? formatPercentageLabel(facetValue)
+          : facetValue;
+
+        addTag({
+          key: key,
+          facetName: facetName,
+          value: facetValue,
+          label: label,
+          type: facetName === "reimbursment_percentage" ? "reimb" : "facet"
+        });
+      });
+
+      if (hasAbove80Selection && !seen.has("reimbursment_percentage:::gt80")) {
+        addTag({
+          key: "reimbursment_percentage:::gt80",
+          facetName: "reimbursment_percentage",
+          value: "gt80",
+          label: formatPercentageLabel("gt80"),
+          type: "reimb"
+        });
+      }
+
+      if (hasBelow50Selection && !seen.has("reimbursment_percentage:::lt50")) {
+        addTag({
+          key: "reimbursment_percentage:::lt50",
+          facetName: "reimbursment_percentage",
+          value: "lt50",
+          label: formatPercentageLabel("lt50"),
+          type: "reimb"
+        });
+      }
+
+      (selectedJobTags || []).forEach(function (job) {
+        if (!job) return;
+        addTag({
+          key: "jobs:::" + job,
+          facetName: "jobs",
+          value: job,
+          label: job,
+          type: "job"
+        });
+      });
+
+      if (isNetworkSelected) {
+        addTag({
+          key: "bool:::network",
+          facetName: "network",
+          value: "true",
+          label: "Membre réseau elsee",
+          type: "boolean"
+        });
+      }
+
+      if (isRemoteSelected) {
+        addTag({
+          key: "bool:::remote",
+          facetName: "remote",
+          value: "true",
+          label: "En visio",
+          type: "boolean"
+        });
+      }
+
+      if (isAtHomeSelected) {
+        addTag({
+          key: "bool:::athome",
+          facetName: "athome",
+          value: "true",
+          label: "travaille à domicile",
+          type: "boolean"
+        });
+      }
+
+      if (!tags.length) {
+        container.innerHTML = "";
+        container.style.display = "none";
+        return;
+      }
+
+      container.innerHTML = "";
+      container.style.display = "flex";
+
+      tags.forEach(function (tag) {
+        var tagEl = document.createElement("div");
+        tagEl.className = "directory_current_selected_tag";
+        tagEl.setAttribute("data-tag-type", tag.type || "facet");
+        if (tag.facetName) tagEl.setAttribute("data-facet-name", tag.facetName);
+        if (tag.value !== undefined) tagEl.setAttribute("data-facet-value", tag.value);
+        if (tag.key) tagEl.setAttribute("data-tag-key", tag.key);
+
+        var labelSpan = document.createElement("span");
+        labelSpan.textContent = tag.label;
+
+        var clearBtn = document.createElement("span");
+        clearBtn.className = "clear_tag_button";
+        clearBtn.textContent = "x";
+
+        tagEl.appendChild(labelSpan);
+        tagEl.appendChild(clearBtn);
+        container.appendChild(tagEl);
+      });
+    }
+
+    function clearTagSelection(tagEl) {
+      if (!tagEl || !searchInstance || !searchInstance.helper) return;
+
+      var helper = searchInstance.helper;
+      var tagType = tagEl.getAttribute("data-tag-type") || "facet";
+      var facetName = tagEl.getAttribute("data-facet-name") || "";
+      var facetValue = tagEl.getAttribute("data-facet-value") || "";
+      var key = tagEl.getAttribute("data-tag-key") || facetName + ":::" + facetValue;
+
+      if (tagType === "boolean") {
+        if (facetName === "network") isNetworkSelected = false;
+        if (facetName === "remote") isRemoteSelected = false;
+        if (facetName === "athome") isAtHomeSelected = false;
+
+        var filtersStr = buildFiltersStringFromJobsAndBooleans();
+        helper.setQueryParameter("filters", filtersStr);
+        helper.search();
+        return;
+      }
+
+      if (facetName === "jobs") {
+        var idx = selectedJobTags.indexOf(facetValue);
+        if (idx > -1) selectedJobTags.splice(idx, 1);
+        selectedFacetTags.delete(key);
+        var filtersStr = buildFiltersStringFromJobsAndBooleans();
+        helper.setQueryParameter("filters", filtersStr);
+        helper.search();
+        return;
+      }
+
+      if (facetName === "reimbursment_percentage") {
+        selectedFacetTags.delete(key);
+        if (facetValue === "lt50") {
+          var keysBelowToDelete = [];
+          selectedFacetTags.forEach(function (k) {
+            var parts = k.split(":::");
+            if (parts[0] !== "reimbursment_percentage") return;
+            var numeric = Number(parts[1]);
+            if (!isNaN(numeric) && numeric <= 50) {
+              keysBelowToDelete.push(k);
+            }
+          });
+          keysBelowToDelete.forEach(function (k) {
+            selectedFacetTags.delete(k);
+          });
+          discountRawValues.forEach(function (val) {
+            if (Number(val) <= 50) {
+              helper.removeDisjunctiveFacetRefinement("reimbursment_percentage", val);
+            }
+          });
+        } else if (facetValue === "gt80") {
+          var keysToDelete = [];
+          selectedFacetTags.forEach(function (k) {
+            var parts = k.split(":::");
+            if (parts[0] !== "reimbursment_percentage") return;
+            var numeric = Number(parts[1]);
+            if (!isNaN(numeric) && numeric >= 80) {
+              keysToDelete.push(k);
+            }
+          });
+          keysToDelete.forEach(function (k) {
+            selectedFacetTags.delete(k);
+          });
+          discountRawValues.forEach(function (val) {
+            if (Number(val) >= 80) {
+              helper.removeDisjunctiveFacetRefinement("reimbursment_percentage", val);
+            }
+          });
+        } else {
+          helper.removeDisjunctiveFacetRefinement("reimbursment_percentage", facetValue);
+        }
+        helper.search();
+        return;
+      }
+
+      selectedFacetTags.delete(key);
+      if (facetName === "type") {
+        helper.removeDisjunctiveFacetRefinement(facetName, facetValue);
+      } else {
+        helper.removeFacetRefinement(facetName, facetValue);
+      }
+      helper.search();
+    }
+
+    function setupCurrentSearchListListeners() {
+      var container = document.getElementById("currentList");
+      if (!container) return;
+
+      container.addEventListener("click", function (e) {
+        var btn = e.target.closest(".clear_tag_button");
+        if (!btn) return;
+        var tagEl = btn.closest(".directory_current_selected_tag");
+        clearTagSelection(tagEl);
       });
     }
 
