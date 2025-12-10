@@ -914,11 +914,6 @@ if (typeof window.__toggleTypeCTAs === "function") {
           });
           var hasAbove80 = above80Values.length > 0;
 
-          var above80Values = filtered.filter(function (item) {
-            return Number(item.name) > 80;
-          });
-          var hasAbove80 = above80Values.length > 0;
-
           var html = "";
 
           // tag virtuel <50%
@@ -982,6 +977,7 @@ if (typeof window.__toggleTypeCTAs === "function") {
         getRankingInfo: true,
         attributesToRetrieve: [
           "name",
+          "name_search",
           "url",
           "photo_url",
     "is_elsee_network",
@@ -1040,6 +1036,7 @@ if (typeof window.__toggleTypeCTAs === "function") {
     typeof currentGeoFilter.lat === "number" &&
     typeof currentGeoFilter.lng === "number"
   );
+  var hasQuery = query.length > 0;
 
   // === MAJ de l'ensemble des odoo_id du bloc principal ===
   mainHitOdooSet.clear();
@@ -1052,17 +1049,18 @@ if (typeof window.__toggleTypeCTAs === "function") {
 
   // scoring local / tri
   items.forEach(function (hit) {
-    var name = (hit.name || "").toLowerCase();
+    var nameForSearch =
+      (hit.name_search || hit.name || "").toString().toLowerCase();
     var score = 0;
 
     hit.__geoDistance = getHitGeoDistance(hit);
 
     if (query) {
-      if (name === query) {
+      if (nameForSearch === query) {
         score = 3;
-      } else if (name.indexOf(query) === 0) {
+      } else if (nameForSearch.indexOf(query) === 0) {
         score = 2;
-      } else if (name.indexOf(query) !== -1) {
+      } else if (nameForSearch.indexOf(query) !== -1) {
         score = 1;
       }
     }
@@ -1074,6 +1072,13 @@ if (typeof window.__toggleTypeCTAs === "function") {
   });
 
   return items.slice().sort(function (a, b) {
+    if (hasQuery) {
+      var localDiff = (b.__localScore || 0) - (a.__localScore || 0);
+      if (localDiff !== 0) {
+        return localDiff;
+      }
+    }
+
     if (hasGeoSearch) {
       var distA = typeof a.__geoDistance === "number" ? a.__geoDistance : Infinity;
       var distB = typeof b.__geoDistance === "number" ? b.__geoDistance : Infinity;
@@ -1082,7 +1087,7 @@ if (typeof window.__toggleTypeCTAs === "function") {
       }
     }
 
-    if ((b.__localScore || 0) !== (a.__localScore || 0)) {
+    if (!hasQuery && (b.__localScore || 0) !== (a.__localScore || 0)) {
       return (b.__localScore || 0) - (a.__localScore || 0);
     }
     if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
@@ -1091,8 +1096,8 @@ if (typeof window.__toggleTypeCTAs === "function") {
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameA = (a.name || "").toLowerCase();
-    var nameB = (b.name || "").toLowerCase();
+    var nameA = (a.name_search || a.name || "").toString().toLowerCase();
+    var nameB = (b.name_search || b.name || "").toString().toLowerCase();
     if (nameA < nameB) return -1;
     if (nameA > nameB) return 1;
     return 0;
@@ -1503,20 +1508,29 @@ function sortHitsLikeMain(items, query) {
     typeof currentGeoFilter.lat === "number" &&
     typeof currentGeoFilter.lng === "number"
   );
+  var hasQuery = q.length > 0;
   items.forEach(function (hit) {
-    var name = (hit.name || "").toLowerCase();
+    var nameForSearch =
+      (hit.name_search || hit.name || "").toString().toLowerCase();
     var score = 0;
     hit.__geoDistance = getHitGeoDistance(hit);
     if (q) {
-      if (name === q) score = 3;
-      else if (name.indexOf(q) === 0) score = 2;
-      else if (name.indexOf(q) !== -1) score = 1;
+      if (nameForSearch === q) score = 3;
+      else if (nameForSearch.indexOf(q) === 0) score = 2;
+      else if (nameForSearch.indexOf(q) !== -1) score = 1;
     }
     hit.__localScore = score;
     hit.__networkBonus = hit.is_elsee_network ? 1 : 0;
   });
 
   return items.slice().sort(function (a, b) {
+    if (hasQuery) {
+      var localDiff = (b.__localScore || 0) - (a.__localScore || 0);
+      if (localDiff !== 0) {
+        return localDiff;
+      }
+    }
+
     if (hasGeoSearch) {
       var distA = typeof a.__geoDistance === "number" ? a.__geoDistance : Infinity;
       var distB = typeof b.__geoDistance === "number" ? b.__geoDistance : Infinity;
@@ -1525,7 +1539,7 @@ function sortHitsLikeMain(items, query) {
       }
     }
 
-    if ((b.__localScore || 0) !== (a.__localScore || 0)) {
+    if (!hasQuery && (b.__localScore || 0) !== (a.__localScore || 0)) {
       return (b.__localScore || 0) - (a.__localScore || 0);
     }
     if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
@@ -1534,8 +1548,8 @@ function sortHitsLikeMain(items, query) {
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameA = (a.name || "").toLowerCase();
-    var nameB = (b.name || "").toLowerCase();
+    var nameA = (a.name_search || a.name || "").toString().toLowerCase();
+    var nameB = (b.name_search || b.name || "").toString().toLowerCase();
     if (nameA < nameB) return -1;
     if (nameA > nameB) return 1;
     return 0;
@@ -2257,55 +2271,6 @@ async function fetchAndRenderMoreBlocks() {
             selectedFacetTags.add(virtualHighKey);
             discountRawValues.forEach(function (val) {
               if (Number(val) >= 80) {
-                helper.addDisjunctiveFacetRefinement(
-                  "reimbursment_percentage",
-                  val
-                );
-              }
-            });
-          }
-
-          helper.search();
-          return;
-        }
-
-        // cas spécial: tag virtuel ">80%"
-        if (facetValue === "gt80") {
-          var virtualHighKey = "reimbursment_percentage:::gt80";
-          var keysToRemove = [];
-
-          selectedFacetTags.forEach(function (k) {
-            var parts = k.split(":::");
-            if (parts[0] !== "reimbursment_percentage") return;
-            var numeric = Number(parts[1]);
-            if (!isNaN(numeric) && numeric > 80) {
-              keysToRemove.push(k);
-            }
-          });
-
-          var isSelectedHigh = selectedFacetTags.has(virtualHighKey) || keysToRemove.length > 0;
-
-          if (isSelectedHigh) {
-            selectedFacetTags.delete(virtualHighKey);
-            keysToRemove.forEach(function (k) {
-              selectedFacetTags.delete(k);
-            });
-            discountRawValues.forEach(function (val) {
-              if (Number(val) > 80) {
-                helper.removeDisjunctiveFacetRefinement(
-                  "reimbursment_percentage",
-                  val
-                );
-              }
-            });
-          } else {
-            selectedFacetTags.delete(virtualHighKey);
-            keysToRemove.forEach(function (k) {
-              selectedFacetTags.delete(k);
-            });
-            selectedFacetTags.add(virtualHighKey);
-            discountRawValues.forEach(function (val) {
-              if (Number(val) > 80) {
                 helper.addDisjunctiveFacetRefinement(
                   "reimbursment_percentage",
                   val
