@@ -1209,7 +1209,7 @@ if (Therapeutes) {
               '<div class="tooltip">Se déplace à votre domicile</div>' +
               "</div>";
 
-            var showDiscount = !Therapeutes;
+            var showDiscount = reimbursement !== "";
             var discountDiv =
               '<div class="directory_card_discount_tag" style="display:' +
               (showDiscount ? "flex" : "none") +
@@ -1428,7 +1428,7 @@ function buildCardHTML(hit) {
       atHomeSvg + '<div class="tooltip">Se déplace à votre domicile</div>' +
     "</div>";
 
-  var showDiscount = !Therapeutes;
+  var showDiscount = reimbursement !== "";
   var discountDiv =
     '<div class="directory_card_discount_tag" style="display:' + (showDiscount ? "flex" : "none") + ';">' +
       '<div class="directory_discount_icon">' + discountSvg + "</div>" +
