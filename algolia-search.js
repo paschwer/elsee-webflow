@@ -1018,6 +1018,11 @@ if (typeof window.__toggleTypeCTAs === "function") {
           }
         }
       }),
+      {
+        render: function (opts) {
+          toggleLowResults(opts.results);
+        }
+      },
       instantsearch.widgets.infiniteHits({
         container: "#hits",
         hitsPerPage: 48,
@@ -1834,6 +1839,13 @@ function toggleWrapper(wrapperId, count) {
   var wrap = document.getElementById(wrapperId);
   if (!wrap) return;
   wrap.style.display = count > 0 ? "flex" : "none";
+}
+
+function toggleLowResults(results) {
+  if (!results) return;
+  var lowResults = document.getElementById("low-results");
+  if (!lowResults) return;
+  lowResults.style.display = results.nbHits < 5 ? "flex" : "none";
 }
 
 async function fetchAndRenderMoreBlocks() {
