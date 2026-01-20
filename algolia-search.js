@@ -1001,8 +1001,8 @@ if (typeof window.__toggleTypeCTAs === "function") {
       instantsearch.widgets.searchBox({
         container: "#searchbox",
         placeholder: isMobileDevice()
-          ? "Recherchez ici ..."
-          : "Écrivez ici tout ce qui concerne vos besoins...",
+          ? "Rechercher ici ..."
+          : "Rechercher des thérapeutes, marques, sports, ...",
         cssClasses: {
           root: "directory_search_field_container",
           input: "directory_search_text"
