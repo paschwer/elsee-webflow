@@ -17,7 +17,7 @@ window.addEventListener("DOMContentLoaded", function () {
   // 2. ÉTAT GLOBAL -----------------------------------------------------------
   var selectedFacetTags = new Set();
   var selectedJobTags = [];
-  var isNetworkSelected = false;
+  var isNetworkSelected = true;
   var isRemoteSelected = false;
   var isAtHomeSelected = false;
   var speExpanded = false;
@@ -1077,11 +1077,17 @@ if (typeof window.__toggleTypeCTAs === "function") {
   });
 
   return items.slice().sort(function (a, b) {
-    if (hasQuery) {
-      var localDiff = (b.__localScore || 0) - (a.__localScore || 0);
-      if (localDiff !== 0) {
-        return localDiff;
-      }
+    if (!hasQuery) {
+      var nameA = (a.name || "").toString().toLowerCase();
+      var nameB = (b.name || "").toString().toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    }
+
+    var localDiff = (b.__localScore || 0) - (a.__localScore || 0);
+    if (localDiff !== 0) {
+      return localDiff;
     }
 
     if (hasGeoSearch) {
@@ -1092,19 +1098,16 @@ if (typeof window.__toggleTypeCTAs === "function") {
       }
     }
 
-    if (!hasQuery && (b.__localScore || 0) !== (a.__localScore || 0)) {
-      return (b.__localScore || 0) - (a.__localScore || 0);
-    }
     if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
       return (b.__networkBonus || 0) - (a.__networkBonus || 0);
     }
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameA = (a.name_search || a.name || "").toString().toLowerCase();
-    var nameB = (b.name_search || b.name || "").toString().toLowerCase();
-    if (nameA < nameB) return -1;
-    if (nameA > nameB) return 1;
+    var nameSearchA = (a.name_search || a.name || "").toString().toLowerCase();
+    var nameSearchB = (b.name_search || b.name || "").toString().toLowerCase();
+    if (nameSearchA < nameSearchB) return -1;
+    if (nameSearchA > nameSearchB) return 1;
     return 0;
   });
 },
@@ -1529,11 +1532,17 @@ function sortHitsLikeMain(items, query) {
   });
 
   return items.slice().sort(function (a, b) {
-    if (hasQuery) {
-      var localDiff = (b.__localScore || 0) - (a.__localScore || 0);
-      if (localDiff !== 0) {
-        return localDiff;
-      }
+    if (!hasQuery) {
+      var nameA = (a.name || "").toString().toLowerCase();
+      var nameB = (b.name || "").toString().toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    }
+
+    var localDiff = (b.__localScore || 0) - (a.__localScore || 0);
+    if (localDiff !== 0) {
+      return localDiff;
     }
 
     if (hasGeoSearch) {
@@ -1544,19 +1553,16 @@ function sortHitsLikeMain(items, query) {
       }
     }
 
-    if (!hasQuery && (b.__localScore || 0) !== (a.__localScore || 0)) {
-      return (b.__localScore || 0) - (a.__localScore || 0);
-    }
     if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
       return (b.__networkBonus || 0) - (a.__networkBonus || 0);
     }
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameA = (a.name_search || a.name || "").toString().toLowerCase();
-    var nameB = (b.name_search || b.name || "").toString().toLowerCase();
-    if (nameA < nameB) return -1;
-    if (nameA > nameB) return 1;
+    var nameSearchA = (a.name_search || a.name || "").toString().toLowerCase();
+    var nameSearchB = (b.name_search || b.name || "").toString().toLowerCase();
+    if (nameSearchA < nameSearchB) return -1;
+    if (nameSearchA > nameSearchB) return 1;
     return 0;
   });
 }
@@ -2909,6 +2915,7 @@ async function fetchAndRenderMoreBlocks() {
         .split(",")
         .filter(Boolean);
       var geolabel = params.get("geolabel") || "";
+      var hasNetworkParam = params.has("network");
       var urlNetwork = params.get("network") === "true";
       var urlRemote = params.get("remote") === "true";
       var urlAtHome = params.get("athome") === "true";
@@ -2960,7 +2967,9 @@ async function fetchAndRenderMoreBlocks() {
         }
       });
 
-      isNetworkSelected = urlNetwork;
+      if (hasNetworkParam) {
+        isNetworkSelected = urlNetwork;
+      }
       isRemoteSelected = urlRemote;
       isAtHomeSelected = urlAtHome;
 
