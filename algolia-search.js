@@ -318,19 +318,21 @@ function getVisibilityFilter(ignoreGeo) {
     return "";
   }
 
-  // si on n’ignore PAS la géoloc et qu’elle est active → règle spéciale show_home
-  if (!ignoreGeo && currentGeoFilter) {
+  var hasGeo = !ignoreGeo && !!currentGeoFilter;
+
+  // géoloc active => on cache les profils "show_home"
+  if (hasGeo) {
     console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
       result: "NOT show_home:true"
     }));
     return "NOT show_home:true";
   }
 
-  // sinon, règle standard
+  // pas de géoloc => on cache les profils "show_search"
   console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-    result: "NOT show_search:true (ou show_home:true selon ta version)"
+    result: "NOT show_search:true"
   }));
-  return "NOT show_search:true"; // ou `show_home:true` selon ce que tu as remis
+  return "NOT show_search:true";
 }
 
 
@@ -1018,6 +1020,11 @@ if (typeof window.__toggleTypeCTAs === "function") {
           }
         }
       }),
+      {
+        render: function (opts) {
+          toggleLowResults(opts.results);
+        }
+      },
       instantsearch.widgets.infiniteHits({
         container: "#hits",
         hitsPerPage: 48,
@@ -1834,6 +1841,13 @@ function toggleWrapper(wrapperId, count) {
   var wrap = document.getElementById(wrapperId);
   if (!wrap) return;
   wrap.style.display = count > 0 ? "flex" : "none";
+}
+
+function toggleLowResults(results) {
+  if (!results) return;
+  var lowResults = document.getElementById("low-results");
+  if (!lowResults) return;
+  lowResults.style.display = results.nbHits < 5 ? "flex" : "none";
 }
 
 async function fetchAndRenderMoreBlocks() {
