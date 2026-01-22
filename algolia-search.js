@@ -318,19 +318,21 @@ function getVisibilityFilter(ignoreGeo) {
     return "";
   }
 
-  // si on n’ignore PAS la géoloc et qu’elle est active → règle spéciale show_home
-  if (!ignoreGeo && currentGeoFilter) {
+  var hasGeo = !ignoreGeo && !!currentGeoFilter;
+
+  // géoloc active => on cache les profils "show_home"
+  if (hasGeo) {
     console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
       result: "NOT show_home:true"
     }));
     return "NOT show_home:true";
   }
 
-  // sinon, règle standard
+  // pas de géoloc => on cache les profils "show_search"
   console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-    result: "NOT show_search:true (ou show_home:true selon ta version)"
+    result: "NOT show_search:true"
   }));
-  return "NOT show_search:true"; // ou `show_home:true` selon ce que tu as remis
+  return "NOT show_search:true";
 }
 
 
