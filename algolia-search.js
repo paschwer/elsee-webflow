@@ -1083,6 +1083,9 @@ if (typeof window.__toggleTypeCTAs === "function") {
       var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
       var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
       if (rankA !== rankB) return rankB - rankA;
+      if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
+        return (b.__networkBonus || 0) - (a.__networkBonus || 0);
+      }
       var nameA = (a.name || "").toString().toLowerCase();
       var nameB = (b.name || "").toString().toLowerCase();
       if (nameA < nameB) return -1;
@@ -1109,8 +1112,8 @@ if (typeof window.__toggleTypeCTAs === "function") {
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameSearchA = (a.name || a.name_search || "").toString().toLowerCase();
-    var nameSearchB = (b.name || b.name_search || "").toString().toLowerCase();
+    var nameSearchA = (a.name_search || "").toString().toLowerCase();
+    var nameSearchB = (b.name_search || "").toString().toLowerCase();
     if (nameSearchA < nameSearchB) return -1;
     if (nameSearchA > nameSearchB) return 1;
     return 0;
@@ -1541,6 +1544,9 @@ function sortHitsLikeMain(items, query) {
       var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
       var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
       if (rankA !== rankB) return rankB - rankA;
+      if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
+        return (b.__networkBonus || 0) - (a.__networkBonus || 0);
+      }
       var nameA = (a.name || "").toString().toLowerCase();
       var nameB = (b.name || "").toString().toLowerCase();
       if (nameA < nameB) return -1;
@@ -1567,8 +1573,8 @@ function sortHitsLikeMain(items, query) {
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameSearchA = (a.name || a.name_search || "").toString().toLowerCase();
-    var nameSearchB = (b.name || b.name_search || "").toString().toLowerCase();
+    var nameSearchA = (a.name_search || "").toString().toLowerCase();
+    var nameSearchB = (b.name_search || "").toString().toLowerCase();
     if (nameSearchA < nameSearchB) return -1;
     if (nameSearchA > nameSearchB) return 1;
     return 0;
