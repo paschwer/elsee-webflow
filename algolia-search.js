@@ -323,9 +323,9 @@ function getVisibilityFilter(ignoreGeo) {
   // géoloc active => on cache les profils "show_home"
   if (hasGeo) {
     console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-      result: "NOT show_home:true"
+      result: "show_search:true AND NOT show_home:true"
     }));
-    return "NOT show_home:true";
+    return "show_search:true AND NOT show_home:true";
   }
 
   // pas de géoloc => on cache les profils "show_search"
