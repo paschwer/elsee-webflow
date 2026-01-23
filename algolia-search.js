@@ -1080,6 +1080,9 @@ if (typeof window.__toggleTypeCTAs === "function") {
 
   return items.slice().sort(function (a, b) {
     if (!hasQuery) {
+      var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
+      var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
+      if (rankA !== rankB) return rankB - rankA;
       var nameA = (a.name || "").toString().toLowerCase();
       var nameB = (b.name || "").toString().toLowerCase();
       if (nameA < nameB) return -1;
@@ -1535,6 +1538,9 @@ function sortHitsLikeMain(items, query) {
 
   return items.slice().sort(function (a, b) {
     if (!hasQuery) {
+      var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
+      var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
+      if (rankA !== rankB) return rankB - rankA;
       var nameA = (a.name || "").toString().toLowerCase();
       var nameB = (b.name || "").toString().toLowerCase();
       if (nameA < nameB) return -1;
