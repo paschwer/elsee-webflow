@@ -310,14 +310,6 @@ function getVisibilityFilter(ignoreGeo) {
     currentGeoFilter: currentGeoFilter
   };
 
-  // cas spécial : on veut voir tous les membres réseau
-  if (isNetworkSelected) {
-    console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-      result: ""
-    }));
-    return "";
-  }
-
   var hasGeo = !ignoreGeo && !!currentGeoFilter;
 
   // géoloc active => on cache les profils "show_home"
