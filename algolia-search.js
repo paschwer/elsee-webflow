@@ -310,22 +310,14 @@ function getVisibilityFilter(ignoreGeo) {
     currentGeoFilter: currentGeoFilter
   };
 
-  // cas spécial : on veut voir tous les membres réseau
-  if (isNetworkSelected) {
-    console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-      result: ""
-    }));
-    return "";
-  }
-
   var hasGeo = !ignoreGeo && !!currentGeoFilter;
 
   // géoloc active => on cache les profils "show_home"
   if (hasGeo) {
     console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-      result: "NOT show_home:true"
+      result: "show_search:true AND NOT show_home:true"
     }));
-    return "NOT show_home:true";
+    return "show_search:true AND NOT show_home:true";
   }
 
   // pas de géoloc => on cache les profils "show_search"
@@ -1080,6 +1072,12 @@ if (typeof window.__toggleTypeCTAs === "function") {
 
   return items.slice().sort(function (a, b) {
     if (!hasQuery) {
+      var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
+      var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
+      if (rankA !== rankB) return rankB - rankA;
+      if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
+        return (b.__networkBonus || 0) - (a.__networkBonus || 0);
+      }
       var nameA = (a.name || "").toString().toLowerCase();
       var nameB = (b.name || "").toString().toLowerCase();
       if (nameA < nameB) return -1;
@@ -1106,8 +1104,8 @@ if (typeof window.__toggleTypeCTAs === "function") {
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameSearchA = (a.name_search || a.name || "").toString().toLowerCase();
-    var nameSearchB = (b.name_search || b.name || "").toString().toLowerCase();
+    var nameSearchA = (a.name_search || "").toString().toLowerCase();
+    var nameSearchB = (b.name_search || "").toString().toLowerCase();
     if (nameSearchA < nameSearchB) return -1;
     if (nameSearchA > nameSearchB) return 1;
     return 0;
@@ -1535,6 +1533,12 @@ function sortHitsLikeMain(items, query) {
 
   return items.slice().sort(function (a, b) {
     if (!hasQuery) {
+      var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
+      var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
+      if (rankA !== rankB) return rankB - rankA;
+      if ((b.__networkBonus || 0) !== (a.__networkBonus || 0)) {
+        return (b.__networkBonus || 0) - (a.__networkBonus || 0);
+      }
       var nameA = (a.name || "").toString().toLowerCase();
       var nameB = (b.name || "").toString().toLowerCase();
       if (nameA < nameB) return -1;
@@ -1561,8 +1565,8 @@ function sortHitsLikeMain(items, query) {
     var rankA = typeof a.ranking === "number" ? a.ranking : parseFloat(a.ranking) || 0;
     var rankB = typeof b.ranking === "number" ? b.ranking : parseFloat(b.ranking) || 0;
     if (rankA !== rankB) return rankB - rankA;
-    var nameSearchA = (a.name_search || a.name || "").toString().toLowerCase();
-    var nameSearchB = (b.name_search || b.name || "").toString().toLowerCase();
+    var nameSearchA = (a.name_search || "").toString().toLowerCase();
+    var nameSearchB = (b.name_search || "").toString().toLowerCase();
     if (nameSearchA < nameSearchB) return -1;
     if (nameSearchA > nameSearchB) return 1;
     return 0;
