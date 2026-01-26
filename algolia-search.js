@@ -25,6 +25,7 @@ window.addEventListener("DOMContentLoaded", function () {
   var jobExpanded = false;
   var currentGeoFilter = null; // {lat,lng,label}
   var searchInstance = null;
+  var lastVisibilityTypes = [];
   var hasUserLaunchedSearch = false;
   var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
   var DIRECTORY_BASE_URL = "https://www.elsee.care/lannuaire-des-partenaires-elsee";
@@ -66,6 +67,9 @@ window.addEventListener("DOMContentLoaded", function () {
   if (query !== "" || userHasFilters) {
     hasUserLaunchedSearch = true;
   }
+
+  var helperTypes = getSelectedTypesFromHelperState(helper.state);
+  lastVisibilityTypes = helperTypes;
 
   var userFilters = buildFiltersStringFromJobsAndBooleans();
   var finalFilters = composeFilters(userFilters);
@@ -284,6 +288,22 @@ function getSelectedTypesFromTags() {
     });
 }
 
+function getSelectedTypesFromHelperState(state) {
+  if (!state) return [];
+  var facets = state.facetsRefinements || {};
+  var disj = state.disjunctiveFacetsRefinements || {};
+  var types =
+    (disj.type && disj.type.length ? disj.type : facets.type) || [];
+  return Array.isArray(types) ? types.slice() : [];
+}
+
+function getSelectedTypesForVisibility() {
+  if (Array.isArray(lastVisibilityTypes) && lastVisibilityTypes.length > 0) {
+    return lastVisibilityTypes.slice();
+  }
+  return getSelectedTypesFromTags();
+}
+
 function isSportsTypeLabel(label) {
   var n = normTxt(label);
   return n === "sport" || n.includes("sports");
@@ -330,7 +350,7 @@ function shouldApplyVisibilityFilter(selectedTypes) {
 
     // filtre de visibilité commun
 function getVisibilityFilter(ignoreGeo) {
-  var selectedTypes = getSelectedTypesFromTags();
+  var selectedTypes = getSelectedTypesForVisibility();
   var shouldApply = shouldApplyVisibilityFilter(selectedTypes);
 
   var debugInfo = {
