@@ -274,6 +274,34 @@ window.addEventListener("DOMContentLoaded", function () {
 
 
 
+function getSelectedTypesFromTags() {
+  return Array.from(selectedFacetTags)
+    .filter(function (k) {
+      return k.indexOf("type:::") === 0;
+    })
+    .map(function (k) {
+      return k.split(":::")[1] || "";
+    });
+}
+
+function isSportsTypeLabel(label) {
+  var n = normTxt(label);
+  return n === "sport" || n.includes("sports");
+}
+
+function isWellnessTypeLabel(label) {
+  var n = normTxt(label).replace(/[-–—]/g, " ");
+  return n.includes("centres bien etre") || n.includes("salons esthetiques");
+}
+
+function shouldApplyVisibilityFilter(selectedTypes) {
+  if (!Array.isArray(selectedTypes) || selectedTypes.length === 0) return false;
+  return selectedTypes.every(function (t) {
+    return isSportsTypeLabel(t) || isWellnessTypeLabel(t);
+  });
+}
+
+
     // 5. FILTRES --------------------------------------------------------------
     function buildFiltersStringFromJobsAndBooleans() {
       var parts = [];
@@ -302,22 +330,34 @@ window.addEventListener("DOMContentLoaded", function () {
 
     // filtre de visibilité commun
 function getVisibilityFilter(ignoreGeo) {
+  var selectedTypes = getSelectedTypesFromTags();
+  var shouldApply = shouldApplyVisibilityFilter(selectedTypes);
+
   var debugInfo = {
     where: "getVisibilityFilter",
     ignoreGeo: !!ignoreGeo,
     isNetworkSelected: isNetworkSelected,
     hasGeo: !!currentGeoFilter,
-    currentGeoFilter: currentGeoFilter
+    currentGeoFilter: currentGeoFilter,
+    selectedTypes: selectedTypes,
+    shouldApplyVisibility: shouldApply
   };
+
+  if (!shouldApply) {
+    console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
+      result: undefined
+    }));
+    return undefined;
+  }
 
   var hasGeo = !ignoreGeo && !!currentGeoFilter;
 
   // géoloc active => on cache les profils "show_home"
   if (hasGeo) {
     console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-      result: "show_search:true AND NOT show_home:true"
+      result: "NOT show_home:true"
     }));
-    return "show_search:true AND NOT show_home:true";
+    return "NOT show_home:true";
   }
 
   // pas de géoloc => on cache les profils "show_search"
