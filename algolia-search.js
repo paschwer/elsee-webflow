@@ -274,6 +274,43 @@ window.addEventListener("DOMContentLoaded", function () {
 
 
 
+function getSelectedTypesFromTags() {
+  return Array.from(selectedFacetTags)
+    .filter(function (k) {
+      return k.indexOf("type:::") === 0;
+    })
+    .map(function (k) {
+      return k.split(":::")[1] || "";
+    });
+}
+
+function normalizeTypeLabel(label) {
+  return (label || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isSportsTypeLabel(label) {
+  var n = normalizeTypeLabel(label);
+  return n === "sport" || n.includes("sports");
+}
+
+function isWellnessTypeLabel(label) {
+  var n = normalizeTypeLabel(label).replace(/[-–—]/g, " ");
+  return n.includes("centres bien etre") || n.includes("salons esthetiques");
+}
+
+function shouldApplyVisibilityFilter(selectedTypes) {
+  if (!Array.isArray(selectedTypes) || selectedTypes.length === 0) return false;
+  return selectedTypes.every(function (t) {
+    return isSportsTypeLabel(t) || isWellnessTypeLabel(t);
+  });
+}
+
+
     // 5. FILTRES --------------------------------------------------------------
     function buildFiltersStringFromJobsAndBooleans() {
       var parts = [];
@@ -302,13 +339,25 @@ window.addEventListener("DOMContentLoaded", function () {
 
     // filtre de visibilité commun
 function getVisibilityFilter(ignoreGeo) {
+  var selectedTypes = getSelectedTypesFromTags();
+  var shouldApply = shouldApplyVisibilityFilter(selectedTypes);
+
   var debugInfo = {
     where: "getVisibilityFilter",
     ignoreGeo: !!ignoreGeo,
     isNetworkSelected: isNetworkSelected,
     hasGeo: !!currentGeoFilter,
-    currentGeoFilter: currentGeoFilter
+    currentGeoFilter: currentGeoFilter,
+    selectedTypes: selectedTypes,
+    shouldApplyVisibility: shouldApply
   };
+
+  if (!shouldApply) {
+    console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
+      result: undefined
+    }));
+    return undefined;
+  }
 
   var hasGeo = !ignoreGeo && !!currentGeoFilter;
 
