@@ -297,11 +297,22 @@ function getSelectedTypesFromHelperState(state) {
   return Array.isArray(types) ? types.slice() : [];
 }
 
+function getSelectedTypesFromUrl() {
+  if (typeof window === "undefined") return [];
+  var params = new URLSearchParams(window.location.search || "");
+  return (params.get("type") || "")
+    .split(",")
+    .map(function (t) { return t.trim(); })
+    .filter(Boolean);
+}
+
 function getSelectedTypesForVisibility() {
   if (Array.isArray(lastVisibilityTypes) && lastVisibilityTypes.length > 0) {
     return lastVisibilityTypes.slice();
   }
-  return getSelectedTypesFromTags();
+  var fromTags = getSelectedTypesFromTags();
+  if (fromTags.length > 0) return fromTags;
+  return getSelectedTypesFromUrl();
 }
 
 function isSportsTypeLabel(label) {
