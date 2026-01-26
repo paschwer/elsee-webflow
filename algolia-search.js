@@ -25,6 +25,7 @@ window.addEventListener("DOMContentLoaded", function () {
   var jobExpanded = false;
   var currentGeoFilter = null; // {lat,lng,label}
   var searchInstance = null;
+  var lastVisibilityTypes = [];
   var hasUserLaunchedSearch = false;
   var discountRawValues = []; // valeurs de remboursement renvoyées par Algolia
   var DIRECTORY_BASE_URL = "https://www.elsee.care/lannuaire-des-partenaires-elsee";
@@ -66,6 +67,9 @@ window.addEventListener("DOMContentLoaded", function () {
   if (query !== "" || userHasFilters) {
     hasUserLaunchedSearch = true;
   }
+
+  var helperTypes = getSelectedTypesFromHelperState(helper.state);
+  lastVisibilityTypes = helperTypes;
 
   var userFilters = buildFiltersStringFromJobsAndBooleans();
   var finalFilters = composeFilters(userFilters);
@@ -274,6 +278,50 @@ window.addEventListener("DOMContentLoaded", function () {
 
 
 
+function getSelectedTypesFromTags() {
+  return Array.from(selectedFacetTags)
+    .filter(function (k) {
+      return k.indexOf("type:::") === 0;
+    })
+    .map(function (k) {
+      return k.split(":::")[1] || "";
+    });
+}
+
+function getSelectedTypesFromHelperState(state) {
+  if (!state) return [];
+  var facets = state.facetsRefinements || {};
+  var disj = state.disjunctiveFacetsRefinements || {};
+  var types =
+    (disj.type && disj.type.length ? disj.type : facets.type) || [];
+  return Array.isArray(types) ? types.slice() : [];
+}
+
+function getSelectedTypesForVisibility() {
+  if (Array.isArray(lastVisibilityTypes) && lastVisibilityTypes.length > 0) {
+    return lastVisibilityTypes.slice();
+  }
+  return getSelectedTypesFromTags();
+}
+
+function isSportsTypeLabel(label) {
+  var n = normTxt(label);
+  return n === "sport" || n.includes("sports");
+}
+
+function isWellnessTypeLabel(label) {
+  var n = normTxt(label).replace(/[-–—]/g, " ");
+  return n.includes("centres bien etre") || n.includes("salons esthetiques");
+}
+
+function shouldApplyVisibilityFilter(selectedTypes) {
+  if (!Array.isArray(selectedTypes) || selectedTypes.length === 0) return false;
+  return selectedTypes.every(function (t) {
+    return isSportsTypeLabel(t) || isWellnessTypeLabel(t);
+  });
+}
+
+
     // 5. FILTRES --------------------------------------------------------------
     function buildFiltersStringFromJobsAndBooleans() {
       var parts = [];
@@ -302,22 +350,34 @@ window.addEventListener("DOMContentLoaded", function () {
 
     // filtre de visibilité commun
 function getVisibilityFilter(ignoreGeo) {
+  var selectedTypes = getSelectedTypesForVisibility();
+  var shouldApply = shouldApplyVisibilityFilter(selectedTypes);
+
   var debugInfo = {
     where: "getVisibilityFilter",
     ignoreGeo: !!ignoreGeo,
     isNetworkSelected: isNetworkSelected,
     hasGeo: !!currentGeoFilter,
-    currentGeoFilter: currentGeoFilter
+    currentGeoFilter: currentGeoFilter,
+    selectedTypes: selectedTypes,
+    shouldApplyVisibility: shouldApply
   };
+
+  if (!shouldApply) {
+    console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
+      result: undefined
+    }));
+    return undefined;
+  }
 
   var hasGeo = !ignoreGeo && !!currentGeoFilter;
 
   // géoloc active => on cache les profils "show_home"
   if (hasGeo) {
     console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-      result: "show_search:true AND NOT show_home:true"
+      result: "NOT show_home:true"
     }));
-    return "show_search:true AND NOT show_home:true";
+    return "NOT show_home:true";
   }
 
   // pas de géoloc => on cache les profils "show_search"
