@@ -284,22 +284,13 @@ function getSelectedTypesFromTags() {
     });
 }
 
-function normalizeTypeLabel(label) {
-  return (label || "")
-    .toString()
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
 function isSportsTypeLabel(label) {
-  var n = normalizeTypeLabel(label);
+  var n = normTxt(label);
   return n === "sport" || n.includes("sports");
 }
 
 function isWellnessTypeLabel(label) {
-  var n = normalizeTypeLabel(label).replace(/[-–—]/g, " ");
+  var n = normTxt(label).replace(/[-–—]/g, " ");
   return n.includes("centres bien etre") || n.includes("salons esthetiques");
 }
 
@@ -364,9 +355,9 @@ function getVisibilityFilter(ignoreGeo) {
   // géoloc active => on cache les profils "show_home"
   if (hasGeo) {
     console.log("[VISIBILITY]", Object.assign({}, debugInfo, {
-      result: "show_search:true AND NOT show_home:true"
+      result: "NOT show_home:true"
     }));
-    return "show_search:true AND NOT show_home:true";
+    return "NOT show_home:true";
   }
 
   // pas de géoloc => on cache les profils "show_search"
