@@ -305,7 +305,7 @@ function getVisibilityFilter(ignoreGeo) {
   var hasGeo = !ignoreGeo && !!currentGeoFilter;
 
   if (hasGeo) {
-    return "show_search:true AND NOT show_home:true";
+    return "NOT show_home:true";
   }
 
   return "NOT show_search:true";
